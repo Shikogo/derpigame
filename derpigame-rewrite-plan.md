@@ -6,8 +6,9 @@ Remaking `derpigame-legacy` (Flask + Flask-SocketIO + server-rendered Jinja) int
 
 ## 0. Status (updated 2026-07-17)
 
-**Backend domain + service layers are done and unit-tested; transport, config,
-persistence, and the whole frontend are not started.**
+**Backend domain, service, and transport layers are done and tested (100 tests
+plus an end-to-end socket smoke test); config, persistence, and the whole
+frontend are not started.**
 
 Done:
 - **Domain** (`app/domain/`, pure — no framework imports): `Game`, `Room`,
@@ -19,11 +20,19 @@ Done:
   asyncio `TurnTimer` (bug #3 fixed structurally, see §3b), the `ImageSource`
   abstraction with a `StaticImageSource` for tests, `singledispatch`-based
   event→JSON serialization, and `GameActionError`/`NotYourTurn`.
-- **66 unit tests** passing (domain + service), no app context required.
+- **Transport** (`app/transport/`): the only layer importing FastAPI/socketio
+  (and only its composition root `app.py` does — emitter/handlers take the server
+  injected). `RoomRegistry` (replaces the legacy `rooms = {}` global), the real
+  `SocketIOEmitter`, `room_state` snapshots, gfycat-style room codes
+  (`room_codes.py`), and the full socketio handler set with `GameActionError` →
+  per-caller ack. `create_app()` mounts `socketio.ASGIApp` on FastAPI; runnable
+  via `uvicorn app.main:app`. Fixes bug #1 (clean `no_players_ready` ack) and
+  bug #2 (real name-uniqueness) along the way.
+- **100 tests** passing (domain + service + transport), no app context required,
+  plus a live uvicorn + `socketio.AsyncClient` smoke test of the join→start→guess
+  flow.
 
 Not started:
-- **Transport** (`app/transport/`) — FastAPI + python-socketio adapters, the
-  real `EventEmitter`, translating `NotYourTurn` into a per-caller ack.
 - **Config** (`app/config/`) — Pydantic `Settings`.
 - **Persistence** (`app/persistence/`) — repositories.
 - **Frontend** — not scaffolded.
@@ -47,6 +56,13 @@ Not started:
   live `failed_guesses` set; a repeated wrong guess is a no-op (no double
   penalty); blank/whitespace guesses are ignored (no strike); `Game.start()` is
   idempotent.
+- **Rooms are invite-code rooms, not typed names.** `create_room` mints a
+  gfycat-style code (`spunky-lucky-griffon`); `join_room` requires an *existing*
+  code (`room_not_found` otherwise), so unrelated groups can't collide on a name
+  and rooms are private-by-default behind their link. This retires the legacy
+  `nsfw`-prefix hack — nsfw/query are room config set at creation. `stop_game`
+  (legacy `!stop`) is kept; host authority is open (anyone may start/configure
+  for now).
 
 ---
 
@@ -66,8 +82,8 @@ Codebase is small: core logic (`data.py`, `events.py`, `routes.py`, `utility.py`
 
 ## 2. Known bugs in the legacy logic (fix during port)
 
-1. **Crash in `Room.start_game`**: `say("No players are ready!", room, 'status')` — `room` isn't defined in scope, should be `self.name`. Throws `NameError` if "start" is hit with zero ready players.
-2. **Broken uniqueness check** in `forms.py`: `unique_name_check` compares a string against `User` objects (`field.data in sessions.values()`), which is always `False` since `User` has no `__eq__`. Username uniqueness is currently a no-op.
+1. **Crash in `Room.start_game`**: `say("No players are ready!", room, 'status')` — `room` isn't defined in scope, should be `self.name`. Throws `NameError` if "start" is hit with zero ready players. **✅ Fixed:** the port has no such method; the transport's `start_game` handler returns a clean `no_players_ready` ack when nobody's ready.
+2. **Broken uniqueness check** in `forms.py`: `unique_name_check` compares a string against `User` objects (`field.data in sessions.values()`), which is always `False` since `User` has no `__eq__`. Username uniqueness is currently a no-op. **✅ Fixed:** the `join_room` handler does a real case-insensitive name check against the room's users, returning `name_taken`.
 3. **Race condition** between guess submission and turn timeout: `game.timer.cancel()` doesn't guarantee the timeout callback isn't already mid-execution on its own thread. No lock protects `self.players` — worst case, double turn-advance or corrupted game state. Root cause is architectural (see §3b) — the real fix is removing the second thread, not just adding a lock. **✅ Fixed:** replaced by the single-loop asyncio `TurnTimer`, whose generation counter drops any superseded fire. No second thread, so the whole race category is gone.
 4. Hardcoded `SECRET_KEY = "you-will-never-guess-this"` — move to an environment variable.
 
@@ -99,38 +115,47 @@ The legacy code mixes four different jobs inside one set of classes: game rules,
 - **Fixes bug #3 structurally**: the turn timer becomes an `asyncio.Task` that, on expiry, feeds a "timeout" event through the *same* single-threaded processing path as a manual guess — there's no longer a second thread that can race with the main flow, so the whole bug class disappears rather than being patched with a lock.
 - **Sets up every Phase 2/3 feature cleanly**: persistent stats hook in as another consumer of domain result objects (no change to game logic); the `ImageSource` abstraction for e621 sits cleanly in the service layer; alias caching is just another repository.
 
-### 3c. Transport contract (sketch)
+### 3c. Transport contract (as built)
 
-The transport is the only layer that imports FastAPI/socketio. It runs as an
-ASGI app (`socketio.ASGIApp` mounted on FastAPI) on a **single event loop** — the
-same loop the `TurnTimer` uses, which is what keeps turn advancement race-free.
-Its whole job: authenticate/identify a socket, look up the `Room`, call
-`GameService`, and translate results back. It holds **no game logic**.
+The transport is the only layer that imports FastAPI/socketio (and only its
+composition root `app.py` does — `SocketIOEmitter` and `SocketHandlers` take the
+server injected). It runs as an ASGI app (`socketio.ASGIApp` mounted on FastAPI)
+on a **single event loop** — the same loop the `TurnTimer` uses, which is what
+keeps turn advancement race-free. Its whole job: identify a socket, look up the
+`Room`, call `GameService`, and translate results back. It holds **no game
+logic**.
 
 **Identity & connection.** No real auth yet (Phase 2). The client generates a
 `uuid` once and stores it (localStorage), so a reconnect re-presents the same
 identity — this is the stable key Phase 2 accounts/stats will replace. On
-`join_room` the server records `{uuid, room, name}` in the socket session
-(`sio.save_session`) and joins the socket to the **socketio room named after
-`Room.name`**, so a room broadcast is just `sio.emit(..., room=room_name)`.
+`create_room`/`join_room` the server records `{uuid, room, name}` in the socket
+session (`sio.save_session`) and joins the socket to the **socketio room named
+after the room code**, so a room broadcast is just `sio.emit(..., room=code)`.
+
+**Rooms are invite codes.** `create_room` mints a gfycat-style code
+(`room_codes.py`, e.g. `spunky-lucky-griffon`); `join_room` requires an existing
+code. Shared via an invite link (`#/room/<code>` under the frontend's hash
+router). This drops the legacy `nsfw`-prefixed room-name hack.
 
 **State store.** A `RoomRegistry` (injected, in-memory now — Redis-backed later
-per §3b) replaces the legacy global `rooms = {}`: `get_or_create(name)`,
-`get(name)`, and cleanup of empty rooms. This is the missing piece between
-transport and the domain `Room`; `GameService` methods already take a `Room`, so
-the transport resolves one from the registry and passes it in.
+per §3b) replaces the legacy global `rooms = {}`: `create(name)` (fails on
+collision, so minting retries), `get(name)`, `remove(name)`. `GameService`
+methods already take a `Room`, so the transport resolves one from the registry
+and passes it in.
 
 **Client → server** (every message takes a socketio **ack callback** for the
 per-caller reply; room-wide effects broadcast separately):
 
 | Event | Payload | Does | Ack to caller |
 |---|---|---|---|
-| `join_room` | `{room, name, uuid}` | registry `get_or_create`, `room.add_user`, join socketio room | `{ok, room_state}` |
+| `create_room` | `{name, uuid, nsfw?, query?}` | mint a code, `registry.create`, apply config, join creator | `{ok, room_state}` |
+| `join_room` | `{room, name, uuid}` | `registry.get` (else `room_not_found`), name-uniqueness check (else `name_taken`), `room.add_user`, join socketio room | `{ok, room_state}` / `{ok:false, error}` |
 | `set_ready` | `{ready}` | toggle `user.ready` | `{ok}` |
 | `configure_room` | `{query, nsfw}` | update room search config (pre-game only) | `{ok}` / `{ok:false, error}` |
-| `start_game` | `{}` | `GameService.start_game(room)` | `{ok}` |
+| `start_game` | `{}` | `GameService.start_game(room)` (else `no_players_ready` / `game_in_progress`) | `{ok}` / `{ok:false, error}` |
 | `submit_guess` | `{guess}` | `GameService.submit_guess(room, uuid, guess)` | `{ok}` or `{ok:false, error:"not_your_turn", active_player}` |
-| `leave_room` | `{}` | `room.remove_user`, leave socketio room | `{ok}` |
+| `stop_game` | `{}` | `GameService.stop_game(room)` — abort a live game, back to lobby | `{ok}` |
+| `leave_room` | `{}` | `room.remove_user`, leave socketio room, tear down if empty | `{ok}` |
 | `chat` | `{text}` | broadcast only — **never touches the game** | `{ok}` |
 
 Disconnect is treated as `leave_room`.
@@ -139,7 +164,7 @@ Disconnect is treated as `leave_room`.
 - **`game_events`** — the domain/service broadcast family, emitted as one batched
   list of typed payloads (`game_started`, `turn_started`, `correct_guess`,
   `wrong_guess`, `timeout`, `player_eliminated`, `guess_rejected`, `game_over`,
-  plus the service's `no_image` / `image_error`). The real `EventEmitter` is a
+  plus the service's `no_image` / `image_error` / `game_aborted`). The real `EventEmitter` is a
   one-liner: `SocketIOEmitter.emit(room, payloads)` → `sio.emit("game_events",
   payloads, room=room)`. The client owns a reducer that switches on `type`.
 - **`room_state`** — a full lobby snapshot (roster with names/ready flags, query,
@@ -160,10 +185,14 @@ GameActionError`, returning `{ok:false, error, ...}` in the ack — `NotYourTurn
 carries the `active_player` so the client can reconcile. Only exceptions become
 acks; room state only ever moves through the emitter.
 
-**Open edge cases to decide when building it:** active player disconnecting
-mid-turn (skip their turn vs. end game), host authority for `start`/`configure`
-(first user? anyone?), and empty-room cleanup timing. None affect the shape
-above.
+**Edge cases — decided while building:**
+- *Active player disconnects mid-turn:* their turn simply times out (they stay a
+  `Player`; the turn timer eliminates them over the threshold). Clean mid-game
+  player removal in the domain is deferred.
+- *Host authority for `start`/`configure`:* anyone in the room, no host role yet
+  (revisit with Phase 2 accounts).
+- *Empty-room cleanup:* immediate — the last user leaving cancels the room's turn
+  timer (`GameService.cancel_room`) and drops it from the registry.
 
 ---
 
@@ -237,17 +266,18 @@ Suggested order matters here — accounts before stats, since stats should key o
 ## 9. Quick checklist to resume with
 
 **Core port**
-- [~] Layered structure laid out (domain / service / transport / persistence / config); FastAPI + python-socketio **not wired yet** (transport dir is an empty scaffold)
-- [ ] Build the transport per **§3c**: `RoomRegistry`, socketio handlers (join / ready / configure / start / guess / leave / chat), `SocketIOEmitter`, `room_state` snapshots, `GameActionError` → ack
+- [x] Layered structure laid out (domain / service / transport / persistence / config); FastAPI + python-socketio wired via `create_app()` / `uvicorn app.main:app`
+- [x] Build the transport per **§3c**: `RoomRegistry`, socketio handlers (create / join / ready / configure / start / guess / stop / leave / chat), `SocketIOEmitter`, `room_state` snapshots, gfycat-style room codes, `GameActionError` → ack
 - [x] Port `data.py` game logic into the domain layer (pure, no framework imports)
 - [x] Replace `threading.Timer` with an `asyncio.Task`-based timer feeding the same single processing path as manual guesses (fixes bug #3 structurally)
 - [x] Define JSON event/payload shapes (replacing HTML-fragment emits) — `singledispatch` serializers
-- [x] Write unit tests for the domain layer (plus the service layer — 66 tests)
+- [x] Write unit tests for the domain layer (plus service + transport — 100 tests) and an end-to-end socket smoke test
 - [ ] Scaffold Vue app (Vite + Pinia + Vue Router, hash mode)
 - [ ] Build core components: login, lobby, image viewer, guess input box, correct/incorrect guess badges, user list (chat optional, social-only — not the guess path)
 - [ ] Wire Socket.IO client to Pinia store
 - [ ] Write integration tests (join → ready → play → win/lose)
-- [ ] Fix `SECRET_KEY` → env var (via Settings object), fix `room` NameError bug, fix name-uniqueness check
+- [x] Fix `room` NameError bug (bug #1 — zero-ready start now a clean ack) and name-uniqueness check (bug #2)
+- [ ] Fix `SECRET_KEY` → env var (via Settings object) — deferred to the config step (no auth yet)
 
 **Phase 2**
 - [ ] Centralized config/settings

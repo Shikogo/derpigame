@@ -80,6 +80,14 @@ class GameService:
             return
         await self._deliver(room, game.timeout())
 
+    async def stop_game(self, room: Room) -> None:
+        """Abort the in-progress game and return the room to the lobby."""
+        if not room.active:
+            return
+        self._drop_timer(room.name)
+        room.end_game()
+        await self._emitter.emit(room.name, [{"type": "game_aborted"}])
+
     async def _deliver(self, room: Room, events: list) -> None:
         try:
             if events:
@@ -106,6 +114,10 @@ class GameService:
         timer = self._timers.pop(room_name, None)
         if timer is not None:
             timer.cancel()
+
+    def cancel_room(self, room_name: str) -> None:
+        """Release a room's turn timer when the room is abandoned or torn down."""
+        self._drop_timer(room_name)
 
     def shutdown(self) -> None:
         """Cancel every pending turn timer (app shutdown, or test cleanup)."""

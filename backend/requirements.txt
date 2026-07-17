@@ -5,3 +5,4 @@ pydantic-settings
 httpx
 pytest
 pytest-asyncio
+aiohttp  # Socket.IO async client for smoke/integration tests

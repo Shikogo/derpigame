@@ -1,0 +1,32 @@
+"""Human-friendly random room codes, gfycat-style: two adjectives + a noun.
+
+Produces slugs like ``silly-derpy-cat`` that read aloud and paste cleanly into
+an invite link. Word lists are curated and SFW; the code is a room's public key,
+so collisions are handled by the caller retrying with a fresh code.
+"""
+
+import random
+
+ADJECTIVES = [
+    "happy", "sleepy", "derpy", "fluffy", "sparkly", "sneaky", "wobbly", "jolly",
+    "cosmic", "dizzy", "breezy", "mellow", "plucky", "snazzy", "zippy", "cuddly",
+    "giggly", "bouncy", "dreamy", "peppy", "silly", "spunky", "chirpy", "dapper",
+    "feisty", "glossy", "quirky", "rowdy", "sassy", "swift", "witty", "zesty",
+    "brave", "calm", "clever", "cheeky", "cozy", "curious", "gentle", "lucky",
+    "merry", "nimble", "radiant", "shiny", "sunny", "tidy", "vivid", "wild",
+]
+
+NOUNS = [
+    "pony", "cat", "fox", "owl", "otter", "panda", "koala", "lemur", "gecko",
+    "newt", "finch", "moth", "bunny", "hedgehog", "badger", "beaver", "ferret",
+    "heron", "robin", "sparrow", "wombat", "alpaca", "llama", "yak", "ibex",
+    "tapir", "quokka", "axolotl", "pangolin", "narwhal", "walrus", "puffin",
+    "dragon", "griffon", "phoenix", "pegasus", "unicorn", "changeling", "seapony",
+    "hydra", "kelpie", "kirin", "manticore", "basilisk", "sphinx", "chimera",
+    "wyvern", "goat",
+]
+
+
+def new_code() -> str:
+    first, second = random.sample(ADJECTIVES, 2)
+    return f"{first}-{second}-{random.choice(NOUNS)}"
