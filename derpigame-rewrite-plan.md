@@ -4,6 +4,52 @@ Remaking `derpigame-legacy` (Flask + Flask-SocketIO + server-rendered Jinja) int
 
 ---
 
+## 0. Status (updated 2026-07-17)
+
+**Backend domain + service layers are done and unit-tested; transport, config,
+persistence, and the whole frontend are not started.**
+
+Done:
+- **Domain** (`app/domain/`, pure — no framework imports): `Game`, `Room`,
+  `User`, `Player`, `TagBucket`, `TagTaxonomy`, and the event objects
+  (`app/domain/events.py`). Methods return event objects describing what
+  happened; they never emit or render.
+- **Service** (`app/service/`): `GameService` orchestration on a single event
+  loop (fetch → mutate domain → emit → time), the `EventEmitter` ABC, the
+  asyncio `TurnTimer` (bug #3 fixed structurally, see §3b), the `ImageSource`
+  abstraction with a `StaticImageSource` for tests, `singledispatch`-based
+  event→JSON serialization, and `GameActionError`/`NotYourTurn`.
+- **66 unit tests** passing (domain + service), no app context required.
+
+Not started:
+- **Transport** (`app/transport/`) — FastAPI + python-socketio adapters, the
+  real `EventEmitter`, translating `NotYourTurn` into a per-caller ack.
+- **Config** (`app/config/`) — Pydantic `Settings`.
+- **Persistence** (`app/persistence/`) — repositories.
+- **Frontend** — not scaffolded.
+
+### Design refinements vs. the original plan
+
+- **`TagTaxonomy` replaces per-source `TagType` tweaks.** Tag classification
+  (namespaces, rating tags, ignored prefixes, goal bucket) is a data-driven
+  value object injected into `Game`, with a Derpibooru default constant. Adding
+  e621 (Phase 2, item 2) becomes a new taxonomy constant with **zero domain
+  changes** — the magic prefix handling that would have needed per-source edits
+  is gone.
+- **Two outbound channels, not one.** Room-wide state flows through the
+  `EventEmitter` (broadcast to the room). Per-caller rejections are *raised* as
+  `GameActionError`/`NotYourTurn` for the transport to turn into a socketio ack
+  to that one caller — never broadcast, so other clients don't see a spurious
+  correction.
+- **Only the active player may guess.** Frontend gates the input; the backend
+  enforces it as the authority (raising `NotYourTurn` otherwise).
+- **Behavior cleanups over legacy:** the dead `incorrect_guesses` state became a
+  live `failed_guesses` set; a repeated wrong guess is a no-op (no double
+  penalty); blank/whitespace guesses are ignored (no strike); `Game.start()` is
+  idempotent.
+
+---
+
 ## 1. What the legacy app actually does
 
 A real-time multiplayer party game:
@@ -22,7 +68,7 @@ Codebase is small: core logic (`data.py`, `events.py`, `routes.py`, `utility.py`
 
 1. **Crash in `Room.start_game`**: `say("No players are ready!", room, 'status')` — `room` isn't defined in scope, should be `self.name`. Throws `NameError` if "start" is hit with zero ready players.
 2. **Broken uniqueness check** in `forms.py`: `unique_name_check` compares a string against `User` objects (`field.data in sessions.values()`), which is always `False` since `User` has no `__eq__`. Username uniqueness is currently a no-op.
-3. **Race condition** between guess submission and turn timeout: `game.timer.cancel()` doesn't guarantee the timeout callback isn't already mid-execution on its own thread. No lock protects `self.players` — worst case, double turn-advance or corrupted game state. Root cause is architectural (see §3b) — the real fix is removing the second thread, not just adding a lock.
+3. **Race condition** between guess submission and turn timeout: `game.timer.cancel()` doesn't guarantee the timeout callback isn't already mid-execution on its own thread. No lock protects `self.players` — worst case, double turn-advance or corrupted game state. Root cause is architectural (see §3b) — the real fix is removing the second thread, not just adding a lock. **✅ Fixed:** replaced by the single-loop asyncio `TurnTimer`, whose generation counter drops any superseded fire. No second thread, so the whole race category is gone.
 4. Hardcoded `SECRET_KEY = "you-will-never-guess-this"` — move to an environment variable.
 
 ---
@@ -41,7 +87,7 @@ The legacy code mixes four different jobs inside one set of classes: game rules,
 
 | Layer | Responsibility | Depends on |
 |---|---|---|
-| **Domain** (`Game`, `Room`, `User`, `TagType`) | Pure game rules. Methods take input, return a result object describing what happened (`CorrectGuess`, `WrongGuess`, `PlayerEliminated`, `GameOver`) — no `emit()`, no `render_template()`, no socketio/Flask imports at all. | Nothing but the standard library |
+| **Domain** (`Game`, `Room`, `User`, `TagTaxonomy`) | Pure game rules. Methods take input, return an event object describing what happened (`CorrectGuess`, `WrongGuess`, `PlayerEliminated`, `GameOver`) — no `emit()`, no `render_template()`, no socketio/Flask imports at all. Source-specific tag classification lives in an injected `TagTaxonomy` value object, not in `Game`. | Nothing but the standard library |
 | **Application/service** | Orchestrates domain objects; calls the `ImageSource` abstraction (Derpibooru/e621) and persistence (stats, alias cache); turns domain result objects into outbound event data | Domain layer, `ImageSource`, repositories |
 | **Transport** (FastAPI + socketio handlers) | Thin adapters only: parse the incoming socket/HTTP message, call the service layer, take the returned event(s), serialize to JSON, emit | Application layer |
 | **Persistence** (repositories) | DB access for users, stats, alias cache — swappable/mockable, not called directly from domain code | DB / SQLite |
@@ -59,7 +105,13 @@ The legacy code mixes four different jobs inside one set of classes: game rules,
 
 1. **Backend API + WebSocket layer** — port `data.py` game logic into the layered structure above (domain / service / transport), replace HTML-fragment emits with JSON, fix bug #2 (real name-uniqueness check) and bug #3 (timer race, via the asyncio-task redesign) along the way.
 2. **Unit tests** — cover the domain layer in isolation (turn order, elimination, fuzzy-match scoring, tie detection) — no app context needed given the layering above.
-3. **Vue frontend** — components for login, room/lobby, image viewer, chat, guessed/incorrect tag lists, user list, score display. Pinia store for room/game state.
+3. **Vue frontend** — components for login, room/lobby, image viewer, a dedicated
+   guess input, correct/incorrect guess badges, user list, score display. Pinia
+   store for room/game state. **The game no longer happens in the chat** (unlike
+   legacy): guesses go through a purpose-built input box, and correct/incorrect
+   guesses render as badges/pills driven by the domain events (`CorrectGuess`,
+   `WrongGuess`, etc.), not chat lines. A chat may still exist, but purely as a
+   social side-channel — never the place guesses are submitted or scored.
 4. **Integration tests** — full flow through the transport layer: join room → ready up → start game → guess → win/lose.
 5. **Bugfixes** — fix #1 (`room` → `self.name`) and #4 (`SECRET_KEY` env var) as encountered.
 6. **New features** — see Phase 2/3 below.
@@ -71,7 +123,7 @@ The legacy code mixes four different jobs inside one set of classes: game rules,
 Suggested order matters here — accounts before stats, since stats should key off a real user ID rather than a throwaway session UUID.
 
 1. **Better config** — easiest. Move hardcoded values (`SECRET_KEY`, default query, timer duration, elimination threshold) into a centralized `Settings` object (see §3b), expose relevant bits through the API for room-level config instead of just the query textbox.
-2. **E621 integration** — easy-to-moderate. Structurally similar to Derpibooru (booru-style JSON API). Specifics: requires a custom User-Agent header (e621 blocks generic ones), username+API-key auth for anything beyond anonymous search, and a different tag/rating vocabulary than Derpibooru's — `TagType` bucketing needs adjusting per source. Implement behind the same `ImageSource` interface as Derpibooru so rooms can pick a source.
+2. **E621 integration** — easy-to-moderate. Structurally similar to Derpibooru (booru-style JSON API). Specifics: requires a custom User-Agent header (e621 blocks generic ones), username+API-key auth for anything beyond anonymous search, and a different tag/rating vocabulary than Derpibooru's — supply an e621 `TagTaxonomy` constant for its namespaces/rating tags (the domain already reads all classification from the injected taxonomy, so no `Game` changes). Implement behind the same `ImageSource` interface as Derpibooru so rooms can pick a source.
 3. **User accounts** — hardest, reshapes other decisions. Needs a `users` table with persistent IDs (replacing the throwaway per-session UUID), password hashing (bcrypt/argon2) or OAuth (GitHub login fits this project well), and token/session handling that extends into WebSocket auth on connect.
 4. **Persistent stats** — moderate, built on top of accounts. Needs a database (SQLite is fine), a schema for users/games/results, a write path when `Game` emits its `GameOver` result object (see §3b — this is a clean hook point), and new read endpoints (`/stats/{user}`, `/leaderboard`).
 
@@ -119,20 +171,21 @@ Suggested order matters here — accounts before stats, since stats should key o
 ## 9. Quick checklist to resume with
 
 **Core port**
-- [ ] Set up FastAPI + python-socketio project skeleton with the layered structure (domain / service / transport / persistence / config)
-- [ ] Port `data.py` game logic into the domain layer (pure, no framework imports)
-- [ ] Replace `threading.Timer` with an `asyncio.Task`-based timer feeding the same single processing path as manual guesses (fixes bug #3 structurally)
-- [ ] Define JSON event/payload shapes (replacing HTML-fragment emits)
-- [ ] Write unit tests for the domain layer
+- [~] Layered structure laid out (domain / service / transport / persistence / config); FastAPI + python-socketio **not wired yet** (transport dir is an empty scaffold)
+- [x] Port `data.py` game logic into the domain layer (pure, no framework imports)
+- [x] Replace `threading.Timer` with an `asyncio.Task`-based timer feeding the same single processing path as manual guesses (fixes bug #3 structurally)
+- [x] Define JSON event/payload shapes (replacing HTML-fragment emits) — `singledispatch` serializers
+- [x] Write unit tests for the domain layer (plus the service layer — 66 tests)
 - [ ] Scaffold Vue app (Vite + Pinia + Vue Router, hash mode)
-- [ ] Build core components: login, lobby, image viewer, chat, tag lists, user list
+- [ ] Build core components: login, lobby, image viewer, guess input box, correct/incorrect guess badges, user list (chat optional, social-only — not the guess path)
 - [ ] Wire Socket.IO client to Pinia store
 - [ ] Write integration tests (join → ready → play → win/lose)
 - [ ] Fix `SECRET_KEY` → env var (via Settings object), fix `room` NameError bug, fix name-uniqueness check
 
 **Phase 2**
 - [ ] Centralized config/settings
-- [ ] `ImageSource` interface + e621 implementation
+- [x] `ImageSource` interface (Derpibooru/e621-swappable, with `StaticImageSource` for tests)
+- [ ] e621 `ImageSource` implementation + e621 `TagTaxonomy`
 - [ ] User accounts (real user IDs, auth, WebSocket token auth)
 - [ ] Persistent stats (DB schema, write path off `GameOver` event, read endpoints)
 
