@@ -1,0 +1,19 @@
+@import 'tailwindcss';
+
+/* Game design tokens — become utilities like bg-correct / text-turn (Tailwind v4). */
+@theme {
+  --color-correct: #16a34a;
+  --color-wrong: #dc2626;
+  --color-eliminated: #6b7280;
+  --color-turn: #7c3aed;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}
