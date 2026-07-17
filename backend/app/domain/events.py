@@ -15,7 +15,8 @@ class GameEvent:
 
 
 class RejectReason(str, Enum):
-    ALREADY_GUESSED = "already_guessed"
+    ALREADY_GUESSED = "already_guessed"  # a tag that was already found
+    ALREADY_WRONG = "already_wrong"  # a guess already tried and known wrong
     DEFAULT_TAG = "default_tag"
     RATING_TAG = "rating_tag"
 
@@ -23,9 +24,8 @@ class RejectReason(str, Enum):
 @dataclass
 class GameStarted(GameEvent):
     first_player: Player
-    tag_count: int
-    artist_count: int
-    oc_count: int
+    tag_count: int  # tags in the goal bucket — all must be guessed to win
+    bonus_counts: dict[str, int]  # namespaced bucket key -> count, e.g. {"artists": 1}
     query: list[str]
 
 

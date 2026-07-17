@@ -38,15 +38,13 @@ def test_game_started_reports_counts_and_first_player():
         GameStarted(
             first_player=make_player("alice"),
             tag_count=5,
-            artist_count=1,
-            oc_count=0,
+            bonus_counts={"artists": 1, "ocs": 0},
             query=["cute"],
         )
     )
     assert payload["type"] == "game_started"
     assert payload["tag_count"] == 5
-    assert payload["artist_count"] == 1
-    assert payload["oc_count"] == 0
+    assert payload["bonus_counts"] == {"artists": 1, "ocs": 0}
     assert payload["query"] == ["cute"]
     assert payload["first_player"]["name"] == "alice"
 

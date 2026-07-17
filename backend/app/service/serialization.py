@@ -41,8 +41,7 @@ def _(event: GameStarted) -> dict:
         "type": "game_started",
         "first_player": serialize_player(event.first_player),
         "tag_count": event.tag_count,
-        "artist_count": event.artist_count,
-        "oc_count": event.oc_count,
+        "bonus_counts": event.bonus_counts,
         "query": event.query,
     }
 

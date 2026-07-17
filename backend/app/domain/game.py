@@ -23,18 +23,7 @@ from .events import (
 )
 from .player import Player
 from .tag_bucket import TagBucket
-
-RATING_TAGS = frozenset(
-    {
-        "explicit",
-        "grimdark",
-        "grotesque",
-        "questionable",
-        "safe",
-        "semi-grimdark",
-        "suggestive",
-    }
-)
+from .tag_taxonomy import DERPIBOORU_TAXONOMY, TagTaxonomy
 
 
 class Game:
@@ -47,6 +36,7 @@ class Game:
         tags: list[str],
         query: list[str],
         first_index: int | None = None,
+        taxonomy: TagTaxonomy | None = None,
         elimination_threshold: int | None = None,
         similarity_threshold: float | None = None,
     ):
@@ -54,9 +44,11 @@ class Game:
             raise ValueError("a game needs at least one player")
         self.players = list(players)
         self.eliminated_players: list[Player] = []
+        self.taxonomy = taxonomy or DERPIBOORU_TAXONOMY
         self.query = [tag.lower() for tag in query]
         self.guessed_tags: list[str] = []
-        self.incorrect_guesses: list[tuple[str, int]] = []  # (guess, closeness %)
+        self.failed_guesses: set[str] = set()  # guesses already tried and known wrong
+        self._started = False
         self._finished = False
         self.tag_buckets = self._bucket_tags([tag.lower() for tag in tags])
         self._active_index = (
@@ -75,22 +67,17 @@ class Game:
 
     def _bucket_tags(self, tags: list[str]) -> dict[str, TagBucket]:
         query = set(self.query)
-        artists = [t for t in tags if t.startswith("artist:") and t not in query]
-        ocs = [t for t in tags if t.startswith("oc:") and t not in query]
-        special = set(artists) | set(ocs)
-        regular = [
-            t
-            for t in tags
-            if t not in special
-            and t not in query
-            and not t.startswith("spoiler:")
-            and t not in RATING_TAGS
-        ]
-        return {
-            "tags": TagBucket(regular),
-            "artists": TagBucket(artists),
-            "ocs": TagBucket(ocs),
-        }
+        keys = [self.taxonomy.goal_bucket, *self.taxonomy.namespaces]
+        buckets: dict[str, list[str]] = {key: [] for key in keys}
+        for tag in tags:
+            if tag in query or self.taxonomy.is_droppable(tag):
+                continue
+            buckets[self.taxonomy.bucket_for(tag)].append(tag)
+        return {key: TagBucket(tags) for key, tags in buckets.items()}
+
+    @property
+    def _goal_bucket(self) -> TagBucket:
+        return self.tag_buckets[self.taxonomy.goal_bucket]
 
     @property
     def active_player(self) -> Player:
@@ -101,14 +88,25 @@ class Game:
         return self._finished
 
     def start(self) -> list[GameEvent]:
-        """Announce the opening: tag counts and whose turn it is."""
+        """Announce the opening: tag counts and whose turn it is.
+
+        Idempotent — starting an already-started or finished game is a no-op, so
+        a stray re-start can't re-announce the opening or reset the turn.
+        """
+        if self._started or self._finished:
+            return []
+        self._started = True
         first = self.active_player
+        goal = self.taxonomy.goal_bucket
         return [
             GameStarted(
                 first_player=first,
-                tag_count=self.tag_buckets["tags"].tag_count,
-                artist_count=self.tag_buckets["artists"].tag_count,
-                oc_count=self.tag_buckets["ocs"].tag_count,
+                tag_count=self._goal_bucket.tag_count,
+                bonus_counts={
+                    key: bucket.tag_count
+                    for key, bucket in self.tag_buckets.items()
+                    if key != goal
+                },
                 query=list(self.query),
             ),
             TurnStarted(first),
@@ -117,9 +115,10 @@ class Game:
     def submit_guess(self, guess: str) -> list[GameEvent]:
         """Process the active player's guess and return what happened.
 
-        Rejected guesses (already guessed, default query tags, rating tags) are
-        no-ops: the player keeps their turn. Correct and wrong guesses both end
-        the turn and advance the game. Guesses after the game is over are ignored.
+        Rejected guesses (already found, already tried and wrong, default query
+        tags, rating tags) are no-ops: the player keeps their turn and takes no
+        penalty. Correct and fresh wrong guesses both end the turn and advance
+        the game. Guesses after the game is over are ignored.
         """
         if self._finished:
             return []
@@ -127,9 +126,11 @@ class Game:
 
         if guess in self.guessed_tags:
             return [GuessRejected(guess, RejectReason.ALREADY_GUESSED)]
+        if guess in self.failed_guesses:
+            return [GuessRejected(guess, RejectReason.ALREADY_WRONG)]
         if guess in self.query:
             return [GuessRejected(guess, RejectReason.DEFAULT_TAG)]
-        if guess in RATING_TAGS:
+        if guess in self.taxonomy.rating_tags:
             return [GuessRejected(guess, RejectReason.RATING_TAG)]
 
         for kind, bucket in self.tag_buckets.items():
@@ -157,23 +158,20 @@ class Game:
     def _wrong_guess(self, guess: str) -> WrongGuess:
         player = self.active_player
         player.wrong_guesses += 1
-        closeness = self._closeness(guess)
-        self.incorrect_guesses.append((guess, closeness))
-        return WrongGuess(player, guess, player.wrong_guesses, closeness)
+        self.failed_guesses.add(guess)
+        return WrongGuess(player, guess, player.wrong_guesses, self._closeness(guess))
 
     def _closeness(self, guess: str) -> int:
         """Best fuzzy match of ``guess`` against the relevant bucket, as a %.
 
-        Returns 0 when nothing clears the similarity threshold. ``oc:`` and
-        ``artist:`` guesses are matched against their own buckets with the
-        prefix stripped so the namespace doesn't dominate the ratio.
+        Returns 0 when nothing clears the similarity threshold. A namespaced
+        guess is matched against its own bucket with the prefix stripped, so the
+        shared namespace doesn't inflate the ratio.
         """
-        if guess.startswith("oc:"):
-            needle, candidates = guess[3:], [t[3:] for t in self.tag_buckets["ocs"].tags]
-        elif guess.startswith("artist:"):
-            needle, candidates = guess[7:], [t[7:] for t in self.tag_buckets["artists"].tags]
-        else:
-            needle, candidates = guess, self.tag_buckets["tags"].tags
+        bucket_key = self.taxonomy.bucket_for(guess)
+        prefix = self.taxonomy.prefix_of(bucket_key)
+        needle = guess[len(prefix):]
+        candidates = [tag[len(prefix):] for tag in self.tag_buckets[bucket_key].tags]
 
         best = 0.0
         for candidate in candidates:
@@ -195,7 +193,7 @@ class Game:
                 self._active_index = 0
             return [*events, TurnStarted(self.active_player)]
 
-        if self.tag_buckets["tags"].tag_count == 0:
+        if self._goal_bucket.tag_count == 0:
             return [self._game_over(win=True)]
 
         self._active_index = (self._active_index + 1) % len(self.players)
@@ -214,5 +212,5 @@ class Game:
             win=win,
             winners=winners,
             standings=standings,
-            unguessed_tags=list(self.tag_buckets["tags"].tags),
+            unguessed_tags=list(self._goal_bucket.tags),
         )

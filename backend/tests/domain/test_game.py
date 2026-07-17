@@ -19,6 +19,7 @@ from app.domain.events import (
 )
 from app.domain.game import Game
 from app.domain.player import Player
+from app.domain.tag_taxonomy import TagTaxonomy
 from app.domain.user import User
 
 
@@ -74,8 +75,17 @@ def test_start_reports_counts_and_first_player():
     events = game.start()
     started = only(events, GameStarted)
     assert started.first_player is game.players[1]
-    assert (started.tag_count, started.artist_count, started.oc_count) == (2, 1, 1)
+    assert started.tag_count == 2
+    assert started.bonus_counts == {"artists": 1, "ocs": 1}
     assert only(events, TurnStarted).player is game.players[1]
+
+
+def test_start_is_idempotent():
+    game = make_game(tags=["solo", "twilight"], first_index=0)
+    assert game.start()  # first start announces the opening
+    assert game.submit_guess("solo")  # advance turn to bob
+    assert game.start() == []  # a stray re-start is a no-op
+    assert game.active_player.name == "bob"  # turn state untouched
 
 
 # --- rejected guesses are no-ops (do not advance the turn) -------------------
@@ -107,6 +117,18 @@ def test_rating_tag_is_rejected_without_penalty():
     events = game.submit_guess("safe")
     assert only(events, GuessRejected).reason is RejectReason.RATING_TAG
     assert game.active_player.wrong_guesses == 0
+
+
+def test_repeated_wrong_guess_is_noop_without_extra_penalty():
+    game = make_game(tags=["solo"], players=["alice", "bob"], first_index=0)
+    game.submit_guess("nope")  # alice's 1st wrong -> turn passes to bob
+    assert game.active_player.name == "bob"
+
+    events = game.submit_guess("nope")  # bob re-tries a known-wrong guess
+    assert only(events, GuessRejected).reason is RejectReason.ALREADY_WRONG
+    assert not any(isinstance(e, TurnStarted) for e in events)
+    assert game.active_player.name == "bob"  # keeps the turn
+    assert game.active_player.wrong_guesses == 0  # no strike for the repeat
 
 
 # --- correct guesses ---------------------------------------------------------
@@ -176,10 +198,11 @@ def test_three_wrong_guesses_eliminates_player():
 
 def test_elimination_reindexes_to_the_following_player():
     game = make_game(tags=["solo"], players=["a", "b", "c"], first_index=1)
-    for _ in range(2):
-        game.submit_guess("x")  # b takes wrong guesses on its turns
-        game.submit_guess("y")  # c
-        game.submit_guess("z")  # a
+    # distinct guesses each turn — repeats are no-ops and wouldn't accumulate
+    for n in ("1", "2"):
+        game.submit_guess("b" + n)  # b
+        game.submit_guess("c" + n)  # c
+        game.submit_guess("a" + n)  # a
     # b now at 2 wrong guesses and it's b's turn again
     assert game.active_player.name == "b"
     events = game.submit_guess("boom")  # b's 3rd wrong -> eliminated
@@ -190,12 +213,13 @@ def test_elimination_reindexes_to_the_following_player():
 
 def test_elimination_of_last_index_wraps_to_first():
     game = make_game(tags=["solo"], players=["a", "b", "c"], first_index=2)
-    for _ in range(2):
-        game.submit_guess("x")  # c
-        game.submit_guess("y")  # a
-        game.submit_guess("z")  # b
+    for n in ("1", "2"):
+        game.submit_guess("c" + n)  # c
+        game.submit_guess("a" + n)  # a
+        game.submit_guess("b" + n)  # b
     assert game.active_player.name == "c"
     events = game.submit_guess("boom")  # c's 3rd wrong -> eliminated, wrap to a
+    only(events, PlayerEliminated)
     assert only(events, TurnStarted).player.name == "a"
 
 
@@ -278,6 +302,34 @@ def test_elimination_threshold_is_configurable():
     events = game.submit_guess("wrong")  # 1 wrong is enough now
     only(events, PlayerEliminated)
     assert only(events, GameOver).win is False
+
+
+# --- tag taxonomy (source-specific classification is injected) ---------------
+
+
+def test_custom_taxonomy_buckets_by_its_own_namespaces():
+    # An e621-flavoured scheme: different namespaces, ratings, and no spoilers.
+    taxonomy = TagTaxonomy(
+        namespaces={"artists": "artist:", "characters": "character:"},
+        rating_tags=frozenset({"explicit"}),
+    )
+    game = make_game(
+        tags=["fluffy", "artist:someone", "character:rex", "explicit"],
+        taxonomy=taxonomy,
+    )
+    assert game.tag_buckets["tags"].tags == ["fluffy"]
+    assert game.tag_buckets["characters"].tags == ["character:rex"]
+    assert "ocs" not in game.tag_buckets  # derpibooru's namespace isn't present
+    # its rating tag is dropped, and guessing it is rejected as a rating
+    assert only(game.submit_guess("explicit"), GuessRejected).reason is RejectReason.RATING_TAG
+
+
+def test_custom_taxonomy_reports_its_buckets_in_game_started():
+    taxonomy = TagTaxonomy(namespaces={"characters": "character:"})
+    game = make_game(tags=["fluffy", "character:rex"], taxonomy=taxonomy)
+    started = only(game.start(), GameStarted)
+    assert started.tag_count == 1
+    assert started.bonus_counts == {"characters": 1}
 
 
 # --- robustness: input normalization, empty players, post-game-over ----------
