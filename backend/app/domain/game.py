@@ -6,8 +6,6 @@ initial ``start`` — each of which mutates state and returns a list of
 talks to a framework; translating events into messages is the caller's job.
 """
 
-from __future__ import annotations
-
 from difflib import SequenceMatcher
 from random import randrange
 

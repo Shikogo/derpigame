@@ -4,8 +4,6 @@ These run with no framework or app context: build a Game, drive it with
 guesses/timeouts, and assert on the returned event objects and state.
 """
 
-from __future__ import annotations
-
 import pytest
 
 from app.domain.events import (

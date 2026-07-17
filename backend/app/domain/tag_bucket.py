@@ -6,8 +6,6 @@ by the key it's stored under in ``Game.tag_buckets``; display names and grammar
 belong to the presentation layer.
 """
 
-from __future__ import annotations
-
 
 class TagBucket:
     def __init__(self, tags: list[str]):

@@ -4,8 +4,6 @@ Created fresh when a game starts, so score and wrong-guess counts reset
 naturally rather than being mutated back to zero on an existing object.
 """
 
-from __future__ import annotations
-
 from .user import User
 
 

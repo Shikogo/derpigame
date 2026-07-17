@@ -1,7 +1,5 @@
 """Domain rules for Room — membership, ready-player collection, game lifecycle."""
 
-from __future__ import annotations
-
 import pytest
 
 from app.domain.room import Room

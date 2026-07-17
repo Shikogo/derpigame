@@ -5,8 +5,6 @@ the currently displayed image live in the service layer; a room only needs the
 image's tags handed to it when a game starts.
 """
 
-from __future__ import annotations
-
 from .game import Game
 from .player import Player
 from .user import User

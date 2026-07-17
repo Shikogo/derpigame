@@ -4,8 +4,6 @@ Domain methods return sequences of these instead of emitting or rendering.
 The service/transport layers translate them into messages and socket events.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from enum import Enum
 

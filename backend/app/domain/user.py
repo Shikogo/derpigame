@@ -4,8 +4,6 @@ A ``User`` is stable across games — it's the thing Phase 2 accounts/stats key
 off. Per-game state (score, wrong guesses) lives on ``Player`` instead.
 """
 
-from __future__ import annotations
-
 
 class User:
     def __init__(self, uuid: str, name: str):
