@@ -99,6 +99,72 @@ The legacy code mixes four different jobs inside one set of classes: game rules,
 - **Fixes bug #3 structurally**: the turn timer becomes an `asyncio.Task` that, on expiry, feeds a "timeout" event through the *same* single-threaded processing path as a manual guess — there's no longer a second thread that can race with the main flow, so the whole bug class disappears rather than being patched with a lock.
 - **Sets up every Phase 2/3 feature cleanly**: persistent stats hook in as another consumer of domain result objects (no change to game logic); the `ImageSource` abstraction for e621 sits cleanly in the service layer; alias caching is just another repository.
 
+### 3c. Transport contract (sketch)
+
+The transport is the only layer that imports FastAPI/socketio. It runs as an
+ASGI app (`socketio.ASGIApp` mounted on FastAPI) on a **single event loop** — the
+same loop the `TurnTimer` uses, which is what keeps turn advancement race-free.
+Its whole job: authenticate/identify a socket, look up the `Room`, call
+`GameService`, and translate results back. It holds **no game logic**.
+
+**Identity & connection.** No real auth yet (Phase 2). The client generates a
+`uuid` once and stores it (localStorage), so a reconnect re-presents the same
+identity — this is the stable key Phase 2 accounts/stats will replace. On
+`join_room` the server records `{uuid, room, name}` in the socket session
+(`sio.save_session`) and joins the socket to the **socketio room named after
+`Room.name`**, so a room broadcast is just `sio.emit(..., room=room_name)`.
+
+**State store.** A `RoomRegistry` (injected, in-memory now — Redis-backed later
+per §3b) replaces the legacy global `rooms = {}`: `get_or_create(name)`,
+`get(name)`, and cleanup of empty rooms. This is the missing piece between
+transport and the domain `Room`; `GameService` methods already take a `Room`, so
+the transport resolves one from the registry and passes it in.
+
+**Client → server** (every message takes a socketio **ack callback** for the
+per-caller reply; room-wide effects broadcast separately):
+
+| Event | Payload | Does | Ack to caller |
+|---|---|---|---|
+| `join_room` | `{room, name, uuid}` | registry `get_or_create`, `room.add_user`, join socketio room | `{ok, room_state}` |
+| `set_ready` | `{ready}` | toggle `user.ready` | `{ok}` |
+| `configure_room` | `{query, nsfw}` | update room search config (pre-game only) | `{ok}` / `{ok:false, error}` |
+| `start_game` | `{}` | `GameService.start_game(room)` | `{ok}` |
+| `submit_guess` | `{guess}` | `GameService.submit_guess(room, uuid, guess)` | `{ok}` or `{ok:false, error:"not_your_turn", active_player}` |
+| `leave_room` | `{}` | `room.remove_user`, leave socketio room | `{ok}` |
+| `chat` | `{text}` | broadcast only — **never touches the game** | `{ok}` |
+
+Disconnect is treated as `leave_room`.
+
+**Server → client** — three channels:
+- **`game_events`** — the domain/service broadcast family, emitted as one batched
+  list of typed payloads (`game_started`, `turn_started`, `correct_guess`,
+  `wrong_guess`, `timeout`, `player_eliminated`, `guess_rejected`, `game_over`,
+  plus the service's `no_image` / `image_error`). The real `EventEmitter` is a
+  one-liner: `SocketIOEmitter.emit(room, payloads)` → `sio.emit("game_events",
+  payloads, room=room)`. The client owns a reducer that switches on `type`.
+- **`room_state`** — a full lobby snapshot (roster with names/ready flags, query,
+  nsfw, `in_progress`) rebroadcast on any membership/config change. Whole-snapshot,
+  not diffs — simplest for the client and cheap at this roster size.
+- **ack callbacks** — per-caller replies (including `GameActionError`
+  translations); never broadcast.
+
+**Decision — lobby events aren't domain events.** Membership/readiness/config
+changes aren't game rules, so they stay out of the pure domain (`Room.add_user`
+& co. return no events, by design). The transport composes the `room_state`
+snapshot from `Room` after a lobby mutation and broadcasts it. Only *game*
+actions flow through `GameService` + the emitter. This keeps the domain pure and
+avoids inventing a parallel lobby-event vocabulary.
+
+**Error translation.** Transport wraps service calls in a `try/except
+GameActionError`, returning `{ok:false, error, ...}` in the ack — `NotYourTurn`
+carries the `active_player` so the client can reconcile. Only exceptions become
+acks; room state only ever moves through the emitter.
+
+**Open edge cases to decide when building it:** active player disconnecting
+mid-turn (skip their turn vs. end game), host authority for `start`/`configure`
+(first user? anyone?), and empty-room cleanup timing. None affect the shape
+above.
+
 ---
 
 ## 4. Build phases
@@ -172,6 +238,7 @@ Suggested order matters here — accounts before stats, since stats should key o
 
 **Core port**
 - [~] Layered structure laid out (domain / service / transport / persistence / config); FastAPI + python-socketio **not wired yet** (transport dir is an empty scaffold)
+- [ ] Build the transport per **§3c**: `RoomRegistry`, socketio handlers (join / ready / configure / start / guess / leave / chat), `SocketIOEmitter`, `room_state` snapshots, `GameActionError` → ack
 - [x] Port `data.py` game logic into the domain layer (pure, no framework imports)
 - [x] Replace `threading.Timer` with an `asyncio.Task`-based timer feeding the same single processing path as manual guesses (fixes bug #3 structurally)
 - [x] Define JSON event/payload shapes (replacing HTML-fragment emits) — `singledispatch` serializers
