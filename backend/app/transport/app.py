@@ -12,20 +12,12 @@ import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.service.derpibooru import DerpibooruImageSource
 from app.service.game_service import DEFAULT_TURN_SECONDS, GameService
-from app.service.image_source import Image, ImageSource, StaticImageSource
+from app.service.image_source import ImageSource
 from app.transport.emitter import SocketIOEmitter
 from app.transport.handlers import SocketHandlers
 from app.transport.registry import RoomRegistry
-
-# A single offline sample so the app runs before a real provider exists; the
-# Derpibooru/e621 ImageSource drops in here later (Phase 2/3).
-_SAMPLE_IMAGE = Image(
-    id="sample",
-    tags=["solo", "pony", "twilight sparkle", "artist:unknown"],
-    thumb_url="https://derpicdn.net/img/view/sample.png",
-    full_url="https://derpicdn.net/img/view/sample.png",
-)
 
 
 def create_app(
@@ -36,7 +28,7 @@ def create_app(
 ):
     sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=cors_origins)
     service = GameService(
-        image_source or StaticImageSource([_SAMPLE_IMAGE]),
+        image_source or DerpibooruImageSource(),
         SocketIOEmitter(sio),
         turn_seconds=turn_seconds,
     )

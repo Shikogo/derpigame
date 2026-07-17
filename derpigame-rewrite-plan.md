@@ -6,9 +6,10 @@ Remaking `derpigame-legacy` (Flask + Flask-SocketIO + server-rendered Jinja) int
 
 ## 0. Status (updated 2026-07-17)
 
-**Backend domain, service, and transport layers are done and tested (100 tests
-plus an end-to-end socket smoke test); config, persistence, and the whole
-frontend are not started.**
+**Backend domain, service, and transport layers are done and tested (110 tests
+plus an end-to-end socket smoke test), and a minimal real Derpibooru image
+source is wired in; config, persistence, and the whole frontend are not
+started.**
 
 Done:
 - **Domain** (`app/domain/`, pure — no framework imports): `Game`, `Room`,
@@ -28,9 +29,16 @@ Done:
   per-caller ack. `create_app()` mounts `socketio.ASGIApp` on FastAPI; runnable
   via `uvicorn app.main:app`. Fixes bug #1 (clean `no_players_ready` ack) and
   bug #2 (real name-uniqueness) along the way.
-- **100 tests** passing (domain + service + transport), no app context required,
-  plus a live uvicorn + `socketio.AsyncClient` smoke test of the join→start→guess
-  flow.
+- **Image source** (`app/service/derpibooru.py`): a minimal async
+  `DerpibooruImageSource` (real `httpx` against the REST search API, not the legacy
+  sync `derpibooru` package) — the default source in `create_app`, so the game is
+  playable with real images. It honors Derpibooru's mandatory back-off rules via a
+  cooldown gate (501 challenge → 5s, 500 block → 15min, other failures →
+  exponential), and forces `https:` on image URLs. Retry/caching/alias are still
+  Phase 3.
+- **110 tests** passing (domain + service + transport + Derpibooru source), no app
+  context required, plus a live uvicorn + `socketio.AsyncClient` smoke test of the
+  join→start→guess flow.
 
 Not started:
 - **Config** (`app/config/`) — Pydantic `Settings`.
@@ -207,6 +215,11 @@ acks; room state only ever moves through the emitter.
    guesses render as badges/pills driven by the domain events (`CorrectGuess`,
    `WrongGuess`, etc.), not chat lines. A chat may still exist, but purely as a
    social side-channel — never the place guesses are submitted or scored.
+   **Attribution is mandatory** (Derpibooru license): the image viewer must credit
+   the artist (`artist:*` tags) and show the source URL alongside the image once a
+   game ends / the image is revealed; a link to the derpibooru.org page is
+   recommended; all URLs must be `https:`. (Care: don't reveal artist/source tags
+   mid-game — they'd give away answers.)
 4. **Integration tests** — full flow through the transport layer: join room → ready up → start game → guess → win/lose.
 5. **Bugfixes** — fix #1 (`room` → `self.name`) and #4 (`SECRET_KEY` env var) as encountered.
 6. **New features** — see Phase 2/3 below.
@@ -226,11 +239,18 @@ Suggested order matters here — accounts before stats, since stats should key o
 
 ## 6. Phase 3 — Derpibooru improvements
 
-**API handling** (~a day, mostly plumbing):
-- Wrap Derpibooru calls in a `DerpibooruClient` class instead of inline calls scattered across files — mockable, and a natural home for the `ImageSource` interface shared with e621.
-- Go async: replace the sync `derpibooru` package's `requests` calls with `httpx.AsyncClient` calls directly against Derpibooru's REST API, since a blocking call inside a socket handler stalls that worker for every room.
-- Handle real failure modes — network errors, timeouts, 429 rate limits — with retry/backoff and a clean in-room error message, instead of the current bare `StopIteration`-only handling.
-- Respect rate limits proactively (request spacing/backoff).
+**API handling** (~a day, mostly plumbing). *A minimal async source already
+exists* (`app/service/derpibooru.py`, §0) — this phase hardens it:
+- ✅ Already done: async `httpx` calls straight against the REST API (no sync
+  `derpibooru` package), a clean `ImageSourceError` → in-room error message, and a
+  mandatory back-off gate (501 challenge → 5s, 500 block → 15min, other failures →
+  exponential) so we can't get IP-banned. The docs' rules live in the
+  `derpibooru-api-rules` memory.
+- Still to do: request-spacing to stay under the search-path limit (20 req/10s)
+  when many rooms fetch at once; response **caching that respects server-side
+  expiry** (`Cache-Control`/`Expires`) — required by the API license; a shared
+  `AsyncClient` (connection pooling) with app-lifespan cleanup instead of a client
+  per request.
 
 **Alias handling** (~2-3 days, replacing the static 355KB `alias.json`):
 - On an unmatched guess, query Derpibooru's tag search API directly — it returns each tag's canonical form if the guess is an alias, so resolution can happen live instead of from a stale snapshot.
@@ -279,6 +299,9 @@ Suggested order matters here — accounts before stats, since stats should key o
 - [x] Fix `room` NameError bug (bug #1 — zero-ready start now a clean ack) and name-uniqueness check (bug #2)
 - [ ] Fix `SECRET_KEY` → env var (via Settings object) — deferred to the config step (no auth yet)
 
+**Core port**
+- [x] Minimal async Derpibooru `ImageSource` (`app/service/derpibooru.py`) — real `httpx`, back-off gate honoring the API rules, wired as the `create_app` default
+
 **Phase 2**
 - [ ] Centralized config/settings
 - [x] `ImageSource` interface (Derpibooru/e621-swappable, with `StaticImageSource` for tests)
@@ -287,7 +310,7 @@ Suggested order matters here — accounts before stats, since stats should key o
 - [ ] Persistent stats (DB schema, write path off `GameOver` event, read endpoints)
 
 **Phase 3**
-- [ ] `DerpibooruClient` wrapper, async, with retry/backoff and real error handling
+- [~] `DerpibooruClient` wrapper, async, with retry/backoff and real error handling
 - [ ] Live alias resolution via Derpibooru's tag API + local cache table
 
 **Deployment**
