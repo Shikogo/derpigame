@@ -227,7 +227,7 @@ async def test_start_happy_path_emits_game_events(make):
     ack = await handlers.start_game("sa")
 
     assert ack == {"ok": True}
-    assert server.game_event_types()[:2] == ["game_started", "turn_started"]
+    assert server.game_event_types()[:3] == ["image_started", "game_started", "turn_started"]
     assert registry.get(code).active
     assert server.last_state()["in_progress"] is True
 

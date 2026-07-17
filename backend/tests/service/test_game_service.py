@@ -46,6 +46,18 @@ def make_service(tags: list[str], emitter: EventEmitter, **kwargs) -> GameServic
     return GameService(StaticImageSource([image]), emitter, **kwargs)
 
 
+def rich_image() -> Image:
+    """An image carrying every attribution field, incl. an artist tag."""
+    return Image(
+        id="7",
+        tags=["solo", "artist:foo"],
+        thumb_url="thumb",
+        full_url="full",
+        page_url="https://derpibooru.org/images/7",
+        source_url="https://example.com/original",
+    )
+
+
 # --- starting a game ---------------------------------------------------------
 
 
@@ -56,7 +68,7 @@ async def test_start_game_announces_opening_and_arms_a_timer():
 
     await service.start_game(room, first_index=0)
 
-    assert emitter.types() == ["game_started", "turn_started"]
+    assert emitter.types() == ["image_started", "game_started", "turn_started"]
     assert room.game is not None
     assert "lobby" in service._timers  # armed for the first turn
     service.shutdown()
@@ -221,3 +233,65 @@ async def test_armed_timer_fires_a_timeout_on_its_own():
     service.shutdown()  # stop before the re-armed timer fires again
 
     assert "timeout" in emitter.types()
+
+
+# --- image payloads ----------------------------------------------------------
+
+
+async def test_start_game_leads_with_image_started_and_hides_answers():
+    emitter = RecordingEmitter()
+    service = GameService(StaticImageSource([rich_image()]), emitter)
+    room = make_room("alice", "bob")
+
+    await service.start_game(room, first_index=0)
+
+    started = emitter.payloads[0]  # picture arrives before the game/turn events
+    assert started["type"] == "image_started"
+    assert (started["id"], started["thumb_url"], started["full_url"]) == ("7", "thumb", "full")
+    # answer-revealing fields must never leak mid-game
+    for leaky in ("tags", "artists", "source_url", "page_url"):
+        assert leaky not in started
+    service.shutdown()
+
+
+async def test_game_over_reveals_attribution():
+    emitter = RecordingEmitter()
+    service = GameService(StaticImageSource([rich_image()]), emitter)
+    room = make_room("alice")
+
+    await service.start_game(room, first_index=0)
+    await service.submit_guess(room, "alice", "solo")  # clears the goal bucket → win
+
+    assert "game_over" in emitter.types()
+    reveal = emitter.payloads[-1]  # trails the batch
+    assert reveal["type"] == "image_revealed"
+    assert reveal["artists"] == ["foo"]  # "artist:" stripped
+    assert reveal["source_url"] == "https://example.com/original"
+    assert reveal["page_url"] == "https://derpibooru.org/images/7"
+
+
+async def test_stop_game_reveals_attribution_with_the_abort():
+    emitter = RecordingEmitter()
+    service = GameService(StaticImageSource([rich_image()]), emitter)
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+    emitter.batches.clear()
+
+    await service.stop_game(room)
+
+    assert emitter.types() == ["game_aborted", "image_revealed"]
+    assert emitter.payloads[-1]["artists"] == ["foo"]
+    assert room.game is None  # back to the lobby
+
+
+async def test_cancel_room_drops_the_image_without_revealing():
+    emitter = RecordingEmitter()
+    service = make_service(["solo", "twilight"], emitter)
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+    emitter.batches.clear()
+
+    service.cancel_room(room.name)
+
+    assert emitter.batches == []  # empty room: nobody to reveal to
+    assert room.name not in service._current_image
