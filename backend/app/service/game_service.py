@@ -11,6 +11,7 @@ from app.domain.events import GameOver, TurnStarted
 from app.domain.room import Room
 from app.domain.tag_taxonomy import TagTaxonomy
 from app.service.emitter import EventEmitter
+from app.service.errors import NotYourTurn
 from app.service.image_source import ImageSource, ImageSourceError
 from app.service.serialization import serialize_events
 from app.service.turn_timer import TurnTimer
@@ -61,12 +62,15 @@ class GameService:
         await self._deliver(room, game.start())
 
     async def submit_guess(self, room: Room, user_uuid: str, guess: str) -> None:
-        """Apply a guess, but only from the player whose turn it is."""
+        """Apply a guess from the active player; raise ``NotYourTurn`` otherwise."""
+        guess = guess.strip()
+        if not guess:
+            return  # blank submission — never a strike
         game = room.game
         if game is None or game.is_over:
             return
         if game.active_player.uuid != user_uuid:
-            return  # not this player's turn — ignore
+            raise NotYourTurn(game.active_player)
         await self._deliver(room, game.submit_guess(guess))
 
     async def handle_timeout(self, room: Room) -> None:
@@ -77,9 +81,13 @@ class GameService:
         await self._deliver(room, game.timeout())
 
     async def _deliver(self, room: Room, events: list) -> None:
-        if events:
-            await self._emitter.emit(room.name, serialize_events(events))
-        self._reschedule(room, events)
+        try:
+            if events:
+                await self._emitter.emit(room.name, serialize_events(events))
+        finally:
+            # Re-arm even if emit fails, so a broken emit can't strand a turn
+            # with no timer to advance it.
+            self._reschedule(room, events)
 
     def _reschedule(self, room: Room, events: list) -> None:
         """Arm the timer for a fresh turn, or drop it once the game is over.

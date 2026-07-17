@@ -2,9 +2,12 @@
 
 import asyncio
 
+import pytest
+
 from app.domain.room import Room
 from app.domain.user import User
 from app.service.emitter import EventEmitter
+from app.service.errors import NotYourTurn
 from app.service.game_service import GameService
 from app.service.image_source import Image, ImageSource, ImageSourceError, StaticImageSource
 
@@ -112,18 +115,48 @@ async def test_active_player_guess_is_applied():
     service.shutdown()
 
 
-async def test_guess_from_a_player_out_of_turn_is_ignored():
+async def test_guess_out_of_turn_is_rejected_and_changes_nothing():
     emitter = RecordingEmitter()
     service = make_service(["solo", "twilight"], emitter)
     room = make_room("alice", "bob")
     await service.start_game(room, first_index=0)
     emitter.batches.clear()
 
-    await service.submit_guess(room, "bob", "solo")  # it's alice's turn
+    with pytest.raises(NotYourTurn) as excinfo:
+        await service.submit_guess(room, "bob", "solo")  # it's alice's turn
 
-    assert emitter.batches == []  # nothing happened
-    assert room.game.active_player.name == "alice"
+    assert excinfo.value.active_player.name == "alice"  # transport can ack this back
+    assert emitter.batches == []  # nothing broadcast to the room
+    assert room.game.active_player.name == "alice"  # turn unchanged
     assert "solo" in room.game.tag_buckets["tags"].tags  # tag untouched
+    service.shutdown()
+
+
+async def test_blank_guess_is_ignored_without_penalty():
+    emitter = RecordingEmitter()
+    service = make_service(["solo", "twilight"], emitter)
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+    emitter.batches.clear()
+
+    await service.submit_guess(room, "alice", "   ")
+
+    assert emitter.batches == []  # no strike, no turn change
+    assert room.game.active_player.name == "alice"
+    assert room.game.active_player.wrong_guesses == 0
+    service.shutdown()
+
+
+async def test_surrounding_whitespace_is_stripped_from_a_guess():
+    emitter = RecordingEmitter()
+    service = make_service(["solo", "twilight"], emitter)
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+    emitter.batches.clear()
+
+    await service.submit_guess(room, "alice", "  SOLO  ")
+
+    assert "correct_guess" in emitter.types()
     service.shutdown()
 
 
@@ -154,6 +187,22 @@ async def test_handle_timeout_counts_as_wrong_and_advances():
 
     assert "timeout" in emitter.types()
     assert room.game.active_player.name == "bob"
+    service.shutdown()
+
+
+async def test_timer_is_rearmed_even_when_emit_fails():
+    class FailingEmitter(EventEmitter):
+        async def emit(self, room_name, payloads):
+            raise RuntimeError("socket died")
+
+    service = make_service(["solo", "twilight"], FailingEmitter())
+    room = make_room("alice", "bob")
+
+    # emit blows up, but the turn must still get a timer to advance it
+    with pytest.raises(RuntimeError):
+        await service.start_game(room, first_index=0)
+
+    assert "lobby" in service._timers
     service.shutdown()
 
 
