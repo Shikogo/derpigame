@@ -22,8 +22,10 @@ architecture rationale, known legacy bugs, and build phases.
 
 Strict layering — keep dependencies pointing one direction:
 
-- `app/domain/` — pure game rules (`Game`, `Room`, `User`, `TagType`). **No
-  framework imports** (no FastAPI, no socketio, no HTTP). Methods return result
+- `app/domain/` — pure game rules (`Game`, `Room`, `User`, `TagTaxonomy`,
+  `TagBucket`). **No framework imports** (no FastAPI, no socketio, no HTTP).
+  Tag classification is a data-driven `TagTaxonomy` value object injected into
+  `Game`, not a per-source `TagType`. Methods return result
   objects describing what happened; they don't emit or render. This is what
   makes the domain unit-testable without an app context.
 - `app/service/` — orchestrates domain objects, image sources, persistence.
