@@ -35,6 +35,15 @@ Strict layering — keep dependencies pointing one direction:
 If you find yourself importing socketio or FastAPI into `domain/`, stop — the
 logic belongs in a different layer.
 
+## Porting mindset
+
+This is a rewrite, not a transcription. The legacy code is low quality — you're
+**encouraged to suggest improvements** to game logic, structure, naming, and
+behavior as you port, rather than faithfully reproducing legacy quirks. When you
+spot a legacy bug or an odd behavior, flag it and propose the fix instead of
+silently carrying it over. Preserving intended game rules matters; preserving
+accidental behavior does not.
+
 ## Conventions
 
 - **Commits: Conventional Commits** (`feat:`, `fix:`, `refactor:`, `test:`,
