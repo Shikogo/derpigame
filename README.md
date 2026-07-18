@@ -12,7 +12,7 @@ for the architecture and build phases.
 
 ```
 backend/    FastAPI + socketio API/WebSocket layer (layered: domain/service/transport/persistence/config)
-frontend/   Vue app (Vite + Pinia + Vue Router) — not scaffolded yet
+frontend/   Vue app (Vite + Pinia + Vue Router)
 ```
 
 ## Backend
@@ -28,6 +28,17 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### Running the server
+
+```bash
+cd backend
+.venv/bin/uvicorn app.main:app --reload   # http://localhost:8000
+```
+
+`app.main:app` is the FastAPI app (with the Socket.IO server mounted) built by
+`create_app()`. `--reload` restarts on code changes — drop it for a plain run.
+The frontend talks to it at `http://localhost:8000` (see the Frontend section).
+
 ### Running tests
 
 The domain layer is pure (no framework or app context), so the suite runs in
@@ -42,6 +53,37 @@ well under a second. From `backend/`:
 
 Config lives in `backend/pytest.ini` (test discovery, import path, and
 `asyncio_mode = auto` so `async def` tests run without a per-test marker).
+
+## Frontend
+
+Requires **Node 20+** (developed on Node 22). Uses npm.
+
+### Setup
+
+```bash
+cd frontend
+npm install
+cp .env.example .env   # sets VITE_BACKEND_URL=http://localhost:8000
+```
+
+### Running the dev server
+
+```bash
+npm run dev            # http://localhost:5173
+```
+
+Vite serves the app with hot-module reload and proxies nothing — it talks to the
+backend directly over `VITE_BACKEND_URL`, so start the backend (above) in another
+terminal. Open the app in two tabs to play a room against yourself.
+
+### Running tests
+
+```bash
+npm run test           # Vitest, single run
+npm run test:watch     # Vitest, watch mode
+npm run typecheck      # vue-tsc type check
+npm run build          # type check + production build
+```
 
 ## Architecture
 
