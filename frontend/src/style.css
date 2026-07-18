@@ -1,19 +1,94 @@
 @import 'tailwindcss';
 
-/* Game design tokens — become utilities like bg-correct / text-turn (Tailwind v4). */
+/* Dark-first "booru, gamified" identity. Tokens become utilities in Tailwind v4
+   (--color-surface → bg-surface / text-surface / border-surface, --font-display
+   → font-display, …). One theme; the image glows against dark surfaces. */
 @theme {
-  --color-correct: #16a34a;
-  --color-wrong: #dc2626;
-  --color-eliminated: #6b7280;
-  --color-turn: #7c3aed;
+  /* Surfaces & ink (a comfortable slate dark, not near-black) */
+  --color-bg: #171a21;
+  --color-surface: #1f232d;
+  --color-raised: #2a2f3b;
+  --color-border: #373d4b;
+  --color-ink: #e9ebf1;
+  --color-ink-muted: #aab1c1;
+  --color-ink-faint: #78808f;
+
+  /* Brand accent — a Derpibooru-reminiscent azure */
+  --color-turn: #4f9dff;
+
+  /* Game semantics, retuned to read on dark */
+  --color-correct: #3ddc84;
+  --color-wrong: #ff6b6b;
+  --color-eliminated: #7f8798;
+
+  /* Tag-category ramp (kept off-blue so pills stay distinct from the brand) */
+  --color-cat-1: #2dd4bf;
+  --color-cat-2: #ffb454;
+  --color-cat-3: #f472b6;
+  --color-cat-4: #a78bfa;
+  --color-cat-5: #7ee787;
+
+  --font-display: 'Bricolage Grotesque Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Hanken Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 }
 
-html,
-body,
-#app {
-  height: 100%;
+@layer base {
+  :root {
+    color-scheme: dark; /* dark form controls + scrollbars, for free */
+  }
+
+  html,
+  body,
+  #app {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    /* Faint azure glow top & bottom so the dark field isn't flat. */
+    background-image:
+      radial-gradient(1200px 620px at 50% -12%, color-mix(in srgb, var(--color-turn) 12%, transparent), transparent 62%),
+      radial-gradient(900px 900px at 50% 120%, color-mix(in srgb, var(--color-turn) 6%, transparent), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  /* Keyboard focus is always visible in the brand accent. */
+  :focus-visible {
+    outline: 2px solid var(--color-turn);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-turn);
+    color: #07101f;
+  }
 }
 
-body {
-  margin: 0;
+@layer components {
+  /* The signature: one chunky pill recipe. Tone (bg/text) is layered on with
+     utilities or an inline category color. */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 9999px;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

@@ -41,19 +41,19 @@ defineExpose({ open })
 <template>
   <dialog
     ref="dialog"
-    class="m-auto w-[min(28rem,90vw)] rounded-xl p-0 backdrop:bg-black/40"
+    class="m-auto w-[min(28rem,90vw)] rounded-xl border border-border bg-surface p-0 text-ink shadow-2xl backdrop:bg-black/60"
     @click="onBackdrop"
   >
     <form class="flex flex-col gap-4 p-5" @submit.prevent="apply">
-      <h2 class="text-lg font-semibold">Room settings</h2>
+      <h2 class="font-display text-xl font-bold">Room settings</h2>
 
       <label class="flex flex-col gap-1 text-sm">
-        <span class="text-gray-500">Search tags (comma or newline separated)</span>
+        <span class="text-ink-muted">Search tags (comma or newline separated)</span>
         <textarea
           v-model="queryText"
           rows="3"
           placeholder="e.g. safe, pony"
-          class="resize-y rounded border border-gray-300 px-2 py-1 text-sm focus:border-turn focus:outline-none"
+          class="resize-y rounded-lg border border-border bg-raised px-2 py-1 text-sm text-ink placeholder:text-ink-faint focus:border-turn focus:outline-none"
         />
       </label>
 
@@ -65,12 +65,12 @@ defineExpose({ open })
       <div class="flex justify-end gap-2">
         <button
           type="button"
-          class="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+          class="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-raised"
           @click="close"
         >
           Cancel
         </button>
-        <button type="submit" class="rounded bg-turn px-4 py-1.5 text-sm font-semibold text-white">
+        <button type="submit" class="rounded-lg bg-turn px-4 py-1.5 text-sm font-semibold text-[#07101f]">
           Apply
         </button>
       </div>

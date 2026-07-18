@@ -1,6 +1,10 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 
+import '@fontsource-variable/bricolage-grotesque/index.css'
+import '@fontsource-variable/hanken-grotesk/index.css'
+import '@fontsource/space-mono/400.css'
+import '@fontsource/space-mono/700.css'
 import './style.css'
 import App from './App.vue'
 import { router } from './router'

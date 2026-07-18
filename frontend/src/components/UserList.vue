@@ -8,7 +8,7 @@ const session = useSessionStore()
 </script>
 
 <template>
-  <ul class="divide-y divide-gray-100 rounded-lg border border-gray-200">
+  <ul class="divide-y divide-border rounded-lg border border-border bg-surface">
     <li
       v-for="u in room.usersWithWins"
       :key="u.uuid"
@@ -16,7 +16,7 @@ const session = useSessionStore()
     >
       <span class="flex items-center gap-2">
         <span class="font-medium">{{ u.name }}</span>
-        <span v-if="u.uuid === session.uuid" class="text-xs text-gray-400">(you)</span>
+        <span v-if="u.uuid === session.uuid" class="text-xs text-ink-faint">(you)</span>
         <span
           v-if="u.wins"
           class="rounded-full bg-turn/10 px-1.5 text-xs font-semibold text-turn"
@@ -25,7 +25,7 @@ const session = useSessionStore()
           🏆 {{ u.wins }}
         </span>
       </span>
-      <span class="text-xs font-semibold" :class="u.ready ? 'text-correct' : 'text-gray-400'">
+      <span class="text-xs font-semibold" :class="u.ready ? 'text-correct' : 'text-ink-faint'">
         {{ u.ready ? 'Ready' : 'Not ready' }}
       </span>
     </li>

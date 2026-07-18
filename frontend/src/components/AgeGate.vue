@@ -10,21 +10,21 @@ defineEmits<{ confirm: []; decline: [] }>()
 </script>
 
 <template>
-  <div class="m-auto max-w-md rounded-lg border border-gray-200 p-6 text-center">
-    <h2 class="text-lg font-semibold">Adult content</h2>
-    <p class="mt-2 text-sm text-gray-500">
+  <div class="m-auto max-w-md rounded-xl border border-border bg-surface p-6 text-center shadow-2xl">
+    <h2 class="font-display text-xl font-bold">Adult content</h2>
+    <p class="mt-2 text-sm text-ink-muted">
       This room is set to show NSFW results from Derpibooru. You must be 18 or
       older to view them.
     </p>
     <div class="mt-5 flex justify-center gap-3">
       <button
-        class="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+        class="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-raised"
         @click="$emit('decline')"
       >
         {{ declineLabel }}
       </button>
       <button
-        class="rounded bg-turn px-4 py-2 text-sm font-semibold text-white"
+        class="rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-[#07101f]"
         @click="$emit('confirm')"
       >
         I'm 18 or older

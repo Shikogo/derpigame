@@ -12,6 +12,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.2.10",
+    "@fontsource-variable/hanken-grotesk": "^5.2.8",
+    "@fontsource/space-mono": "^5.2.9",
     "pinia": "^4.0.2",
     "socket.io-client": "^4.8.3",
     "vue": "^3.5.39",

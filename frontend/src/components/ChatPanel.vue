@@ -26,22 +26,22 @@ watch(
 </script>
 
 <template>
-  <section class="flex min-h-0 flex-col rounded-lg border border-gray-200">
-    <h3 class="border-b border-gray-100 px-3 py-2 text-sm font-semibold text-gray-600">Chat</h3>
+  <section class="flex min-h-0 flex-col rounded-lg border border-border bg-surface">
+    <h3 class="border-b border-border px-3 py-2 text-sm font-semibold text-ink-muted">Chat</h3>
     <ul ref="listEl" class="flex-1 space-y-1 overflow-y-auto p-3 text-sm">
       <li v-for="(m, i) in chat.messages" :key="i">
         <span class="font-semibold text-turn">{{ m.name }}:</span> {{ m.text }}
       </li>
-      <li v-if="!chat.messages.length" class="text-gray-400">No messages yet.</li>
+      <li v-if="!chat.messages.length" class="text-ink-faint">No messages yet.</li>
     </ul>
-    <form class="flex gap-2 border-t border-gray-100 p-2" @submit.prevent="send">
+    <form class="flex gap-2 border-t border-border p-2" @submit.prevent="send">
       <input
         v-model="text"
         type="text"
         placeholder="Say something…"
-        class="flex-1 rounded border border-gray-300 px-2 py-1 text-sm focus:border-turn focus:outline-none"
+        class="flex-1 rounded border border-border bg-raised px-2 py-1 text-sm text-ink placeholder:text-ink-faint focus:border-turn focus:outline-none"
       />
-      <button type="submit" class="rounded bg-turn px-3 py-1 text-sm font-medium text-white">
+      <button type="submit" class="rounded bg-turn px-3 py-1 text-sm font-medium text-[#07101f]">
         Send
       </button>
     </form>

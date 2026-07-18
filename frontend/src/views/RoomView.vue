@@ -12,6 +12,7 @@ import { useRouter } from 'vue-router'
 
 import AgeGate from '@/components/AgeGate.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
+import GameControls from '@/components/GameControls.vue'
 import GameOverPanel from '@/components/GameOverPanel.vue'
 import GamePanel from '@/components/GamePanel.vue'
 import LobbyPanel from '@/components/LobbyPanel.vue'
@@ -58,6 +59,8 @@ const showGameOver = computed(() => game.ended)
 const showGame = computed(
   () => !game.ended && (room.inProgress || game.state.status === 'active'),
 )
+// A live round with a picture — the point where the rail shows the turn controls.
+const live = computed(() => game.state.status === 'active' && !!game.state.image)
 // Block the picture (live round or the game-over reveal) behind a 18+ gate when
 // the room shows NSFW and this viewer hasn't attested yet.
 const needsAgeGate = computed(
@@ -89,30 +92,30 @@ async function backToLobby(): Promise<void> {
     <div v-if="!isMember" class="m-auto w-full max-w-sm">
       <div
         v-if="reconnecting && !room.error"
-        class="rounded-lg border border-gray-200 p-6 text-center text-sm text-gray-500"
+        class="rounded-xl border border-border bg-surface p-6 text-center text-sm text-ink-muted"
       >
-        Reconnecting to room <span class="uppercase text-turn">{{ code }}</span>…
+        Reconnecting to room <span class="font-mono uppercase text-turn">{{ code }}</span>…
       </div>
-      <div v-else class="rounded-lg border border-gray-200 p-6">
-        <h1 class="mb-1 text-xl font-semibold">
-          Join room <span class="uppercase text-turn">{{ code }}</span>
+      <div v-else class="rounded-xl border border-border bg-surface p-6">
+        <h1 class="mb-1 font-display text-xl font-bold">
+          Join room <span class="font-mono uppercase text-turn">{{ code }}</span>
         </h1>
-        <p class="mb-4 text-sm text-gray-500">Pick a name to join.</p>
+        <p class="mb-4 text-sm text-ink-muted">Pick a name to join.</p>
         <form class="flex flex-col gap-3" @submit.prevent="join">
           <input
             v-model="joinName"
             placeholder="Your name"
-            class="rounded border border-gray-300 px-3 py-2 text-sm focus:border-turn focus:outline-none"
+            class="rounded-lg border border-border bg-raised px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-turn focus:outline-none"
           />
           <button
             :disabled="!joinName.trim() || joining"
-            class="rounded bg-turn px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+            class="rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-[#07101f] disabled:opacity-40"
           >
             Join
           </button>
         </form>
         <p v-if="room.error" class="mt-2 text-sm text-wrong">{{ errorLabel(room.error) }}</p>
-        <RouterLink to="/" class="mt-3 inline-block text-xs text-gray-400 underline">
+        <RouterLink to="/" class="mt-3 inline-block text-xs text-ink-faint underline">
           Back home
         </RouterLink>
       </div>
@@ -122,10 +125,13 @@ async function backToLobby(): Promise<void> {
     <template v-else>
       <header class="mb-4 flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <h1 class="text-lg font-semibold">
-            Room <span class="uppercase text-turn">{{ code }}</span>
-          </h1>
-          <span class="flex items-center gap-1 text-xs text-gray-400">
+          <RouterLink to="/" class="font-display text-lg font-bold tracking-tight text-turn">
+            derpigame
+          </RouterLink>
+          <span class="pill border border-border bg-raised font-mono uppercase text-ink">
+            {{ code }}
+          </span>
+          <span class="flex items-center gap-1 text-xs text-ink-faint">
             <span
               class="h-2 w-2 rounded-full"
               :class="room.connected ? 'bg-correct' : 'bg-eliminated'"
@@ -133,13 +139,13 @@ async function backToLobby(): Promise<void> {
             {{ room.connected ? 'connected' : 'offline' }}
           </span>
         </div>
-        <button class="text-sm text-gray-400 underline hover:text-wrong" @click="leave">
+        <button class="text-sm text-ink-faint underline hover:text-wrong" @click="leave">
           Leave
         </button>
       </header>
 
-      <div class="grid flex-1 gap-4 lg:grid-cols-[1fr_20rem]">
-        <div class="flex flex-col gap-4">
+      <div class="grid flex-1 gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div class="flex min-w-0 flex-col gap-4">
           <p v-if="notice" class="rounded-lg bg-wrong/10 px-3 py-2 text-sm text-wrong">
             {{ notice }}
           </p>
@@ -152,7 +158,10 @@ async function backToLobby(): Promise<void> {
           <GamePanel v-else-if="showGame" />
           <LobbyPanel v-else />
         </div>
-        <ChatPanel class="h-[60vh] lg:h-auto" />
+        <aside class="flex min-w-0 flex-col gap-4 lg:min-h-0 lg:overflow-hidden">
+          <GameControls v-if="live && !needsAgeGate" />
+          <ChatPanel class="h-[22rem] shrink-0" />
+        </aside>
       </div>
     </template>
   </main>

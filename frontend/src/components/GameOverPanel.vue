@@ -29,9 +29,11 @@ const heading = computed(() => {
 
 <template>
   <section class="mx-auto flex w-full max-w-3xl flex-col gap-5">
-    <h2 class="text-2xl font-bold" :class="iWon ? 'text-correct' : 'text-turn'">{{ heading }}</h2>
+    <h2 class="font-display text-3xl font-bold" :class="iWon ? 'text-correct' : 'text-turn'">
+      {{ heading }}
+    </h2>
 
-    <div v-if="image" class="overflow-hidden rounded-lg border border-gray-200">
+    <div v-if="image" class="overflow-hidden rounded-lg border border-border">
       <img
         :src="image.full_url"
         alt="The revealed image"
@@ -41,7 +43,7 @@ const heading = computed(() => {
 
     <div v-if="reveal" class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
       <span v-if="reveal.artists.length" class="font-medium">by {{ reveal.artists.join(', ') }}</span>
-      <span v-else class="text-gray-400">artist unknown</span>
+      <span v-else class="text-ink-faint">artist unknown</span>
       <a
         v-if="reveal.source_url"
         :href="reveal.source_url"
@@ -66,24 +68,24 @@ const heading = computed(() => {
         <span class="font-semibold">Winner{{ over.winners.length > 1 ? 's' : '' }}:</span>
         {{ over.winners.map((w) => w.name).join(', ') }}
       </p>
-      <ol class="divide-y divide-gray-100 rounded-lg border border-gray-200 text-sm">
+      <ol class="divide-y divide-border rounded-lg border border-border bg-surface text-sm">
         <li
           v-for="(p, i) in over.standings"
           :key="p.uuid"
           class="flex items-center justify-between px-3 py-2"
         >
-          <span><span class="mr-2 text-gray-400">{{ i + 1 }}.</span>{{ p.name }}</span>
-          <span class="font-semibold tabular-nums">{{ p.score }}</span>
+          <span><span class="mr-2 font-mono text-ink-faint">{{ i + 1 }}.</span>{{ p.name }}</span>
+          <span class="font-mono font-semibold tabular-nums">{{ p.score }}</span>
         </li>
       </ol>
       <p v-if="over.unguessed_tags.length" class="text-sm">
         <span class="font-semibold text-wrong">Missed:</span>
-        <span class="text-gray-600"> {{ over.unguessed_tags.join(', ') }}</span>
+        <span class="text-ink-muted"> {{ over.unguessed_tags.join(', ') }}</span>
       </p>
     </template>
 
     <button
-      class="self-start rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-white"
+      class="self-start rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-[#07101f]"
       @click="emit('back')"
     >
       Back to lobby

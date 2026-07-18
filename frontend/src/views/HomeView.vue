@@ -4,6 +4,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { errorLabel } from '@/lib/errors'
+import { categoryPillStyle } from '@/lib/tagColor'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
@@ -14,6 +15,9 @@ const session = useSessionStore()
 const name = ref(session.name)
 const joinCode = ref('')
 const busy = ref(false)
+
+// Ambient booru flavor for the hero — a scatter of category-colored tag pills.
+const sampleTags = ['safe', 'pony', 'cute', 'oc', 'solo', 'applejack']
 
 async function create(): Promise<void> {
   if (!name.value.trim() || busy.value) return
@@ -36,31 +40,38 @@ async function join(): Promise<void> {
 <template>
   <main class="mx-auto flex min-h-full max-w-sm flex-col justify-center gap-6 p-8">
     <header class="text-center">
-      <h1 class="text-4xl font-bold tracking-tight text-turn">Derpigame</h1>
-      <p class="mt-1 text-sm text-gray-500">Guess the tags. Beat your friends.</p>
+      <h1
+        class="font-display text-5xl font-extrabold tracking-tight text-turn [text-shadow:0_0_45px_rgba(79,157,255,0.45)]"
+      >
+        derpigame
+      </h1>
+      <p class="mt-2 text-sm text-ink-muted">A booru tag guessing game</p>
+      <div class="mt-4 flex flex-wrap justify-center gap-1.5">
+        <span v-for="t in sampleTags" :key="t" class="pill" :style="categoryPillStyle(t)">{{ t }}</span>
+      </div>
     </header>
 
     <label class="flex flex-col gap-1 text-sm">
-      <span class="font-medium text-gray-600">Your name</span>
+      <span class="font-medium text-ink-muted">Your name</span>
       <input
         v-model="name"
         type="text"
         placeholder="e.g. Twilight"
-        class="rounded-lg border border-gray-300 px-3 py-2 focus:border-turn focus:outline-none"
+        class="rounded-lg border border-border bg-raised px-3 py-2 text-ink placeholder:text-ink-faint focus:border-turn focus:outline-none"
         @keyup.enter="create"
       />
     </label>
 
     <button
-      class="rounded-lg bg-turn px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+      class="rounded-lg bg-turn px-4 py-2.5 text-sm font-semibold text-[#07101f] disabled:opacity-40"
       :disabled="!name.trim() || busy"
       @click="create"
     >
       Create a room
     </button>
 
-    <div class="flex items-center gap-3 text-xs text-gray-400">
-      <span class="h-px flex-1 bg-gray-200" />or join one<span class="h-px flex-1 bg-gray-200" />
+    <div class="flex items-center gap-3 text-xs text-ink-faint">
+      <span class="h-px flex-1 bg-border" />or join one<span class="h-px flex-1 bg-border" />
     </div>
 
     <form class="flex gap-2" @submit.prevent="join">
@@ -68,11 +79,11 @@ async function join(): Promise<void> {
         v-model="joinCode"
         type="text"
         placeholder="Room code"
-        class="w-full flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase focus:border-turn focus:outline-none"
+        class="w-full flex-1 rounded-lg border border-border bg-raised px-3 py-2 text-sm uppercase text-ink placeholder:text-ink-faint focus:border-turn focus:outline-none"
       />
       <button
         type="submit"
-        class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold hover:bg-gray-50 disabled:opacity-40"
+        class="rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:bg-raised disabled:opacity-40"
         :disabled="!name.trim() || !joinCode.trim() || busy"
       >
         Join

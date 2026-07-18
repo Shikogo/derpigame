@@ -15,24 +15,24 @@ const src = ref('/viewer-test.svg')
 <template>
   <main class="mx-auto flex max-w-4xl flex-col gap-4 p-6">
     <header class="flex items-center justify-between">
-      <h1 class="text-xl font-semibold">ImageViewer sandbox</h1>
-      <button class="rounded bg-turn px-3 py-1.5 text-sm font-medium text-white" @click="viewer?.reset()">
+      <h1 class="font-display text-xl font-bold">ImageViewer sandbox</h1>
+      <button class="rounded bg-turn px-3 py-1.5 text-sm font-medium text-[#07101f]" @click="viewer?.reset()">
         Reset to fit
       </button>
     </header>
 
-    <p class="text-sm text-gray-500">
+    <p class="text-sm text-ink-muted">
       Drag to pan · wheel / trackpad-pinch to zoom toward the cursor · two-finger
       pinch on touch · double-click to reset. Corners are colored (TL red, TR
       green, BL blue, BR yellow); cells are labeled with their image coordinates.
     </p>
 
     <!-- A deliberately non-square frame so letterboxing/centering is visible. -->
-    <div class="h-[460px] w-full overflow-hidden rounded-lg border border-gray-300">
+    <div class="h-[460px] w-full overflow-hidden rounded-lg border border-border">
       <ImageViewer ref="viewer" :src="src" alt="Grid test pattern" />
     </div>
 
-    <pre class="rounded bg-gray-900 p-3 text-xs text-gray-100" data-testid="view-readout">scale: {{ viewer?.view.scale.toFixed(3) }}
+    <pre class="rounded bg-black/60 p-3 font-mono text-xs text-ink" data-testid="view-readout">scale: {{ viewer?.view.scale.toFixed(3) }}
 tx:    {{ viewer?.view.tx.toFixed(1) }}
 ty:    {{ viewer?.view.ty.toFixed(1) }}</pre>
   </main>

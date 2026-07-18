@@ -11,8 +11,8 @@ const isEliminated = (uuid: string) => game.state.eliminated.includes(uuid)
 </script>
 
 <template>
-  <div class="overflow-hidden rounded-lg border border-gray-200">
-    <ul class="divide-y divide-gray-100">
+  <div class="overflow-hidden rounded-lg border border-border bg-surface">
+    <ul class="divide-y divide-border">
       <li
         v-for="p in game.scoreboard"
         :key="p.uuid"
@@ -23,7 +23,7 @@ const isEliminated = (uuid: string) => game.state.eliminated.includes(uuid)
           <span v-if="isActive(p.uuid)" class="h-2 w-2 rounded-full bg-turn" title="Active player" />
           <span class="font-medium" :class="{ 'line-through': isEliminated(p.uuid) }">{{ p.name }}</span>
         </span>
-        <span class="flex items-center gap-3 tabular-nums">
+        <span class="flex items-center gap-3 font-mono tabular-nums">
           <span class="font-semibold">{{ p.score }}</span>
           <span v-if="p.wrong_guesses" class="text-xs text-wrong">✗{{ p.wrong_guesses }}</span>
         </span>
@@ -31,7 +31,7 @@ const isEliminated = (uuid: string) => game.state.eliminated.includes(uuid)
     </ul>
     <p
       v-if="room.spectatorCount"
-      class="border-t border-gray-100 px-3 py-1.5 text-xs text-gray-400"
+      class="border-t border-border px-3 py-1.5 text-xs text-ink-faint"
     >
       {{ room.spectatorCount }} spectator{{ room.spectatorCount === 1 ? '' : 's' }}
     </p>

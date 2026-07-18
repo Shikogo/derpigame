@@ -38,7 +38,7 @@ function onBackdrop(event: MouseEvent): void {
 <template>
   <section v-if="rounds.length || room.winCounts.length" class="flex flex-col gap-3">
     <div v-if="room.winCounts.length">
-      <h3 class="mb-1.5 text-sm font-semibold text-gray-600">Wins</h3>
+      <h3 class="mb-1.5 text-sm font-semibold text-ink-muted">Wins</h3>
       <ol class="flex flex-wrap gap-2">
         <li
           v-for="(w, i) in room.winCounts"
@@ -51,12 +51,12 @@ function onBackdrop(event: MouseEvent): void {
     </div>
 
     <div v-if="rounds.length">
-      <h3 class="mb-1.5 text-sm font-semibold text-gray-600">Past rounds</h3>
+      <h3 class="mb-1.5 text-sm font-semibold text-ink-muted">Past rounds</h3>
       <ul class="flex flex-col gap-2">
         <li
           v-for="(r, i) in rounds"
           :key="i"
-          class="flex items-center gap-3 rounded-lg border border-gray-200 p-2 text-sm"
+          class="flex items-center gap-3 rounded-lg border border-border bg-surface p-2 text-sm"
         >
           <a
             :href="r.page_url"
@@ -75,13 +75,13 @@ function onBackdrop(event: MouseEvent): void {
           </a>
           <div class="min-w-0 flex-1">
             <p class="truncate">
-              <span v-if="r.aborted" class="text-gray-400">Stopped</span>
+              <span v-if="r.aborted" class="text-ink-faint">Stopped</span>
               <span v-else-if="r.winners.length" class="text-correct">
                 Won by {{ r.winners.map((w) => w.name).join(', ') }}
               </span>
               <span v-else class="text-wrong">No winner</span>
             </p>
-            <p v-if="r.artists.length" class="truncate text-xs text-gray-400">
+            <p v-if="r.artists.length" class="truncate text-xs text-ink-faint">
               by {{ r.artists.join(', ') }}
             </p>
           </div>
@@ -91,7 +91,7 @@ function onBackdrop(event: MouseEvent): void {
 
     <dialog
       ref="gate"
-      class="m-auto w-[min(28rem,90vw)] rounded-xl p-0 backdrop:bg-black/40"
+      class="m-auto w-[min(28rem,90vw)] bg-transparent p-0 backdrop:bg-black/60"
       @click="onBackdrop"
     >
       <AgeGate decline-label="Not now" @confirm="attest" @decline="gate?.close()" />

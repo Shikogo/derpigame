@@ -20,7 +20,7 @@ function mountHome() {
 describe('HomeView', () => {
   it('renders the title and both entry paths', () => {
     const wrapper = mountHome()
-    expect(wrapper.text()).toContain('Derpigame')
+    expect(wrapper.text()).toContain('derpigame')
     expect(wrapper.text()).toContain('Create a room')
     expect(wrapper.find('input').exists()).toBe(true)
   })

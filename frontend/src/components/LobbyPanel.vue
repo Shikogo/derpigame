@@ -43,10 +43,10 @@ async function copyInvite(): Promise<void> {
 <template>
   <div class="flex flex-col gap-5">
     <div class="flex items-center justify-between">
-      <h2 class="text-lg font-semibold">Lobby</h2>
+      <h2 class="font-display text-xl font-bold">Lobby</h2>
       <button
         class="rounded-lg px-4 py-2 text-sm font-semibold"
-        :class="ready ? 'bg-correct text-white' : 'border border-gray-300 hover:bg-gray-50'"
+        :class="ready ? 'bg-correct text-[#07101f]' : 'border border-border hover:bg-raised'"
         @click="room.setReady(!ready)"
       >
         {{ ready ? 'Ready ✓' : 'Ready up' }}
@@ -55,16 +55,16 @@ async function copyInvite(): Promise<void> {
 
     <UserList />
 
-    <div class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 p-3">
+    <div class="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface p-3">
       <div class="flex min-w-0 flex-col gap-0.5 text-sm">
         <span class="truncate">
-          <span class="text-gray-500">Searching:</span>
+          <span class="text-ink-muted">Searching:</span>
           <span class="font-medium">{{ querySummary }}</span>
         </span>
-        <span class="text-xs text-gray-400">NSFW: {{ nsfwOn ? 'on' : 'off' }}</span>
+        <span class="text-xs text-ink-faint">NSFW: {{ nsfwOn ? 'on' : 'off' }}</span>
       </div>
       <button
-        class="shrink-0 rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+        class="shrink-0 rounded border border-border px-3 py-1.5 text-sm font-medium hover:bg-raised"
         @click="settingsDialog?.open()"
       >
         ⚙ Edit
@@ -74,27 +74,27 @@ async function copyInvite(): Promise<void> {
 
     <div class="flex flex-col gap-2">
       <button
-        class="rounded-lg bg-turn px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+        class="rounded-lg bg-turn px-4 py-2.5 text-sm font-semibold text-[#07101f] disabled:opacity-40"
         :disabled="!anyReady"
         @click="room.startGame()"
       >
         Start game
       </button>
-      <p v-if="!anyReady" class="text-xs text-gray-400">At least one player must ready up.</p>
+      <p v-if="!anyReady" class="text-xs text-ink-faint">At least one player must ready up.</p>
       <p v-else-if="room.error" class="text-xs text-wrong">{{ errorLabel(room.error) }}</p>
     </div>
 
     <div class="flex flex-col gap-1">
-      <span class="text-sm font-semibold text-gray-600">Invite link</span>
+      <span class="text-sm font-semibold text-ink-muted">Invite link</span>
       <div class="flex gap-2">
         <input
           :value="inviteLink"
           readonly
-          class="flex-1 truncate rounded border border-gray-300 px-2 py-1 text-xs text-gray-500"
+          class="flex-1 truncate rounded border border-border bg-raised px-2 py-1 font-mono text-xs text-ink-muted"
           @focus="(e) => (e.target as HTMLInputElement).select()"
         />
         <button
-          class="rounded border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50"
+          class="rounded border border-border px-3 py-1 text-xs font-medium hover:bg-raised"
           @click="copyInvite"
         >
           {{ copied ? 'Copied!' : 'Copy' }}

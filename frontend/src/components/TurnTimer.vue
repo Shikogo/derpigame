@@ -13,6 +13,13 @@ const duration = computed(() => game.state.turnSeconds)
 const remaining = ref(duration.value)
 let timer: ReturnType<typeof setInterval> | undefined
 
+// Ring geometry: the arc depletes as the turn runs out (offset 0 = full ring).
+const R = 19
+const CIRCUM = 2 * Math.PI * R
+const dashOffset = computed(() =>
+  duration.value ? CIRCUM * (1 - remaining.value / duration.value) : CIRCUM,
+)
+
 function restart(): void {
   remaining.value = duration.value
   clearInterval(timer)
@@ -28,13 +35,30 @@ onBeforeUnmount(() => clearInterval(timer))
 </script>
 
 <template>
-  <div class="flex items-center gap-2 text-xs" :class="remaining <= 5 ? 'text-wrong' : 'text-gray-400'">
-    <span class="w-6 text-right font-semibold tabular-nums">{{ remaining }}s</span>
-    <div class="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200">
-      <div
-        class="h-full rounded-full bg-turn transition-[width] duration-1000 ease-linear"
-        :style="{ width: `${(remaining / duration) * 100}%` }"
+  <div
+    class="relative h-11 w-11 shrink-0"
+    :class="remaining <= 5 ? 'text-wrong' : 'text-turn'"
+    :title="`${remaining}s left`"
+  >
+    <svg class="h-full w-full -rotate-90" viewBox="0 0 44 44">
+      <circle cx="22" cy="22" :r="R" fill="none" stroke="var(--color-border)" stroke-width="4" />
+      <circle
+        cx="22"
+        cy="22"
+        :r="R"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="4"
+        stroke-linecap="round"
+        :stroke-dasharray="CIRCUM"
+        :stroke-dashoffset="dashOffset"
+        class="transition-[stroke-dashoffset] duration-1000 ease-linear"
       />
-    </div>
+    </svg>
+    <span
+      class="absolute inset-0 flex items-center justify-center font-mono text-xs font-semibold tabular-nums"
+    >
+      {{ remaining }}
+    </span>
   </div>
 </template>

@@ -19,7 +19,7 @@ const router = createRouter({
 })
 
 // Stub the panels so the test only exercises which one RoomView chooses.
-const stubs = { GamePanel: true, GameOverPanel: true, LobbyPanel: true, ChatPanel: true }
+const stubs = { GamePanel: true, GameOverPanel: true, LobbyPanel: true, ChatPanel: true, GameControls: true }
 
 function roomState(over: Partial<RoomState> = {}): RoomState {
   return {

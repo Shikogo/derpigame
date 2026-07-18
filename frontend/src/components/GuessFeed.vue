@@ -8,7 +8,7 @@ import type { RejectReason } from '@/types/wire'
 
 const game = useGameStore()
 
-const badge = 'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium'
+const badge = 'pill'
 
 const REJECT: Record<RejectReason, string> = {
   already_guessed: 'already found',
@@ -32,7 +32,7 @@ function describe(e: FeedEntry): { tone: string; text: string } {
     case 'eliminated':
       return { tone: 'bg-eliminated/10 text-eliminated', text: `${e.player} eliminated` }
     case 'rejected':
-      return { tone: 'bg-gray-100 text-gray-500', text: `${e.guess} — ${REJECT[e.reason]}` }
+      return { tone: 'bg-raised text-ink-faint', text: `${e.guess} — ${REJECT[e.reason]}` }
   }
 }
 
@@ -42,8 +42,20 @@ const items = computed(() =>
 </script>
 
 <template>
-  <div class="flex flex-wrap gap-1.5">
+  <TransitionGroup name="pop" tag="div" class="flex flex-wrap gap-1.5">
     <span v-for="item in items" :key="item.seq" :class="[badge, item.tone]">{{ item.text }}</span>
-    <p v-if="!items.length" class="text-xs text-gray-400">No guesses yet.</p>
-  </div>
+    <p v-if="!items.length" key="empty" class="text-xs text-ink-faint">No guesses yet.</p>
+  </TransitionGroup>
 </template>
+
+<style scoped>
+.pop-enter-active {
+  transition:
+    opacity 0.18s ease-out,
+    transform 0.18s ease-out;
+}
+.pop-enter-from {
+  opacity: 0;
+  transform: scale(0.85);
+}
+</style>

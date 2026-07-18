@@ -28,12 +28,12 @@ async function submit(): Promise<void> {
       type="text"
       autocomplete="off"
       :placeholder="game.isMyTurn ? 'Guess a tag…' : 'Wait for your turn'"
-      class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-turn focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-100"
+      class="flex-1 rounded-lg border border-border bg-raised px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-turn focus:outline-none disabled:cursor-not-allowed disabled:bg-surface disabled:text-ink-faint"
     />
     <button
       type="submit"
       :disabled="!game.isMyTurn || !guess.trim()"
-      class="rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+      class="rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-[#07101f] disabled:opacity-40"
     >
       Guess
     </button>
