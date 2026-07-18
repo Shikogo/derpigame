@@ -1,21 +1,20 @@
 <script setup lang="ts">
 /**
- * Cosmetic per-turn countdown. `turn_started` carries no server deadline yet, so
- * this is a local clock that resets each turn and may drift — it never drives
- * game logic (the backend owns timeouts).
+ * Cosmetic per-turn countdown. Its duration comes from the server
+ * (`state.turnSeconds`), so it matches the backend's real turn limit, but with
+ * no per-turn deadline it may still drift — it never drives game logic.
  */
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import { useGameStore } from '@/stores/game'
 
-const TURN_SECONDS = 30
-
 const game = useGameStore()
-const remaining = ref(TURN_SECONDS)
+const duration = computed(() => game.state.turnSeconds)
+const remaining = ref(duration.value)
 let timer: ReturnType<typeof setInterval> | undefined
 
 function restart(): void {
-  remaining.value = TURN_SECONDS
+  remaining.value = duration.value
   clearInterval(timer)
   timer = setInterval(() => {
     remaining.value = Math.max(0, remaining.value - 1)
@@ -34,7 +33,7 @@ onBeforeUnmount(() => clearInterval(timer))
     <div class="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200">
       <div
         class="h-full rounded-full bg-turn transition-[width] duration-1000 ease-linear"
-        :style="{ width: `${(remaining / TURN_SECONDS) * 100}%` }"
+        :style="{ width: `${(remaining / duration) * 100}%` }"
       />
     </div>
   </div>

@@ -46,12 +46,19 @@ export const useGameStore = defineStore('game', () => {
   // it against the membership list to find spectators.
   const roundPlayerUuids = computed(() => new Set(Object.keys(state.value.players)))
 
+  // I'm spectating if a round is live but I'm not in its roster (not-ready at
+  // start, or a late join) — distinct from a player waiting their turn.
+  const isSpectating = computed(
+    () => state.value.status === 'active' && !state.value.players[session.uuid],
+  )
+
   return {
     state,
     applyEvents,
     reset,
     activePlayer,
     isMyTurn,
+    isSpectating,
     scoreboard,
     ended,
     roundPlayerUuids,

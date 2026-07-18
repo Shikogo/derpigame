@@ -33,10 +33,17 @@ const live = computed(() => game.state.status === 'active' && !!game.state.image
         <TurnTimer />
       </div>
       <TagProgress />
-      <GuessInput />
+      <GuessInput v-if="!game.isSpectating" />
+      <p
+        v-else
+        class="rounded-lg bg-turn/5 px-3 py-2 text-center text-sm text-gray-500"
+      >
+        👁 You're spectating — you'll join the next round.
+      </p>
       <GuessFeed />
       <Scoreboard />
       <button
+        v-if="!game.isSpectating"
         class="self-start text-xs text-gray-400 underline hover:text-wrong"
         @click="room.stopGame()"
       >

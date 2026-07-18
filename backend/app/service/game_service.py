@@ -103,6 +103,9 @@ class GameService:
 
     async def _deliver(self, room: Room, events: list, *, lead: list[dict] | None = None) -> None:
         payloads = list(lead or []) + serialize_events(events)
+        for payload in payloads:
+            if payload["type"] == "game_started":
+                payload["turn_seconds"] = self._turn_seconds
         game_over = next((e for e in events if isinstance(e, GameOver)), None)
         if game_over is not None:
             image = self._current_image.pop(room.name, None)
@@ -146,6 +149,44 @@ class GameService:
     def room_win_counts(self, room_name: str) -> list[dict]:
         """Wins per player across the room's finished rounds, most first."""
         return _tally_wins(self._history.get(room_name, ()))
+
+    def game_snapshot(self, room: Room) -> dict | None:
+        """An answer-safe view of the in-progress game for a (re)joining client.
+
+        Carries the current image, roster with scores, whose turn it is, and
+        remaining counts — never the unguessed goal tags. ``None`` when no game
+        is running, so a lobby join sends nothing.
+        """
+        game = room.game
+        image = self._current_image.get(room.name)
+        if game is None or game.is_over or image is None:
+            return None
+        goal_key = game.taxonomy.goal_bucket
+        goal_remaining = game.tag_buckets[goal_key].tag_count
+        goal_guessed = sum(
+            1 for tag in game.guessed_tags if game.taxonomy.bucket_for(tag) == goal_key
+        )
+        return {
+            "type": "game_snapshot",
+            "image": {
+                "id": image.id,
+                "thumb_url": image.thumb_url,
+                "full_url": image.full_url,
+            },
+            "players": [
+                serialize_player(p) for p in (*game.players, *game.eliminated_players)
+            ],
+            "active_player": serialize_player(game.active_player),
+            "tag_count": goal_remaining + goal_guessed,  # original goal-bucket size
+            "goal_remaining": goal_remaining,
+            "bonus_counts": {
+                key: bucket.tag_count
+                for key, bucket in game.tag_buckets.items()
+                if key != goal_key
+            },
+            "eliminated": [p.uuid for p in game.eliminated_players],
+            "turn_seconds": self._turn_seconds,
+        }
 
     def cancel_room(self, room_name: str) -> None:
         """Release a room's turn timer, image, and history when it's torn down."""

@@ -51,6 +51,7 @@ export interface GameState {
   /** Goal-bucket size and how many of it are still unguessed. */
   goalTagCount: number
   goalRemaining: number
+  turnSeconds: number
   /** Remaining count per bonus bucket, keyed by opaque bucket key. */
   bonusCounts: Record<BucketKey, number>
   /** Players seen so far this round, keyed by uuid (latest score snapshot). */
@@ -63,6 +64,9 @@ export interface GameState {
   noImageQuery: string[] | null
 }
 
+// Fallback until game_started / game_snapshot delivers the server's value.
+const DEFAULT_TURN_SECONDS = 30
+
 export function initialGameState(): GameState {
   return {
     status: 'idle',
@@ -71,6 +75,7 @@ export function initialGameState(): GameState {
     activePlayerUuid: null,
     goalTagCount: 0,
     goalRemaining: 0,
+    turnSeconds: DEFAULT_TURN_SECONDS,
     bonusCounts: {},
     players: {},
     eliminated: [],
@@ -102,6 +107,7 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
         activePlayerUuid: event.first_player.uuid,
         goalTagCount: event.tag_count,
         goalRemaining: event.tag_count,
+        turnSeconds: event.turn_seconds,
         bonusCounts: { ...event.bonus_counts },
         players,
       }
@@ -210,6 +216,29 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
           page_url: event.page_url,
         },
       }
+
+    case 'game_snapshot': {
+      // A (re)join into a live round: rebuild the game view from scratch. No feed
+      // — past guesses aren't replayed, only the current standing.
+      const players: Record<string, Player> = {}
+      for (const p of event.players) recordPlayer(players, p)
+      return {
+        ...initialGameState(),
+        status: 'active',
+        image: {
+          id: event.image.id,
+          thumb_url: event.image.thumb_url,
+          full_url: event.image.full_url,
+        },
+        activePlayerUuid: event.active_player.uuid,
+        goalTagCount: event.tag_count,
+        goalRemaining: event.goal_remaining,
+        turnSeconds: event.turn_seconds,
+        bonusCounts: { ...event.bonus_counts },
+        players,
+        eliminated: [...event.eliminated],
+      }
+    }
 
     case 'no_image':
       // A failed new round starts clean — don't leave the prior game's picture,

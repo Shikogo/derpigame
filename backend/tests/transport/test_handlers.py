@@ -6,6 +6,8 @@ backed by a ``StaticImageSource`` runs underneath. Handler coroutines are called
 straight, and their ack return values and recorded emits are asserted.
 """
 
+import asyncio
+
 import pytest
 
 from app.service.game_service import GameService
@@ -36,7 +38,8 @@ class FakeServer:
         self.member_rooms.get(room, set()).discard(sid)
 
     async def emit(self, event, data=None, room=None, **kwargs):
-        self.emits.append((event, data, room))
+        # A targeted emit uses to=<sid>; record it in the room slot for assertions.
+        self.emits.append((event, data, room if room is not None else kwargs.get("to")))
 
     def on(self, event, handler):  # parity with register(); unused here
         pass
@@ -57,18 +60,23 @@ class FakeServer:
 def make():
     """Factory for a wired (handlers, server, registry, service); auto-shuts timers."""
     services = []
+    handlers_made = []
 
-    def _make(tags=("solo", "twilight"), turn_seconds=30.0):
+    def _make(tags=("solo", "twilight"), turn_seconds=30.0, reconnect_grace=30.0):
         server = FakeServer()
         registry = RoomRegistry()
         image = Image(id="1", tags=list(tags), thumb_url="t", full_url="f")
         service = GameService(
             StaticImageSource([image]), SocketIOEmitter(server), turn_seconds=turn_seconds
         )
+        handlers = SocketHandlers(server, registry, service, reconnect_grace=reconnect_grace)
         services.append(service)
-        return SocketHandlers(server, registry, service), server, registry, service
+        handlers_made.append(handlers)
+        return handlers, server, registry, service
 
     yield _make
+    for handlers in handlers_made:
+        handlers.shutdown()
     for service in services:
         service.shutdown()
 
@@ -351,13 +359,68 @@ async def test_last_player_leaving_tears_down_the_room_and_timer(make):
     assert code not in service._timers  # orphaned timer cancelled
 
 
-async def test_disconnect_is_treated_as_leaving(make):
-    handlers, _server, registry, _service = make()
+async def test_disconnect_keeps_the_room_briefly_then_tears_it_down(make):
+    handlers, _server, registry, _service = make(reconnect_grace=0.02)
     code = await _create(handlers, "sa", "ua", "Alice")
 
     await handlers.disconnect("sa")
+    assert registry.get(code) is not None  # held for a reconnect window
 
-    assert registry.get(code) is None
+    await asyncio.sleep(0.05)
+    assert registry.get(code) is None  # torn down once the window lapses
+
+
+async def test_reconnect_within_grace_reclaims_the_room(make):
+    handlers, _server, registry, _service = make(reconnect_grace=0.05)
+    code = await _create(handlers, "sa", "ua", "Alice")
+
+    await handlers.disconnect("sa")  # e.g. a page reload drops the socket
+    await handlers.join_room("sa2", {"room": code, "uuid": "ua", "name": "Alice"})
+    await asyncio.sleep(0.08)  # window lapses, but the reconnect cancelled it
+
+    assert registry.get(code) is not None
+    assert "ua" in registry.get(code).users
+
+
+async def test_stale_disconnect_after_a_reconnect_is_ignored(make):
+    handlers, _server, registry, _service = make(reconnect_grace=0.02)
+    code = await _create(handlers, "sa", "ua", "Alice")
+    # A new socket for the same identity takes over before the old one closes.
+    await handlers.join_room("sa2", {"room": code, "uuid": "ua", "name": "Alice"})
+
+    await handlers.disconnect("sa")  # stale close from the superseded socket
+    await asyncio.sleep(0.05)
+
+    assert registry.get(code) is not None
+    assert "ua" in registry.get(code).users
+
+
+async def test_joining_a_live_round_gets_a_game_snapshot(make):
+    handlers, server, _registry, _service = make()
+    code = await _create(handlers, "sa", "ua", "Alice")
+    await handlers.set_ready("sa", {"ready": True})
+    await handlers.start_game("sa")
+
+    await handlers.join_room("sb", {"room": code, "uuid": "ub", "name": "Bob"})
+
+    snapshots = [
+        (data, target)
+        for name, data, target in server.emits
+        if name == "game_events" and data and data[0]["type"] == "game_snapshot"
+    ]
+    assert len(snapshots) == 1
+    data, target = snapshots[0]
+    assert target == "sb"  # to the joining socket only, not a room broadcast
+    assert data[0]["active_player"]["name"] == "Alice"
+
+
+async def test_lobby_join_gets_no_snapshot(make):
+    handlers, server, _registry, _service = make()
+    code = await _create(handlers, "sa", "ua", "Alice")
+
+    await handlers.join_room("sb", {"room": code, "uuid": "ub", "name": "Bob"})
+
+    assert "game_snapshot" not in server.game_event_types()
 
 
 async def test_chat_broadcasts_and_never_touches_the_game(make):

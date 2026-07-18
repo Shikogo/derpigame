@@ -7,6 +7,8 @@ returns an ack dict to that one caller, and broadcasts ``room_state`` /
 parse, dispatch, and translate — nothing more.
 """
 
+import asyncio
+
 from app.domain.user import User
 from app.service.errors import GameActionError, NotYourTurn
 from app.service.game_service import GameService
@@ -15,6 +17,7 @@ from app.transport.room_codes import new_code
 from app.transport.snapshots import room_state
 
 _ALLOCATE_ATTEMPTS = 10  # fresh code draws before giving up (collisions are rare)
+_RECONNECT_GRACE_SECONDS = 30.0  # keep a drained room this long for a reload/reconnect
 
 
 def _ok(**extra) -> dict:
@@ -32,10 +35,20 @@ def _parse_query(raw) -> list[str]:
 
 
 class SocketHandlers:
-    def __init__(self, sio, registry: RoomRegistry, service: GameService):
+    def __init__(
+        self,
+        sio,
+        registry: RoomRegistry,
+        service: GameService,
+        *,
+        reconnect_grace: float = _RECONNECT_GRACE_SECONDS,
+    ):
         self._sio = sio
         self._registry = registry
         self._service = service
+        self._reconnect_grace = reconnect_grace
+        self._owner: dict[str, str] = {}  # uuid -> the sid that currently holds it
+        self._grace: dict[str, asyncio.Task] = {}  # uuid -> pending teardown
 
     def register(self) -> None:
         for event in (
@@ -52,7 +65,18 @@ class SocketHandlers:
 
     async def disconnect(self, sid, *args):
         session = await self._session(sid)
-        await self._cleanup_membership(session.get("room"), session.get("uuid"))
+        room_name, uuid = session.get("room"), session.get("uuid")
+        if not room_name or not uuid:
+            return
+        if self._owner.get(uuid) != sid:
+            return  # a newer socket already took over this identity; stale close
+        self._schedule_teardown(sid, room_name, uuid)
+
+    def shutdown(self) -> None:
+        """Cancel pending reconnect grace timers (app shutdown / test cleanup)."""
+        for task in self._grace.values():
+            task.cancel()
+        self._grace.clear()
 
     # --- room membership ------------------------------------------------------
 
@@ -89,10 +113,15 @@ class SocketHandlers:
     async def leave_room(self, sid, data=None):
         session = await self._session(sid)
         room_name = session.get("room")
+        uuid = session.get("uuid")
         if room_name:
             await self._sio.leave_room(sid, room_name)
         await self._sio.save_session(sid, {})
-        await self._cleanup_membership(room_name, session.get("uuid"))
+        if uuid:  # an explicit leave is intentional — no reconnect grace
+            self._cancel_grace(uuid)
+            if self._owner.get(uuid) == sid:
+                self._owner.pop(uuid, None)
+        await self._remove_member(room_name, uuid)
         return _ok()
 
     async def set_ready(self, sid, data=None):
@@ -202,7 +231,14 @@ class SocketHandlers:
             sid, {"uuid": uuid, "room": room.name, "name": name}
         )
         await self._sio.enter_room(sid, room.name)
+        self._owner[uuid] = sid
+        self._cancel_grace(uuid)  # a reconnect cancels any pending teardown
         await self._broadcast_state(room)
+        # Rejoin/late-join into a live round: hand this socket the game snapshot
+        # so it renders the round in progress instead of a lobby-only view.
+        snapshot = self._service.game_snapshot(room)
+        if snapshot is not None:
+            await self._sio.emit("game_events", [snapshot], to=sid)
         return _ok(room_state=self._state(room))
 
     def _allocate_room(self):
@@ -246,9 +282,9 @@ class SocketHandlers:
         old_room = session.get("room")
         if old_room and old_room != new_room:
             await self._sio.leave_room(sid, old_room)
-            await self._cleanup_membership(old_room, session.get("uuid"))
+            await self._remove_member(old_room, session.get("uuid"))
 
-    async def _cleanup_membership(self, room_name, uuid) -> None:
+    async def _remove_member(self, room_name, uuid) -> None:
         """Drop a user from a room; tear the room down once it's empty."""
         if not room_name or not uuid:
             return
@@ -261,3 +297,25 @@ class SocketHandlers:
         else:
             self._service.cancel_room(room_name)
             self._registry.remove(room_name)
+
+    def _schedule_teardown(self, sid: str, room_name: str, uuid: str) -> None:
+        """After a disconnect, keep the room briefly so a reload can reclaim it."""
+        self._cancel_grace(uuid)
+        self._grace[uuid] = asyncio.create_task(
+            self._drop_after_grace(sid, room_name, uuid)
+        )
+
+    def _cancel_grace(self, uuid: str) -> None:
+        task = self._grace.pop(uuid, None)
+        if task is not None:
+            task.cancel()
+
+    async def _drop_after_grace(self, sid: str, room_name: str, uuid: str) -> None:
+        try:
+            await asyncio.sleep(self._reconnect_grace)
+        except asyncio.CancelledError:
+            return  # reconnected within the window; keep the membership
+        self._grace.pop(uuid, None)
+        if self._owner.get(uuid) == sid:  # nobody reclaimed this identity
+            self._owner.pop(uuid, None)
+            await self._remove_member(room_name, uuid)

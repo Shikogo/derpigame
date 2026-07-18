@@ -16,7 +16,7 @@ from app.service.derpibooru import DerpibooruImageSource
 from app.service.game_service import DEFAULT_TURN_SECONDS, GameService
 from app.service.image_source import ImageSource
 from app.transport.emitter import SocketIOEmitter
-from app.transport.handlers import SocketHandlers
+from app.transport.handlers import _RECONNECT_GRACE_SECONDS, SocketHandlers
 from app.transport.registry import RoomRegistry
 
 
@@ -24,6 +24,7 @@ def create_app(
     *,
     image_source: ImageSource | None = None,
     turn_seconds: float = DEFAULT_TURN_SECONDS,
+    reconnect_grace: float = _RECONNECT_GRACE_SECONDS,
     cors_origins: list[str] | str = "*",
 ):
     sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=cors_origins)
@@ -32,12 +33,14 @@ def create_app(
         SocketIOEmitter(sio),
         turn_seconds=turn_seconds,
     )
-    SocketHandlers(sio, RoomRegistry(), service).register()
+    handlers = SocketHandlers(sio, RoomRegistry(), service, reconnect_grace=reconnect_grace)
+    handlers.register()
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         yield
         service.shutdown()  # cancel every pending turn timer on shutdown
+        handlers.shutdown()  # and any reconnect grace timers
 
     api = FastAPI(lifespan=lifespan)
     api.add_middleware(

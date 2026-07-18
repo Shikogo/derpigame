@@ -1,6 +1,7 @@
 """Orchestration: fetch → mutate domain → emit → time, routed through one path."""
 
 import asyncio
+import json
 
 import pytest
 
@@ -71,6 +72,18 @@ async def test_start_game_announces_opening_and_arms_a_timer():
     assert emitter.types() == ["image_started", "game_started", "turn_started"]
     assert room.game is not None
     assert "lobby" in service._timers  # armed for the first turn
+    service.shutdown()
+
+
+async def test_game_started_carries_the_service_turn_duration():
+    emitter = RecordingEmitter()
+    service = make_service(["solo"], emitter, turn_seconds=45.0)
+    room = make_room("alice")
+
+    await service.start_game(room, first_index=0)
+
+    started = next(p for p in emitter.payloads if p["type"] == "game_started")
+    assert started["turn_seconds"] == 45.0  # the client's clock matches the server
     service.shutdown()
 
 
@@ -394,3 +407,52 @@ def test_win_counts_tally_by_uuid_sorted_with_latest_name():
 def test_win_counts_are_empty_for_an_unplayed_room():
     service = GameService(StaticImageSource([]), RecordingEmitter())
     assert service.room_win_counts("lobby") == []
+
+
+# --- game snapshot (mid-game (re)join) ---------------------------------------
+
+
+async def test_game_snapshot_describes_the_live_round_without_leaking_answers():
+    service = make_service(["solo", "twilight"], RecordingEmitter())
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+
+    snap = service.game_snapshot(room)
+
+    assert snap["type"] == "game_snapshot"
+    assert snap["image"] == {"id": "1", "thumb_url": "t", "full_url": "f"}
+    assert {p["name"] for p in snap["players"]} == {"alice", "bob"}
+    assert snap["active_player"]["name"] == "alice"
+    assert snap["tag_count"] == 2
+    assert snap["goal_remaining"] == 2
+    assert snap["eliminated"] == []
+    assert snap["turn_seconds"] == 30
+    # the unguessed goal tags must never appear anywhere in the payload
+    assert "twilight" not in json.dumps(snap)
+    assert "solo" not in json.dumps(snap)
+    service.shutdown()
+
+
+async def test_game_snapshot_tracks_progress_but_keeps_the_original_total():
+    service = make_service(["solo", "twilight"], RecordingEmitter())
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+
+    await service.submit_guess(room, "alice", "solo")  # one goal tag found
+
+    snap = service.game_snapshot(room)
+    assert snap["goal_remaining"] == 1
+    assert snap["tag_count"] == 2  # original total, reconstructed
+    service.shutdown()
+
+
+async def test_game_snapshot_is_none_without_a_running_game():
+    service = make_service(["solo"], RecordingEmitter())
+    room = make_room("alice")
+    assert service.game_snapshot(room) is None  # no game yet
+
+    await service.start_game(room, first_index=0)
+    await service.submit_guess(room, "alice", "solo")  # single goal tag -> win
+    assert room.game.is_over
+    assert service.game_snapshot(room) is None  # finished round reveals, not snapshots
+    service.shutdown()

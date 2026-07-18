@@ -77,6 +77,7 @@ export interface GameStarted {
   /** Namespaced bonus buckets, keyed by bucket, e.g. { artists: 1, ocs: 2 }. */
   bonus_counts: Record<BucketKey, number>
   query: string[]
+  turn_seconds: number
 }
 
 export interface TurnStarted {
@@ -159,6 +160,25 @@ export interface ImageRevealed {
   page_url: string
 }
 
+/**
+ * Answer-safe state of a round in progress, sent only to a (re)joining socket so
+ * a reload / late join can render the live game. Counts and scores only — never
+ * the unguessed goal tags.
+ */
+export interface GameSnapshot {
+  type: 'game_snapshot'
+  image: { id: string; thumb_url: string; full_url: string }
+  players: Player[]
+  active_player: Player
+  /** Original goal-bucket size (the progress denominator). */
+  tag_count: number
+  goal_remaining: number
+  bonus_counts: Record<BucketKey, number>
+  /** uuids of players already eliminated this round. */
+  eliminated: string[]
+  turn_seconds: number
+}
+
 export type GameEvent =
   | GameStarted
   | TurnStarted
@@ -173,6 +193,7 @@ export type GameEvent =
   | GameAborted
   | ImageStarted
   | ImageRevealed
+  | GameSnapshot
 
 /** Discriminator string of every game event, for exhaustive reducer switches. */
 export type GameEventType = GameEvent['type']

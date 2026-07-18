@@ -32,6 +32,7 @@ const isMember = computed(
 
 const joinName = ref(session.name)
 const joining = ref(false)
+const reconnecting = ref(false)
 
 async function join(): Promise<void> {
   const value = joinName.value.trim()
@@ -41,10 +42,15 @@ async function join(): Promise<void> {
   joining.value = false
 }
 
-onMounted(() => {
+onMounted(async () => {
   // Deep link / refresh into a room we're not in: auto-join if we already have a
-  // name, otherwise the gate below asks for one.
-  if (!isMember.value && session.name) join()
+  // name (a reload reclaims the room within the backend's grace window),
+  // otherwise the gate below asks for one.
+  if (!isMember.value && session.name) {
+    reconnecting.value = true
+    await join()
+    reconnecting.value = false
+  }
 })
 
 const showGameOver = computed(() => game.ended)
@@ -73,32 +79,37 @@ async function backToLobby(): Promise<void> {
 
 <template>
   <main class="mx-auto flex min-h-full max-w-6xl flex-col p-4">
-    <!-- name gate -->
-    <div
-      v-if="!isMember"
-      class="m-auto w-full max-w-sm rounded-lg border border-gray-200 p-6"
-    >
-      <h1 class="mb-1 text-xl font-semibold">
-        Join room <span class="uppercase text-turn">{{ code }}</span>
-      </h1>
-      <p class="mb-4 text-sm text-gray-500">Pick a name to join.</p>
-      <form class="flex flex-col gap-3" @submit.prevent="join">
-        <input
-          v-model="joinName"
-          placeholder="Your name"
-          class="rounded border border-gray-300 px-3 py-2 text-sm focus:border-turn focus:outline-none"
-        />
-        <button
-          :disabled="!joinName.trim() || joining"
-          class="rounded bg-turn px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
-        >
-          Join
-        </button>
-      </form>
-      <p v-if="room.error" class="mt-2 text-sm text-wrong">{{ errorLabel(room.error) }}</p>
-      <RouterLink to="/" class="mt-3 inline-block text-xs text-gray-400 underline">
-        Back home
-      </RouterLink>
+    <!-- reconnecting / name gate -->
+    <div v-if="!isMember" class="m-auto w-full max-w-sm">
+      <div
+        v-if="reconnecting && !room.error"
+        class="rounded-lg border border-gray-200 p-6 text-center text-sm text-gray-500"
+      >
+        Reconnecting to room <span class="uppercase text-turn">{{ code }}</span>…
+      </div>
+      <div v-else class="rounded-lg border border-gray-200 p-6">
+        <h1 class="mb-1 text-xl font-semibold">
+          Join room <span class="uppercase text-turn">{{ code }}</span>
+        </h1>
+        <p class="mb-4 text-sm text-gray-500">Pick a name to join.</p>
+        <form class="flex flex-col gap-3" @submit.prevent="join">
+          <input
+            v-model="joinName"
+            placeholder="Your name"
+            class="rounded border border-gray-300 px-3 py-2 text-sm focus:border-turn focus:outline-none"
+          />
+          <button
+            :disabled="!joinName.trim() || joining"
+            class="rounded bg-turn px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            Join
+          </button>
+        </form>
+        <p v-if="room.error" class="mt-2 text-sm text-wrong">{{ errorLabel(room.error) }}</p>
+        <RouterLink to="/" class="mt-3 inline-block text-xs text-gray-400 underline">
+          Back home
+        </RouterLink>
+      </div>
     </div>
 
     <!-- in the room -->

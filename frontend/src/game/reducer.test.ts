@@ -21,6 +21,7 @@ function openedGame(over: Partial<GameEvent> = {}): GameState {
       tag_count: 3,
       bonus_counts: { artists: 1 },
       query: ['safe'],
+      turn_seconds: 30,
       ...over,
     } as GameEvent,
     { type: 'turn_started', player: alice },
@@ -68,7 +69,7 @@ describe('reduce', () => {
   it('game_started seeds the whole roster, not just the first player', () => {
     const s = reduceAll(initialGameState(), [
       { type: 'image_started', id: '1', thumb_url: 't', full_url: 'f' },
-      { type: 'game_started', first_player: alice, players: [alice, bob], tag_count: 2, bonus_counts: {}, query: [] },
+      { type: 'game_started', first_player: alice, players: [alice, bob], tag_count: 2, bonus_counts: {}, query: [], turn_seconds: 30 },
       { type: 'turn_started', player: alice },
     ])
     expect(Object.keys(s.players).sort()).toEqual(['a', 'b'])
@@ -176,6 +177,29 @@ describe('reduce', () => {
     expect(s.status).toBe('aborted')
     expect(s.reveal?.source_url).toBeNull()
     expect(s.reveal?.page_url).toBe('https://derpi/42')
+  })
+
+  it('game_snapshot rebuilds a live round for a (re)joining client', () => {
+    const s = reduce(initialGameState(), {
+      type: 'game_snapshot',
+      image: { id: '7', thumb_url: 't', full_url: 'f' },
+      players: [player(alice, { score: 2 }), player(bob, { score: 1, wrong_guesses: 1 })],
+      active_player: bob,
+      tag_count: 4,
+      goal_remaining: 1,
+      bonus_counts: { artists: 2 },
+      eliminated: ['c'],
+      turn_seconds: 20,
+    })
+    expect(s.status).toBe('active')
+    expect(s.turnSeconds).toBe(20)
+    expect(s.image).toEqual({ id: '7', thumb_url: 't', full_url: 'f' })
+    expect(s.activePlayerUuid).toBe('b')
+    expect(s.goalTagCount).toBe(4)
+    expect(s.goalRemaining).toBe(1)
+    expect(s.bonusCounts).toEqual({ artists: 2 })
+    expect(s.players.a?.score).toBe(2)
+    expect(s.eliminated).toEqual(['c'])
   })
 
   it('no_image and image_error set their status', () => {
