@@ -14,5 +14,11 @@ export const router = createRouter({
       component: () => import('@/views/RoomView.vue'),
       props: true,
     },
+    {
+      // Dev harness for exercising ImageViewer in isolation.
+      path: '/sandbox/viewer',
+      name: 'viewer-sandbox',
+      component: () => import('@/views/ViewerSandbox.vue'),
+    },
   ],
 })

@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1400" viewBox="0 0 2000 1400">
+<rect width="2000" height="1400" fill="#0f172a"/>
+<rect width="1000" height="700" fill="#1e293b"/>
+<rect x="1000" y="700" width="1000" height="700" fill="#1e293b"/>
+<line x1="0" y1="0" x2="0" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="100" y1="0" x2="100" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="200" y1="0" x2="200" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="300" y1="0" x2="300" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="400" y1="0" x2="400" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="500" y1="0" x2="500" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="600" y1="0" x2="600" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="700" y1="0" x2="700" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="800" y1="0" x2="800" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="900" y1="0" x2="900" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="1000" y1="0" x2="1000" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="1100" y1="0" x2="1100" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="1200" y1="0" x2="1200" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="1300" y1="0" x2="1300" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="1400" y1="0" x2="1400" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="1500" y1="0" x2="1500" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="1600" y1="0" x2="1600" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="1700" y1="0" x2="1700" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="1800" y1="0" x2="1800" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="1900" y1="0" x2="1900" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="2000" y1="0" x2="2000" y2="1400" stroke="#475569" stroke-width="1"/>
+<line x1="0" y1="0" x2="2000" y2="0" stroke="#475569" stroke-width="1"/>
+<line x1="0" y1="100" x2="2000" y2="100" stroke="#475569" stroke-width="1"/>
+<line x1="0" y1="200" x2="2000" y2="200" stroke="#475569" stroke-width="1"/>
+<line x1="0" y1="300" x2="2000" y2="300" stroke="#475569" stroke-width="1"/>
+<line x1="0" y1="400" x2="2000" y2="400" stroke="#475569" stroke-width="1"/>
+<line x1="0" y1="500" x2="2000" y2="500" stroke="#475569" stroke-width="1"/>
+<line x1="0" y1="600" x2="2000" y2="600" stroke="#475569" stroke-width="1"/>
+<line x1="0" y1="700" x2="2000" y2="700" stroke="#475569" stroke-width="1"/>
+<line x1="0" y1="800" x2="2000" y2="800" stroke="#475569" stroke-width="1"/>
+<line x1="0" y1="900" x2="2000" y2="900" stroke="#475569" stroke-width="1"/>
+<line x1="0" y1="1000" x2="2000" y2="1000" stroke="#475569" stroke-width="1"/>
+<line x1="0" y1="1100" x2="2000" y2="1100" stroke="#475569" stroke-width="1"/>
+<line x1="0" y1="1200" x2="2000" y2="1200" stroke="#475569" stroke-width="1"/>
+<line x1="0" y1="1300" x2="2000" y2="1300" stroke="#475569" stroke-width="1"/>
+<line x1="0" y1="1400" x2="2000" y2="1400" stroke="#475569" stroke-width="1"/>
+<text x="6" y="22" fill="#cbd5e1" font-size="18" font-family="monospace">0,0</text>
+<text x="6" y="222" fill="#cbd5e1" font-size="18" font-family="monospace">0,200</text>
+<text x="6" y="422" fill="#cbd5e1" font-size="18" font-family="monospace">0,400</text>
+<text x="6" y="622" fill="#cbd5e1" font-size="18" font-family="monospace">0,600</text>
+<text x="6" y="822" fill="#cbd5e1" font-size="18" font-family="monospace">0,800</text>
+<text x="6" y="1022" fill="#cbd5e1" font-size="18" font-family="monospace">0,1000</text>
+<text x="6" y="1222" fill="#cbd5e1" font-size="18" font-family="monospace">0,1200</text>
+<text x="6" y="1422" fill="#cbd5e1" font-size="18" font-family="monospace">0,1400</text>
+<text x="206" y="22" fill="#cbd5e1" font-size="18" font-family="monospace">200,0</text>
+<text x="206" y="222" fill="#cbd5e1" font-size="18" font-family="monospace">200,200</text>
+<text x="206" y="422" fill="#cbd5e1" font-size="18" font-family="monospace">200,400</text>
+<text x="206" y="622" fill="#cbd5e1" font-size="18" font-family="monospace">200,600</text>
+<text x="206" y="822" fill="#cbd5e1" font-size="18" font-family="monospace">200,800</text>
+<text x="206" y="1022" fill="#cbd5e1" font-size="18" font-family="monospace">200,1000</text>
+<text x="206" y="1222" fill="#cbd5e1" font-size="18" font-family="monospace">200,1200</text>
+<text x="206" y="1422" fill="#cbd5e1" font-size="18" font-family="monospace">200,1400</text>
+<text x="406" y="22" fill="#cbd5e1" font-size="18" font-family="monospace">400,0</text>
+<text x="406" y="222" fill="#cbd5e1" font-size="18" font-family="monospace">400,200</text>
+<text x="406" y="422" fill="#cbd5e1" font-size="18" font-family="monospace">400,400</text>
+<text x="406" y="622" fill="#cbd5e1" font-size="18" font-family="monospace">400,600</text>
+<text x="406" y="822" fill="#cbd5e1" font-size="18" font-family="monospace">400,800</text>
+<text x="406" y="1022" fill="#cbd5e1" font-size="18" font-family="monospace">400,1000</text>
+<text x="406" y="1222" fill="#cbd5e1" font-size="18" font-family="monospace">400,1200</text>
+<text x="406" y="1422" fill="#cbd5e1" font-size="18" font-family="monospace">400,1400</text>
+<text x="606" y="22" fill="#cbd5e1" font-size="18" font-family="monospace">600,0</text>
+<text x="606" y="222" fill="#cbd5e1" font-size="18" font-family="monospace">600,200</text>
+<text x="606" y="422" fill="#cbd5e1" font-size="18" font-family="monospace">600,400</text>
+<text x="606" y="622" fill="#cbd5e1" font-size="18" font-family="monospace">600,600</text>
+<text x="606" y="822" fill="#cbd5e1" font-size="18" font-family="monospace">600,800</text>
+<text x="606" y="1022" fill="#cbd5e1" font-size="18" font-family="monospace">600,1000</text>
+<text x="606" y="1222" fill="#cbd5e1" font-size="18" font-family="monospace">600,1200</text>
+<text x="606" y="1422" fill="#cbd5e1" font-size="18" font-family="monospace">600,1400</text>
+<text x="806" y="22" fill="#cbd5e1" font-size="18" font-family="monospace">800,0</text>
+<text x="806" y="222" fill="#cbd5e1" font-size="18" font-family="monospace">800,200</text>
+<text x="806" y="422" fill="#cbd5e1" font-size="18" font-family="monospace">800,400</text>
+<text x="806" y="622" fill="#cbd5e1" font-size="18" font-family="monospace">800,600</text>
+<text x="806" y="822" fill="#cbd5e1" font-size="18" font-family="monospace">800,800</text>
+<text x="806" y="1022" fill="#cbd5e1" font-size="18" font-family="monospace">800,1000</text>
+<text x="806" y="1222" fill="#cbd5e1" font-size="18" font-family="monospace">800,1200</text>
+<text x="806" y="1422" fill="#cbd5e1" font-size="18" font-family="monospace">800,1400</text>
+<text x="1006" y="22" fill="#cbd5e1" font-size="18" font-family="monospace">1000,0</text>
+<text x="1006" y="222" fill="#cbd5e1" font-size="18" font-family="monospace">1000,200</text>
+<text x="1006" y="422" fill="#cbd5e1" font-size="18" font-family="monospace">1000,400</text>
+<text x="1006" y="622" fill="#cbd5e1" font-size="18" font-family="monospace">1000,600</text>
+<text x="1006" y="822" fill="#cbd5e1" font-size="18" font-family="monospace">1000,800</text>
+<text x="1006" y="1022" fill="#cbd5e1" font-size="18" font-family="monospace">1000,1000</text>
+<text x="1006" y="1222" fill="#cbd5e1" font-size="18" font-family="monospace">1000,1200</text>
+<text x="1006" y="1422" fill="#cbd5e1" font-size="18" font-family="monospace">1000,1400</text>
+<text x="1206" y="22" fill="#cbd5e1" font-size="18" font-family="monospace">1200,0</text>
+<text x="1206" y="222" fill="#cbd5e1" font-size="18" font-family="monospace">1200,200</text>
+<text x="1206" y="422" fill="#cbd5e1" font-size="18" font-family="monospace">1200,400</text>
+<text x="1206" y="622" fill="#cbd5e1" font-size="18" font-family="monospace">1200,600</text>
+<text x="1206" y="822" fill="#cbd5e1" font-size="18" font-family="monospace">1200,800</text>
+<text x="1206" y="1022" fill="#cbd5e1" font-size="18" font-family="monospace">1200,1000</text>
+<text x="1206" y="1222" fill="#cbd5e1" font-size="18" font-family="monospace">1200,1200</text>
+<text x="1206" y="1422" fill="#cbd5e1" font-size="18" font-family="monospace">1200,1400</text>
+<text x="1406" y="22" fill="#cbd5e1" font-size="18" font-family="monospace">1400,0</text>
+<text x="1406" y="222" fill="#cbd5e1" font-size="18" font-family="monospace">1400,200</text>
+<text x="1406" y="422" fill="#cbd5e1" font-size="18" font-family="monospace">1400,400</text>
+<text x="1406" y="622" fill="#cbd5e1" font-size="18" font-family="monospace">1400,600</text>
+<text x="1406" y="822" fill="#cbd5e1" font-size="18" font-family="monospace">1400,800</text>
+<text x="1406" y="1022" fill="#cbd5e1" font-size="18" font-family="monospace">1400,1000</text>
+<text x="1406" y="1222" fill="#cbd5e1" font-size="18" font-family="monospace">1400,1200</text>
+<text x="1406" y="1422" fill="#cbd5e1" font-size="18" font-family="monospace">1400,1400</text>
+<text x="1606" y="22" fill="#cbd5e1" font-size="18" font-family="monospace">1600,0</text>
+<text x="1606" y="222" fill="#cbd5e1" font-size="18" font-family="monospace">1600,200</text>
+<text x="1606" y="422" fill="#cbd5e1" font-size="18" font-family="monospace">1600,400</text>
+<text x="1606" y="622" fill="#cbd5e1" font-size="18" font-family="monospace">1600,600</text>
+<text x="1606" y="822" fill="#cbd5e1" font-size="18" font-family="monospace">1600,800</text>
+<text x="1606" y="1022" fill="#cbd5e1" font-size="18" font-family="monospace">1600,1000</text>
+<text x="1606" y="1222" fill="#cbd5e1" font-size="18" font-family="monospace">1600,1200</text>
+<text x="1606" y="1422" fill="#cbd5e1" font-size="18" font-family="monospace">1600,1400</text>
+<text x="1806" y="22" fill="#cbd5e1" font-size="18" font-family="monospace">1800,0</text>
+<text x="1806" y="222" fill="#cbd5e1" font-size="18" font-family="monospace">1800,200</text>
+<text x="1806" y="422" fill="#cbd5e1" font-size="18" font-family="monospace">1800,400</text>
+<text x="1806" y="622" fill="#cbd5e1" font-size="18" font-family="monospace">1800,600</text>
+<text x="1806" y="822" fill="#cbd5e1" font-size="18" font-family="monospace">1800,800</text>
+<text x="1806" y="1022" fill="#cbd5e1" font-size="18" font-family="monospace">1800,1000</text>
+<text x="1806" y="1222" fill="#cbd5e1" font-size="18" font-family="monospace">1800,1200</text>
+<text x="1806" y="1422" fill="#cbd5e1" font-size="18" font-family="monospace">1800,1400</text>
+<text x="2006" y="22" fill="#cbd5e1" font-size="18" font-family="monospace">2000,0</text>
+<text x="2006" y="222" fill="#cbd5e1" font-size="18" font-family="monospace">2000,200</text>
+<text x="2006" y="422" fill="#cbd5e1" font-size="18" font-family="monospace">2000,400</text>
+<text x="2006" y="622" fill="#cbd5e1" font-size="18" font-family="monospace">2000,600</text>
+<text x="2006" y="822" fill="#cbd5e1" font-size="18" font-family="monospace">2000,800</text>
+<text x="2006" y="1022" fill="#cbd5e1" font-size="18" font-family="monospace">2000,1000</text>
+<text x="2006" y="1222" fill="#cbd5e1" font-size="18" font-family="monospace">2000,1200</text>
+<text x="2006" y="1422" fill="#cbd5e1" font-size="18" font-family="monospace">2000,1400</text>
+<circle cx="0" cy="0" r="46" fill="#ef4444"/>
+<circle cx="2000" cy="0" r="46" fill="#22c55e"/>
+<circle cx="0" cy="1400" r="46" fill="#3b82f6"/>
+<circle cx="2000" cy="1400" r="46" fill="#eab308"/>
+<text x="1000" y="700" fill="#f8fafc" font-size="90" text-anchor="middle" dominant-baseline="middle" font-family="monospace">CENTER</text>
+</svg>
