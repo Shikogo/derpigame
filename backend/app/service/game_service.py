@@ -143,6 +143,10 @@ class GameService:
         """The room's finished rounds, oldest first — for the lobby snapshot."""
         return list(self._history.get(room_name, ()))
 
+    def room_win_counts(self, room_name: str) -> list[dict]:
+        """Wins per player across the room's finished rounds, most first."""
+        return _tally_wins(self._history.get(room_name, ()))
+
     def cancel_room(self, room_name: str) -> None:
         """Release a room's turn timer, image, and history when it's torn down."""
         self._drop_timer(room_name)
@@ -205,3 +209,21 @@ def _round_record(image: Image, game_over: GameOver | None) -> dict:
         "winners": [serialize_player(p) for p in game_over.winners] if game_over else [],
         "standings": [serialize_player(p) for p in game_over.standings] if game_over else [],
     }
+
+
+def _tally_wins(records) -> list[dict]:
+    """Fold finished rounds into a win count per player (by uuid), most first."""
+    tallies: dict[str, dict] = {}
+    for record in records:
+        for winner in record["winners"]:
+            entry = tallies.get(winner["uuid"])
+            if entry is None:
+                tallies[winner["uuid"]] = {
+                    "uuid": winner["uuid"],
+                    "name": winner["name"],
+                    "wins": 1,
+                }
+            else:
+                entry["wins"] += 1
+                entry["name"] = winner["name"]  # keep the most recent name
+    return sorted(tallies.values(), key=lambda t: t["wins"], reverse=True)

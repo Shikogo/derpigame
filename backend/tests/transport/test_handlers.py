@@ -313,6 +313,18 @@ async def test_room_snapshot_carries_round_history(make):
     assert rejoin["room_state"]["history"] == history
 
 
+async def test_win_counts_surface_in_the_snapshot_after_a_win(make):
+    handlers, server, _registry, _service = make(tags=("solo",))  # single goal tag
+    await _create(handlers, "sa", "ua", "Alice")
+    await handlers.set_ready("sa", {"ready": True})
+    await handlers.start_game("sa")
+    await handlers.submit_guess("sa", {"guess": "solo"})  # clears the goal → win
+
+    # a natural game-over doesn't rebroadcast; the next lobby action carries it
+    await handlers.set_ready("sa", {"ready": False})
+    assert server.last_state()["win_counts"] == [{"uuid": "ua", "name": "Alice", "wins": 1}]
+
+
 async def test_leave_room_removes_user_and_keeps_a_non_empty_room(make):
     handlers, server, registry, _service = make()
     code = await _create(handlers, "sa", "ua", "Alice")

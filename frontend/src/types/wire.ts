@@ -22,12 +22,13 @@ export interface RoomState {
   in_progress: boolean
   users: RoomUser[]
   history: RoundRecord[]
+  win_counts: WinCount[]
 }
 
 /**
  * A finished round kept for the lobby history: its Derpibooru link and
  * attribution, plus the result. `aborted` rounds have a link worth keeping but
- * no `winners`/`standings`. Win counts are derived by tallying `winners`.
+ * no `winners`/`standings`.
  */
 export interface RoundRecord {
   page_url: string
@@ -38,6 +39,13 @@ export interface RoundRecord {
   aborted: boolean
   winners: Player[]
   standings: Player[]
+}
+
+/** Server-computed running win count for one player, most wins first in the list. */
+export interface WinCount {
+  uuid: string
+  name: string
+  wins: number
 }
 
 // --- game events (game_events channel: a batched list) ----------------------

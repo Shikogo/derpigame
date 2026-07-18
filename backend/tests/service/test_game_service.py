@@ -359,3 +359,38 @@ async def test_cancel_room_drops_history():
     service.cancel_room(room.name)
 
     assert service.room_history(room.name) == []
+
+
+# --- win counts (server-authoritative tally) ---------------------------------
+
+
+async def test_win_counts_come_from_played_rounds():
+    emitter = RecordingEmitter()
+    service = GameService(StaticImageSource([rich_image(), rich_image()]), emitter)
+    room = make_room("alice")
+
+    await service.start_game(room, first_index=0)
+    await service.submit_guess(room, "alice", "solo")  # win #1
+    await service.start_game(room, first_index=0)
+    await service.submit_guess(room, "alice", "solo")  # win #2
+
+    assert service.room_win_counts(room.name) == [{"uuid": "alice", "name": "alice", "wins": 2}]
+
+
+def test_win_counts_tally_by_uuid_sorted_with_latest_name():
+    service = GameService(StaticImageSource([]), RecordingEmitter())
+    service._history["lobby"] = [
+        {"winners": [{"uuid": "a", "name": "Alice"}]},
+        {"winners": [{"uuid": "b", "name": "Bob"}, {"uuid": "a", "name": "Alicia"}]},
+        {"winners": []},  # aborted / lost round contributes nothing
+    ]
+
+    assert service.room_win_counts("lobby") == [
+        {"uuid": "a", "name": "Alicia", "wins": 2},  # most wins first, name updated
+        {"uuid": "b", "name": "Bob", "wins": 1},
+    ]
+
+
+def test_win_counts_are_empty_for_an_unplayed_room():
+    service = GameService(StaticImageSource([]), RecordingEmitter())
+    assert service.room_win_counts("lobby") == []

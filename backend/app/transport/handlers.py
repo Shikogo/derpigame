@@ -231,8 +231,12 @@ class SocketHandlers:
         return (room, user) if user is not None else None
 
     def _state(self, room) -> dict:
-        """The room snapshot plus its finished-round history (a service concern)."""
-        return {**room_state(room), "history": self._service.room_history(room.name)}
+        """The room snapshot plus service-owned extras: round history and win tally."""
+        return {
+            **room_state(room),
+            "history": self._service.room_history(room.name),
+            "win_counts": self._service.room_win_counts(room.name),
+        }
 
     async def _broadcast_state(self, room) -> None:
         await self._sio.emit("room_state", self._state(room), room=room.name)
