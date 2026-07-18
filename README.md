@@ -39,6 +39,13 @@ cd backend
 `create_app()`. `--reload` restarts on code changes — drop it for a plain run.
 The frontend talks to it at `http://localhost:8000` (see the Frontend section).
 
+For frontend work without a Derpibooru token or network, run the offline dev
+server instead — it serves a fixed image from a static source:
+
+```bash
+.venv/bin/uvicorn dev_server:app --reload   # http://localhost:8000
+```
+
 ### Running tests
 
 The domain layer is pure (no framework or app context), so the suite runs in
