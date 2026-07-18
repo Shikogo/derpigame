@@ -1,29 +1,26 @@
 <script setup lang="ts">
 /**
- * The between-rounds lobby: roster, your ready toggle, room config (query +
- * nsfw), start, a copyable invite link, and the round history.
+ * The between-rounds lobby: roster, your ready toggle, a read-only settings
+ * summary (editing lives in a dialog), start, a copyable invite link, and the
+ * round history.
  */
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 
 import HistoryPanel from '@/components/HistoryPanel.vue'
+import RoomSettingsDialog from '@/components/RoomSettingsDialog.vue'
 import UserList from '@/components/UserList.vue'
 import { errorLabel } from '@/lib/errors'
 import { useRoomStore } from '@/stores/room'
 
 const room = useRoomStore()
 
-const queryText = ref('')
-const nsfw = ref(false)
+const settingsDialog = ref<{ open: () => void } | null>(null)
 
-// Seed the config editor from the latest snapshot (and whenever it changes).
-watch(
-  () => room.roomState,
-  (state) => {
-    queryText.value = (state?.query ?? []).join(', ')
-    nsfw.value = state?.nsfw ?? false
-  },
-  { immediate: true },
-)
+const querySummary = computed(() => {
+  const query = room.roomState?.query ?? []
+  return query.length ? query.join(', ') : 'anything'
+})
+const nsfwOn = computed(() => room.roomState?.nsfw ?? false)
 
 const ready = computed(() => room.me?.ready ?? false)
 const anyReady = computed(() => room.users.some((u) => u.ready))
@@ -40,10 +37,6 @@ async function copyInvite(): Promise<void> {
   } catch {
     // Clipboard blocked (insecure context) — the field is selectable instead.
   }
-}
-
-function applyConfig(): void {
-  room.configureRoom({ query: queryText.value, nsfw: nsfw.value })
 }
 </script>
 
@@ -62,28 +55,22 @@ function applyConfig(): void {
 
     <UserList />
 
-    <fieldset class="flex flex-col gap-3 rounded-lg border border-gray-200 p-3">
-      <legend class="px-1 text-sm font-semibold text-gray-600">Room settings</legend>
-      <label class="flex flex-col gap-1 text-sm">
-        <span class="text-gray-500">Search tags (comma or newline separated)</span>
-        <textarea
-          v-model="queryText"
-          rows="2"
-          placeholder="e.g. safe, pony"
-          class="resize-y rounded border border-gray-300 px-2 py-1 text-sm focus:border-turn focus:outline-none"
-        />
-      </label>
-      <label class="flex items-center gap-2 text-sm">
-        <input v-model="nsfw" type="checkbox" class="accent-turn" />
-        Allow NSFW results
-      </label>
+    <div class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 p-3">
+      <div class="flex min-w-0 flex-col gap-0.5 text-sm">
+        <span class="truncate">
+          <span class="text-gray-500">Searching:</span>
+          <span class="font-medium">{{ querySummary }}</span>
+        </span>
+        <span class="text-xs text-gray-400">NSFW: {{ nsfwOn ? 'on' : 'off' }}</span>
+      </div>
       <button
-        class="self-start rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
-        @click="applyConfig"
+        class="shrink-0 rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+        @click="settingsDialog?.open()"
       >
-        Apply settings
+        ⚙ Edit
       </button>
-    </fieldset>
+    </div>
+    <RoomSettingsDialog ref="settingsDialog" />
 
     <div class="flex flex-col gap-2">
       <button
