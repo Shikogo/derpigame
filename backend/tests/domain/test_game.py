@@ -234,6 +234,36 @@ def test_all_players_eliminated_ends_game_as_loss():
     assert over.unguessed_tags == ["solo"]
 
 
+def test_solo_loss_crowns_no_winner():
+    game = make_game(tags=["solo"], players=["alice"], first_index=0)
+    game.submit_guess("x")
+    game.submit_guess("y")
+    events = game.submit_guess("z")  # eliminated with no one to out-score
+    assert only(events, GameOver).winners == []
+
+
+def test_multiplayer_loss_crowns_top_scorer():
+    # Two goal tags so the round can't be won; both players get eliminated.
+    game = make_game(
+        tags=["aaa", "bbb"], players=["alice", "bob"], first_index=0, elimination_threshold=1
+    )
+    game.submit_guess("aaa")  # alice scores 1, turn -> bob
+    game.submit_guess("miss")  # bob 1st wrong -> eliminated, turn -> alice
+    events = game.submit_guess("flop")  # alice 1st wrong -> eliminated, all gone
+    over = only(events, GameOver)
+    assert over.win is False
+    assert [p.name for p in over.winners] == ["alice"]  # led when everyone fell
+
+
+def test_scoreless_loss_crowns_no_winner():
+    game = make_game(
+        tags=["aaa", "bbb"], players=["alice", "bob"], first_index=0, elimination_threshold=1
+    )
+    game.submit_guess("miss")  # alice 1st wrong -> eliminated, turn -> bob
+    events = game.submit_guess("flop")  # bob 1st wrong -> eliminated, nobody scored
+    assert only(events, GameOver).winners == []
+
+
 # --- winning & ties ----------------------------------------------------------
 
 

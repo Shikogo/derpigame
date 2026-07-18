@@ -48,6 +48,8 @@ export interface GameState {
   reveal: Attribution | null
   /** uuid of the player whose turn it is, or null when no game is running. */
   activePlayerUuid: string | null
+  /** Bumped per turn so the clock resets even on consecutive same-player turns. */
+  turnSeq: number
   /** Goal-bucket size and how many of it are still unguessed. */
   goalTagCount: number
   goalRemaining: number
@@ -73,6 +75,7 @@ export function initialGameState(): GameState {
     image: null,
     reveal: null,
     activePlayerUuid: null,
+    turnSeq: 0,
     goalTagCount: 0,
     goalRemaining: 0,
     turnSeconds: DEFAULT_TURN_SECONDS,
@@ -116,7 +119,7 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
     case 'turn_started': {
       const players = { ...prev.players }
       recordPlayer(players, event.player)
-      return { ...prev, activePlayerUuid: event.player.uuid, players }
+      return { ...prev, activePlayerUuid: event.player.uuid, turnSeq: prev.turnSeq + 1, players }
     }
 
     case 'correct_guess': {

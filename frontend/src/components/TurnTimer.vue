@@ -29,8 +29,8 @@ function restart(): void {
   }, 1000)
 }
 
-// Reset the clock at the start of each turn.
-watch(() => game.activePlayer?.uuid, (uuid) => uuid && restart(), { immediate: true })
+// Reset the clock at the start of each turn (including consecutive same-player turns).
+watch(() => game.state.turnSeq, restart, { immediate: true })
 onBeforeUnmount(() => clearInterval(timer))
 </script>
 

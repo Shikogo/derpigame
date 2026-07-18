@@ -207,8 +207,15 @@ class Game:
             key=lambda p: p.score,
             reverse=True,
         )
+        # Winner = the top scorer(s), whether the goal was completed or everyone
+        # got eliminated first. No crown for a solo elimination (no one to
+        # out-score) or a round where nobody scored at all.
         top = standings[0].score
-        winners = [p for p in standings if p.score == top]
+        winners = (
+            [p for p in standings if p.score == top]
+            if top > 0 and (win or len(standings) > 1)
+            else []
+        )
         return GameOver(
             win=win,
             winners=winners,

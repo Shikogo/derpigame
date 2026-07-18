@@ -82,6 +82,13 @@ describe('reduce', () => {
     expect(s.players.b).toEqual(bob)
   })
 
+  it('turn_started bumps turnSeq even when the same player keeps the turn', () => {
+    const first = reduce(openedGame(), { type: 'turn_started', player: alice })
+    const second = reduce(first, { type: 'turn_started', player: alice })
+    expect(second.activePlayerUuid).toBe('a')
+    expect(second.turnSeq).toBe(first.turnSeq + 1)
+  })
+
   it('a correct goal guess decrements goalRemaining, not a bonus bucket', () => {
     const s = reduce(openedGame(), {
       type: 'correct_guess',
