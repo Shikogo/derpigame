@@ -22,6 +22,7 @@ export const useRoomStore = defineStore('room', () => {
 
   const code = computed(() => roomState.value?.room ?? null)
   const inProgress = computed(() => roomState.value?.in_progress ?? false)
+  const nsfw = computed(() => roomState.value?.nsfw ?? false)
   const users = computed(() => roomState.value?.users ?? [])
   const history = computed(() => roomState.value?.history ?? [])
   const winCounts = computed(() => roomState.value?.win_counts ?? [])
@@ -119,6 +120,7 @@ export const useRoomStore = defineStore('room', () => {
     error,
     code,
     inProgress,
+    nsfw,
     users,
     history,
     winCounts,

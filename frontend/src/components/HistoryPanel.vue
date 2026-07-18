@@ -3,14 +3,36 @@
  * Between-rounds recap: the win leaderboard and a list of past rounds (each
  * links to its derpibooru page). Both come straight from the room snapshot.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
+import AgeGate from '@/components/AgeGate.vue'
 import { useRoomStore } from '@/stores/room'
+import { useSessionStore } from '@/stores/session'
 
 const room = useRoomStore()
+const session = useSessionStore()
 
 // Newest round first; the snapshot stores them oldest-first.
 const rounds = computed(() => [...room.history].reverse())
+
+// Past-round thumbnails are NSFW when the room is; hide them behind the same
+// 18+ attestation as the live picture. Clicking a hidden thumb opens the gate
+// (it never reveals without the confirmation).
+const hideThumbs = computed(() => room.nsfw && !session.nsfwAck)
+const gate = ref<HTMLDialogElement | null>(null)
+
+function onThumbClick(event: MouseEvent): void {
+  if (!hideThumbs.value) return // revealed: let the link open the derpibooru page
+  event.preventDefault()
+  gate.value?.showModal()
+}
+function attest(): void {
+  session.acknowledgeNsfw()
+  gate.value?.close()
+}
+function onBackdrop(event: MouseEvent): void {
+  if (event.target === gate.value) gate.value?.close()
+}
 </script>
 
 <template>
@@ -36,8 +58,20 @@ const rounds = computed(() => [...room.history].reverse())
           :key="i"
           class="flex items-center gap-3 rounded-lg border border-gray-200 p-2 text-sm"
         >
-          <a :href="r.page_url" target="_blank" rel="noopener noreferrer" class="shrink-0">
-            <img :src="r.thumb_url" alt="round image" class="h-12 w-12 rounded object-cover" />
+          <a
+            :href="r.page_url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="shrink-0"
+            :title="hideThumbs ? 'Click to reveal (18+)' : undefined"
+            @click="onThumbClick"
+          >
+            <img
+              :src="r.thumb_url"
+              alt="round image"
+              class="h-12 w-12 rounded object-cover"
+              :class="{ 'blur-md': hideThumbs }"
+            />
           </a>
           <div class="min-w-0 flex-1">
             <p class="truncate">
@@ -54,5 +88,13 @@ const rounds = computed(() => [...room.history].reverse())
         </li>
       </ul>
     </div>
+
+    <dialog
+      ref="gate"
+      class="m-auto w-[min(28rem,90vw)] rounded-xl p-0 backdrop:bg-black/40"
+      @click="onBackdrop"
+    >
+      <AgeGate decline-label="Not now" @confirm="attest" @decline="gate?.close()" />
+    </dialog>
   </section>
 </template>

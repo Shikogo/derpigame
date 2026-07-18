@@ -10,6 +10,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+import AgeGate from '@/components/AgeGate.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import GameOverPanel from '@/components/GameOverPanel.vue'
 import GamePanel from '@/components/GamePanel.vue'
@@ -56,6 +57,11 @@ onMounted(async () => {
 const showGameOver = computed(() => game.ended)
 const showGame = computed(
   () => !game.ended && (room.inProgress || game.state.status === 'active'),
+)
+// Block the picture (live round or the game-over reveal) behind a 18+ gate when
+// the room shows NSFW and this viewer hasn't attested yet.
+const needsAgeGate = computed(
+  () => room.nsfw && !session.nsfwAck && (showGame.value || showGameOver.value),
 )
 const notice = computed(() => {
   if (showGame.value) return null
@@ -137,7 +143,12 @@ async function backToLobby(): Promise<void> {
           <p v-if="notice" class="rounded-lg bg-wrong/10 px-3 py-2 text-sm text-wrong">
             {{ notice }}
           </p>
-          <GameOverPanel v-if="showGameOver" @back="backToLobby" />
+          <AgeGate
+            v-if="needsAgeGate"
+            @confirm="session.acknowledgeNsfw()"
+            @decline="leave"
+          />
+          <GameOverPanel v-else-if="showGameOver" @back="backToLobby" />
           <GamePanel v-else-if="showGame" />
           <LobbyPanel v-else />
         </div>

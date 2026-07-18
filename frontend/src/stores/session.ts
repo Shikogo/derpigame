@@ -9,6 +9,7 @@ import { ref } from 'vue'
 
 const UUID_KEY = 'derpigame:uuid'
 const NAME_KEY = 'derpigame:name'
+const NSFW_ACK_KEY = 'derpigame:nsfwAck'
 
 /** Read the persisted identity uuid, minting and storing one on first use. */
 export function loadOrCreateUuid(storage: Storage = localStorage): string {
@@ -22,11 +23,18 @@ export function loadOrCreateUuid(storage: Storage = localStorage): string {
 export const useSessionStore = defineStore('session', () => {
   const uuid = ref(loadOrCreateUuid())
   const name = ref(localStorage.getItem(NAME_KEY) ?? '')
+  // One-time 18+ self-attestation, remembered per browser.
+  const nsfwAck = ref(localStorage.getItem(NSFW_ACK_KEY) === 'true')
 
   function setName(value: string): void {
     name.value = value.trim()
     localStorage.setItem(NAME_KEY, name.value)
   }
 
-  return { uuid, name, setName }
+  function acknowledgeNsfw(): void {
+    nsfwAck.value = true
+    localStorage.setItem(NSFW_ACK_KEY, 'true')
+  }
+
+  return { uuid, name, nsfwAck, setName, acknowledgeNsfw }
 })
