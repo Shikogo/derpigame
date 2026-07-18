@@ -297,6 +297,22 @@ async def test_stop_game_aborts_and_returns_to_lobby(make):
     assert server.last_state()["in_progress"] is False
 
 
+async def test_room_snapshot_carries_round_history(make):
+    handlers, server, _registry, _service = make()
+    code = await _create(handlers, "sa", "ua", "Alice")
+    assert server.last_state()["history"] == []  # nothing played yet
+
+    await handlers.set_ready("sa", {"ready": True})
+    await handlers.start_game("sa")
+    await handlers.stop_game("sa")  # aborts, records the round, rebroadcasts state
+
+    history = server.last_state()["history"]
+    assert len(history) == 1 and history[0]["aborted"] is True
+    # the join ack snapshot is composed the same way
+    rejoin = await handlers.join_room("sa", {"room": code, "uuid": "ua", "name": "Alice"})
+    assert rejoin["room_state"]["history"] == history
+
+
 async def test_leave_room_removes_user_and_keeps_a_non_empty_room(make):
     handlers, server, registry, _service = make()
     code = await _create(handlers, "sa", "ua", "Alice")

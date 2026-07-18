@@ -8,6 +8,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
+import { tallyWins, withWins } from '@/game/history'
 import { emitAck } from '@/socket/client'
 import { useChatStore } from '@/stores/chat'
 import { useGameStore } from '@/stores/game'
@@ -22,6 +23,9 @@ export const useRoomStore = defineStore('room', () => {
   const code = computed(() => roomState.value?.room ?? null)
   const inProgress = computed(() => roomState.value?.in_progress ?? false)
   const users = computed(() => roomState.value?.users ?? [])
+  const history = computed(() => roomState.value?.history ?? [])
+  const winCounts = computed(() => tallyWins(history.value))
+  const usersWithWins = computed(() => withWins(users.value, winCounts.value))
   const me = computed(() => {
     const uuid = useSessionStore().uuid
     return users.value.find((u) => u.uuid === uuid) ?? null
@@ -109,6 +113,9 @@ export const useRoomStore = defineStore('room', () => {
     code,
     inProgress,
     users,
+    history,
+    winCounts,
+    usersWithWins,
     me,
     createRoom,
     joinRoom,

@@ -203,7 +203,7 @@ class SocketHandlers:
         )
         await self._sio.enter_room(sid, room.name)
         await self._broadcast_state(room)
-        return _ok(room_state=room_state(room))
+        return _ok(room_state=self._state(room))
 
     def _allocate_room(self):
         for _ in range(_ALLOCATE_ATTEMPTS):
@@ -230,8 +230,12 @@ class SocketHandlers:
         user = room.get_user(uuid)
         return (room, user) if user is not None else None
 
+    def _state(self, room) -> dict:
+        """The room snapshot plus its finished-round history (a service concern)."""
+        return {**room_state(room), "history": self._service.room_history(room.name)}
+
     async def _broadcast_state(self, room) -> None:
-        await self._sio.emit("room_state", room_state(room), room=room.name)
+        await self._sio.emit("room_state", self._state(room), room=room.name)
 
     async def _leave_if_switching(self, sid, new_room: str) -> None:
         session = await self._session(sid)

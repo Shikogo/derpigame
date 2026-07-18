@@ -13,7 +13,7 @@ from app.domain.tag_taxonomy import TagTaxonomy
 from app.service.emitter import EventEmitter
 from app.service.errors import NotYourTurn
 from app.service.image_source import Image, ImageSource, ImageSourceError
-from app.service.serialization import serialize_events
+from app.service.serialization import serialize_events, serialize_player
 from app.service.turn_timer import TurnTimer
 
 DEFAULT_TURN_SECONDS = 30.0
@@ -34,6 +34,7 @@ class GameService:
         self._game_options = dict(game_options or {})
         self._timers: dict[str, TurnTimer] = {}
         self._current_image: dict[str, Image] = {}  # image on display, per room
+        self._history: dict[str, list[dict]] = {}  # finished rounds, per room
 
     async def start_game(
         self,
@@ -97,14 +98,17 @@ class GameService:
         image = self._current_image.pop(room.name, None)
         if image is not None:
             payloads.append(_image_revealed_payload(image))
+            self._record_round(room.name, image, None)  # aborted: no result
         await self._emitter.emit(room.name, payloads)
 
     async def _deliver(self, room: Room, events: list, *, lead: list[dict] | None = None) -> None:
         payloads = list(lead or []) + serialize_events(events)
-        if any(isinstance(event, GameOver) for event in events):
+        game_over = next((e for e in events if isinstance(e, GameOver)), None)
+        if game_over is not None:
             image = self._current_image.pop(room.name, None)
             if image is not None:
                 payloads.append(_image_revealed_payload(image))
+                self._record_round(room.name, image, game_over)
         try:
             if payloads:
                 await self._emitter.emit(room.name, payloads)
@@ -131,10 +135,19 @@ class GameService:
         if timer is not None:
             timer.cancel()
 
+    def _record_round(self, room_name: str, image: Image, game_over: GameOver | None) -> None:
+        """Append a finished round to the room's history (game over or abort)."""
+        self._history.setdefault(room_name, []).append(_round_record(image, game_over))
+
+    def room_history(self, room_name: str) -> list[dict]:
+        """The room's finished rounds, oldest first — for the lobby snapshot."""
+        return list(self._history.get(room_name, ()))
+
     def cancel_room(self, room_name: str) -> None:
-        """Release a room's turn timer and image when it's abandoned or torn down."""
+        """Release a room's turn timer, image, and history when it's torn down."""
         self._drop_timer(room_name)
         self._current_image.pop(room_name, None)
+        self._history.pop(room_name, None)
 
     def shutdown(self) -> None:
         """Cancel every pending turn timer (app shutdown, or test cleanup)."""
@@ -142,6 +155,7 @@ class GameService:
             timer.cancel()
         self._timers.clear()
         self._current_image.clear()
+        self._history.clear()
 
 
 def _image_started_payload(image: Image) -> dict:
@@ -157,16 +171,37 @@ def _image_started_payload(image: Image) -> dict:
 _ARTIST_PREFIX = "artist:"
 
 
-def _image_revealed_payload(image: Image) -> dict:
-    """Attribution shown once the image is no longer a secret (game end/abort)."""
-    artists = [
+def _artist_names(image: Image) -> list[str]:
+    return [
         tag[len(_ARTIST_PREFIX):]
         for tag in image.tags
         if tag.startswith(_ARTIST_PREFIX)
     ]
+
+
+def _image_revealed_payload(image: Image) -> dict:
+    """Attribution shown once the image is no longer a secret (game end/abort)."""
     return {
         "type": "image_revealed",
-        "artists": artists,
+        "artists": _artist_names(image),
         "source_url": image.source_url,
         "page_url": image.page_url,
+    }
+
+
+def _round_record(image: Image, game_over: GameOver | None) -> dict:
+    """A finished round for the history: its link/attribution plus the result.
+
+    ``game_over is None`` means the round was aborted — it has a link worth
+    keeping but no winners or final standings.
+    """
+    return {
+        "page_url": image.page_url,
+        "source_url": image.source_url,
+        "thumb_url": image.thumb_url,
+        "artists": _artist_names(image),
+        "win": game_over.win if game_over else False,
+        "aborted": game_over is None,
+        "winners": [serialize_player(p) for p in game_over.winners] if game_over else [],
+        "standings": [serialize_player(p) for p in game_over.standings] if game_over else [],
     }

@@ -295,3 +295,67 @@ async def test_cancel_room_drops_the_image_without_revealing():
 
     assert emitter.batches == []  # empty room: nobody to reveal to
     assert room.name not in service._current_image
+
+
+# --- round history -----------------------------------------------------------
+
+
+async def test_game_over_records_a_won_round_in_history():
+    emitter = RecordingEmitter()
+    service = GameService(StaticImageSource([rich_image()]), emitter)
+    room = make_room("alice")
+
+    await service.start_game(room, first_index=0)
+    await service.submit_guess(room, "alice", "solo")  # clears the goal bucket → win
+
+    history = service.room_history(room.name)
+    assert len(history) == 1
+    record = history[0]
+    assert record["page_url"] == "https://derpibooru.org/images/7"
+    assert record["artists"] == ["foo"]
+    assert record["win"] is True
+    assert record["aborted"] is False
+    assert [w["uuid"] for w in record["winners"]] == ["alice"]
+    assert [s["uuid"] for s in record["standings"]] == ["alice"]
+
+
+async def test_aborted_round_is_recorded_with_the_link_but_no_result():
+    emitter = RecordingEmitter()
+    service = GameService(StaticImageSource([rich_image()]), emitter)
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+
+    await service.stop_game(room)
+
+    (record,) = service.room_history(room.name)
+    assert record["aborted"] is True
+    assert record["win"] is False
+    assert record["winners"] == []
+    assert record["standings"] == []
+    assert record["page_url"] == "https://derpibooru.org/images/7"  # still traceable
+
+
+async def test_history_accumulates_across_rounds():
+    emitter = RecordingEmitter()
+    service = GameService(StaticImageSource([rich_image(), rich_image()]), emitter)
+    room = make_room("alice")
+
+    await service.start_game(room, first_index=0)
+    await service.submit_guess(room, "alice", "solo")
+    await service.start_game(room, first_index=0)
+    await service.stop_game(room)
+
+    history = service.room_history(room.name)
+    assert [r["aborted"] for r in history] == [False, True]
+
+
+async def test_cancel_room_drops_history():
+    emitter = RecordingEmitter()
+    service = GameService(StaticImageSource([rich_image()]), emitter)
+    room = make_room("alice")
+    await service.start_game(room, first_index=0)
+    await service.submit_guess(room, "alice", "solo")
+
+    service.cancel_room(room.name)
+
+    assert service.room_history(room.name) == []

@@ -21,6 +21,23 @@ export interface RoomState {
   nsfw: boolean
   in_progress: boolean
   users: RoomUser[]
+  history: RoundRecord[]
+}
+
+/**
+ * A finished round kept for the lobby history: its Derpibooru link and
+ * attribution, plus the result. `aborted` rounds have a link worth keeping but
+ * no `winners`/`standings`. Win counts are derived by tallying `winners`.
+ */
+export interface RoundRecord {
+  page_url: string
+  source_url: string | null
+  thumb_url: string
+  artists: string[]
+  win: boolean
+  aborted: boolean
+  winners: Player[]
+  standings: Player[]
 }
 
 // --- game events (game_events channel: a batched list) ----------------------
