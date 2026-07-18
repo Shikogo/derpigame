@@ -40,6 +40,7 @@ def _(event: GameStarted) -> dict:
     return {
         "type": "game_started",
         "first_player": serialize_player(event.first_player),
+        "players": [serialize_player(p) for p in event.players],
         "tag_count": event.tag_count,
         "bonus_counts": event.bonus_counts,
         "query": event.query,

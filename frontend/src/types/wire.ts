@@ -70,6 +70,8 @@ export type BucketKey = string
 export interface GameStarted {
   type: 'game_started'
   first_player: Player
+  /** The full roster for the round; room members not in it are spectators. */
+  players: Player[]
   /** Goal-bucket tags — all must be guessed to win. */
   tag_count: number
   /** Namespaced bonus buckets, keyed by bucket, e.g. { artists: 1, ocs: 2 }. */

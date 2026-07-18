@@ -40,6 +40,7 @@ def test_game_started_reports_counts_and_first_player():
             tag_count=5,
             bonus_counts={"artists": 1, "ocs": 0},
             query=["cute"],
+            players=[make_player("alice"), make_player("bob")],
         )
     )
     assert payload["type"] == "game_started"
@@ -47,6 +48,7 @@ def test_game_started_reports_counts_and_first_player():
     assert payload["bonus_counts"] == {"artists": 1, "ocs": 0}
     assert payload["query"] == ["cute"]
     assert payload["first_player"]["name"] == "alice"
+    assert [p["name"] for p in payload["players"]] == ["alice", "bob"]
 
 
 def test_guess_rejected_uses_reason_value():

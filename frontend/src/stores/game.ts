@@ -42,5 +42,18 @@ export const useGameStore = defineStore('game', () => {
     () => state.value.status === 'over' || state.value.status === 'aborted',
   )
 
-  return { state, applyEvents, reset, activePlayer, isMyTurn, scoreboard, ended }
+  // The round's locked roster (seeded from game_started); the room store diffs
+  // it against the membership list to find spectators.
+  const roundPlayerUuids = computed(() => new Set(Object.keys(state.value.players)))
+
+  return {
+    state,
+    applyEvents,
+    reset,
+    activePlayer,
+    isMyTurn,
+    scoreboard,
+    ended,
+    roundPlayerUuids,
+  }
 })

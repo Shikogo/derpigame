@@ -92,8 +92,10 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
       }
 
     case 'game_started': {
+      // Seed the whole roster so the scoreboard is complete from the first turn
+      // and spectators (room members not in it) are known immediately.
       const players = { ...prev.players }
-      recordPlayer(players, event.first_player)
+      for (const p of event.players) recordPlayer(players, p)
       return {
         ...prev,
         status: 'active',

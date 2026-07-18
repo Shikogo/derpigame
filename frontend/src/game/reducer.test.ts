@@ -17,6 +17,7 @@ function openedGame(over: Partial<GameEvent> = {}): GameState {
     {
       type: 'game_started',
       first_player: alice,
+      players: [alice],
       tag_count: 3,
       bonus_counts: { artists: 1 },
       query: ['safe'],
@@ -62,6 +63,16 @@ describe('reduce', () => {
     expect(s.goalRemaining).toBe(3)
     expect(s.bonusCounts).toEqual({ artists: 1 })
     expect(s.activePlayerUuid).toBe('a')
+  })
+
+  it('game_started seeds the whole roster, not just the first player', () => {
+    const s = reduceAll(initialGameState(), [
+      { type: 'image_started', id: '1', thumb_url: 't', full_url: 'f' },
+      { type: 'game_started', first_player: alice, players: [alice, bob], tag_count: 2, bonus_counts: {}, query: [] },
+      { type: 'turn_started', player: alice },
+    ])
+    expect(Object.keys(s.players).sort()).toEqual(['a', 'b'])
+    expect(s.players.b).toEqual(bob)
   })
 
   it('turn_started moves the active player', () => {

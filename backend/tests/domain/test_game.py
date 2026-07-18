@@ -75,6 +75,7 @@ def test_start_reports_counts_and_first_player():
     events = game.start()
     started = only(events, GameStarted)
     assert started.first_player is game.players[1]
+    assert started.players == game.players
     assert started.tag_count == 2
     assert started.bonus_counts == {"artists": 1, "ocs": 1}
     assert only(events, TurnStarted).player is game.players[1]

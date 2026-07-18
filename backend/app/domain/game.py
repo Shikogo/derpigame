@@ -108,6 +108,7 @@ class Game:
                     if key != goal
                 },
                 query=list(self.query),
+                players=list(self.players),
             ),
             TurnStarted(first),
         ]

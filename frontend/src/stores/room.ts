@@ -26,6 +26,13 @@ export const useRoomStore = defineStore('room', () => {
   const history = computed(() => roomState.value?.history ?? [])
   const winCounts = computed(() => roomState.value?.win_counts ?? [])
   const usersWithWins = computed(() => withWins(users.value, winCounts.value))
+  // Room members not in the round's roster are spectators (only during a game).
+  const spectators = computed(() => {
+    if (!inProgress.value) return []
+    const playing = useGameStore().roundPlayerUuids
+    return users.value.filter((u) => !playing.has(u.uuid))
+  })
+  const spectatorCount = computed(() => spectators.value.length)
   const me = computed(() => {
     const uuid = useSessionStore().uuid
     return users.value.find((u) => u.uuid === uuid) ?? null
@@ -116,6 +123,8 @@ export const useRoomStore = defineStore('room', () => {
     history,
     winCounts,
     usersWithWins,
+    spectators,
+    spectatorCount,
     me,
     createRoom,
     joinRoom,
