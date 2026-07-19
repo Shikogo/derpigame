@@ -12,12 +12,14 @@ const round: RoundRecord = {
   page_url: 'https://derpi/1',
   source_url: null,
   thumb_url: 't.jpg',
+  nsfw: false,
   artists: [],
   win: true,
   aborted: false,
   winners: [{ uuid: 'a', name: 'A', score: 1, wrong_guesses: 0 }],
   standings: [],
 }
+const nsfwRound: RoundRecord = { ...round, nsfw: true }
 
 function roomState(over: Partial<RoomState> = {}): RoomState {
   return { room: 'r', query: [], nsfw: true, in_progress: false, turn_seconds: 30, users: [], history: [round], win_counts: [], ...over }
@@ -36,25 +38,43 @@ describe('HistoryPanel — NSFW thumbnails', () => {
 
   const mountPanel = () => mount(HistoryPanel, { global: { plugins: [pinia] } })
 
-  it('blurs thumbnails in an NSFW room until attested', () => {
-    useRoomStore().setRoomState(roomState())
+  it('blurs an NSFW round until attested', () => {
+    useRoomStore().setRoomState(roomState({ history: [nsfwRound] }))
     const wrapper = mountPanel()
     expect(wrapper.find('img').classes()).toContain('blur-md')
   })
 
-  it('a thumbnail click opens the gate instead of silently revealing', async () => {
-    useRoomStore().setRoomState(roomState())
+  it('keeps an NSFW round gated even after the room is set back to SFW', () => {
+    // The regression: blur must follow the round's own flag, not the room's.
+    useRoomStore().setRoomState(roomState({ nsfw: false, history: [nsfwRound] }))
+    const wrapper = mountPanel()
+    expect(wrapper.find('img').classes()).toContain('blur-md')
+  })
+
+  it('a blurred-thumbnail click opens the gate instead of silently revealing', async () => {
+    useRoomStore().setRoomState(roomState({ history: [nsfwRound] }))
     const session = useSessionStore()
     const wrapper = mountPanel()
 
-    await wrapper.find('a').trigger('click')
+    await wrapper.find('button').trigger('click') // the blurred thumbnail
 
     expect(session.nsfwAck).toBe(false) // no bypass — not acknowledged yet
     expect(HTMLDialogElement.prototype.showModal).toHaveBeenCalled()
   })
 
+  it('gates the outbound links until attested', async () => {
+    useRoomStore().setRoomState(roomState({ history: [nsfwRound] }))
+    const session = useSessionStore()
+    const wrapper = mountPanel()
+
+    await wrapper.find('li a').trigger('click') // the Derpibooru link
+
+    expect(session.nsfwAck).toBe(false)
+    expect(HTMLDialogElement.prototype.showModal).toHaveBeenCalled() // opened the gate, didn't navigate
+  })
+
   it('confirming in the gate attests and unblurs', async () => {
-    useRoomStore().setRoomState(roomState())
+    useRoomStore().setRoomState(roomState({ history: [nsfwRound] }))
     const session = useSessionStore()
     const wrapper = mountPanel()
 
@@ -64,12 +84,12 @@ describe('HistoryPanel — NSFW thumbnails', () => {
     expect(wrapper.find('img').classes()).not.toContain('blur-md')
   })
 
-  it('does not blur or gate in an SFW room', async () => {
-    useRoomStore().setRoomState(roomState({ nsfw: false }))
+  it('does not blur or gate an SFW round', async () => {
+    useRoomStore().setRoomState(roomState({ history: [round] }))
     const wrapper = mountPanel()
 
     expect(wrapper.find('img').classes()).not.toContain('blur-md')
-    await wrapper.find('a').trigger('click')
+    await wrapper.find('li a').trigger('click')
     expect(HTMLDialogElement.prototype.showModal).not.toHaveBeenCalled()
   })
 })
@@ -102,5 +122,34 @@ describe('HistoryPanel — win coloring', () => {
     const outcome = mountPanel().find('.min-w-0 span')
     expect(outcome.classes()).toContain('text-ink-muted')
     expect(outcome.classes()).not.toContain('text-correct')
+  })
+})
+
+describe('HistoryPanel — round links', () => {
+  let pinia: Pinia
+
+  beforeEach(() => {
+    localStorage.clear()
+    pinia = createPinia()
+    setActivePinia(pinia)
+  })
+
+  const mountPanel = () => mount(HistoryPanel, { global: { plugins: [pinia] } })
+
+  it('surfaces a derpibooru link and, when present, a source link', () => {
+    const sourced: RoundRecord = { ...round, source_url: 'https://artist.example/art' }
+    useRoomStore().setRoomState(roomState({ nsfw: false, history: [sourced] }))
+
+    const links = mountPanel().findAll('li a')
+    expect(links.map((l) => l.text())).toEqual(['Derpibooru', 'Source'])
+    expect(links[0].attributes('href')).toBe(round.page_url)
+    expect(links[1].attributes('href')).toBe('https://artist.example/art')
+  })
+
+  it('omits the source link when the round has no source', () => {
+    useRoomStore().setRoomState(roomState({ nsfw: false })) // round.source_url is null
+    const links = mountPanel().findAll('li a')
+    expect(links).toHaveLength(1)
+    expect(links[0].text()).toBe('Derpibooru')
   })
 })

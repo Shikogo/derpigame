@@ -114,7 +114,7 @@ class GameService:
         image = self._current_image.pop(room.name, None)
         if image is not None:
             payloads.append(_image_revealed_payload(image))
-            self._record_round(room.name, image, None)  # aborted: no result
+            self._record_round(room, image, None)  # aborted: no result
         await self._emitter.emit(room.name, payloads)
 
     def turn_seconds_for(self, room: Room) -> float:
@@ -131,7 +131,7 @@ class GameService:
             image = self._current_image.pop(room.name, None)
             if image is not None:
                 payloads.append(_image_revealed_payload(image))
-                self._record_round(room.name, image, game_over)
+                self._record_round(room, image, game_over)
             room.clear_ready()  # round's done — the next needs a fresh ready-up
         try:
             if payloads:
@@ -159,9 +159,10 @@ class GameService:
         if timer is not None:
             timer.cancel()
 
-    def _record_round(self, room_name: str, image: Image, game_over: GameOver | None) -> None:
+    def _record_round(self, room: Room, image: Image, game_over: GameOver | None) -> None:
         """Append a finished round to the room's history (game over or abort)."""
-        self._history.setdefault(room_name, []).append(_round_record(image, game_over))
+        record = _round_record(image, game_over, nsfw=room.nsfw)
+        self._history.setdefault(room.name, []).append(record)
 
     def room_history(self, room_name: str) -> list[dict]:
         """The room's finished rounds, oldest first — for the lobby snapshot."""
@@ -255,16 +256,19 @@ def _image_revealed_payload(image: Image) -> dict:
     }
 
 
-def _round_record(image: Image, game_over: GameOver | None) -> dict:
+def _round_record(image: Image, game_over: GameOver | None, *, nsfw: bool) -> dict:
     """A finished round for the history: its link/attribution plus the result.
 
     ``game_over is None`` means the round was aborted — it has a link worth
-    keeping but no winners or final standings.
+    keeping but no winners or final standings. ``nsfw`` is the room's setting
+    when the round was played, so its thumbnail stays gated even if the room is
+    later switched to SFW.
     """
     return {
         "page_url": image.page_url,
         "source_url": image.source_url,
         "thumb_url": image.thumb_url,
+        "nsfw": nsfw,
         "artists": _artist_names(image),
         "win": game_over.win if game_over else False,
         "aborted": game_over is None,

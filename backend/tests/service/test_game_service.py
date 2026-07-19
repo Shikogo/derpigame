@@ -430,8 +430,23 @@ async def test_game_over_records_a_won_round_in_history():
     assert record["artists"] == ["foo"]
     assert record["win"] is True
     assert record["aborted"] is False
+    assert record["nsfw"] is False  # room defaults to SFW
     assert [w["uuid"] for w in record["winners"]] == ["alice"]
     assert [s["uuid"] for s in record["standings"]] == ["alice"]
+
+
+async def test_round_history_captures_nsfw_at_play_time():
+    emitter = RecordingEmitter()
+    service = GameService(StaticImageSource([rich_image()]), emitter)
+    room = make_room("alice")
+    room.nsfw = True
+
+    await service.start_game(room, first_index=0)
+    await service.submit_guess(room, "alice", "solo")  # win
+
+    room.nsfw = False  # room flipped to SFW after the round was played
+    (record,) = service.room_history(room.name)
+    assert record["nsfw"] is True  # the played round stays flagged, thumbnail gated
 
 
 async def test_aborted_round_is_recorded_with_the_link_but_no_result():

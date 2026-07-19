@@ -35,6 +35,7 @@ export interface RoundRecord {
   page_url: string
   source_url: string | null
   thumb_url: string
+  nsfw: boolean
   artists: string[]
   win: boolean
   aborted: boolean
