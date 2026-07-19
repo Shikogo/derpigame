@@ -109,7 +109,7 @@ async def test_request_params_and_user_agent():
     assert req.url.params["q"] == "cute,pony"
     assert req.url.params["sf"] == "random"
     assert req.url.params["per_page"] == "1"
-    assert "filter_id" not in req.url.params  # sfw sends no filter
+    assert req.url.params["filter_id"] == "100073"  # sfw gets the modern default
     assert "derpigame" in req.headers["user-agent"]
 
 
@@ -121,12 +121,12 @@ async def test_empty_query_becomes_wildcard():
     assert requests[0].url.params["q"] == "*"
 
 
-async def test_nsfw_sends_the_everything_filter():
+async def test_nsfw_sends_the_nsfw_filter():
     source, requests = make_source(respond(json=ONE_IMAGE))
 
     await source.random_image(["cute"], nsfw=True)
 
-    assert requests[0].url.params["filter_id"] == "56027"
+    assert requests[0].url.params["filter_id"] == "37432"
 
 
 # --- back-off rules ----------------------------------------------------------

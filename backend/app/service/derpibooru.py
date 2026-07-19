@@ -26,9 +26,11 @@ from app.service.tag_resolver import TagResolver
 _SEARCH_URL = "https://derpibooru.org/api/v1/json/search/images"
 _TAGS_URL = "https://derpibooru.org/api/v1/json/search/tags"
 _USER_AGENT = "derpigame/0.1 (https://github.com/Shikogo/derpigame)"
-# Derpibooru system filter that shows everything, incl. explicit — used for nsfw
-# rooms. Sfw rooms send no filter and get the site default (hides explicit).
-_EVERYTHING_FILTER_ID = "56027"
+# Derpibooru system filters, sent explicitly so we never inherit the anonymous
+# site default (a legacy filter that surfaces AI-generated content). Sfw rooms get
+# the modern "Default" filter; nsfw rooms get "18+ R34".
+_DEFAULT_FILTER_ID = "100073"
+_NSFW_FILTER_ID = "37432"
 
 # Back-off durations (seconds) per Derpibooru's API rules.
 _CHALLENGE_BACKOFF = 5.0  # 501 text/html anti-bot challenge: silence ≥5s
@@ -73,9 +75,8 @@ class DerpibooruClient(ImageSource, TagResolver):
             "q": ",".join(query) if query else "*",
             "sf": "random",
             "per_page": 1,
+            "filter_id": _NSFW_FILTER_ID if nsfw else _DEFAULT_FILTER_ID,
         }
-        if nsfw:
-            params["filter_id"] = _EVERYTHING_FILTER_ID
         if self._api_key:
             params["key"] = self._api_key
 
