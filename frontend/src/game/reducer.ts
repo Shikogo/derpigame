@@ -67,7 +67,7 @@ export interface GameState {
 }
 
 // Fallback until game_started / game_snapshot delivers the server's value.
-const DEFAULT_TURN_SECONDS = 30
+const DEFAULT_TURN_SECONDS = 60
 
 export function initialGameState(): GameState {
   return {

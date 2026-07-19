@@ -487,7 +487,7 @@ def test_win_counts_are_empty_for_an_unplayed_room():
 
 
 async def test_game_snapshot_describes_the_live_round_without_leaking_answers():
-    service = make_service(["solo", "twilight"], RecordingEmitter())
+    service = make_service(["solo", "twilight"], RecordingEmitter(), turn_seconds=45.0)
     room = make_room("alice", "bob")
     await service.start_game(room, first_index=0)
 
@@ -500,7 +500,7 @@ async def test_game_snapshot_describes_the_live_round_without_leaking_answers():
     assert snap["tag_count"] == 2
     assert snap["goal_remaining"] == 2
     assert snap["eliminated"] == []
-    assert snap["turn_seconds"] == 30
+    assert snap["turn_seconds"] == 45.0  # the snapshot carries the room's turn length
     # the unguessed goal tags must never appear anywhere in the payload
     assert "twilight" not in json.dumps(snap)
     assert "solo" not in json.dumps(snap)
