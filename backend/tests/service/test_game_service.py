@@ -34,6 +34,20 @@ class BrokenImageSource(ImageSource):
         raise ImageSourceError("provider is down")
 
 
+class GatedImageSource(ImageSource):
+    """Blocks each fetch until released, so overlapping starts can be forced."""
+
+    def __init__(self, image: Image):
+        self._image = image
+        self.calls = 0
+        self.gate = asyncio.Event()
+
+    async def random_image(self, query, *, nsfw):
+        self.calls += 1
+        await self.gate.wait()
+        return self._image
+
+
 class RecordingResolver(TagResolver):
     """Resolves from a fixed alias map and records every tag it's asked about."""
 
@@ -129,6 +143,28 @@ async def test_start_game_is_ignored_when_one_is_already_running():
     await service.start_game(room, first_index=0)  # already active
 
     assert len(emitter.batches) == before
+    service.shutdown()
+
+
+async def test_concurrent_starts_open_only_one_game():
+    # Two players hitting "start" at once must not each open a round: the fetch
+    # is an await point, so the second start has to bail on the first's reservation
+    # rather than pass a still-clear `room.active` guard and fetch a rival image.
+    emitter = RecordingEmitter()
+    image = Image(id="1", tags=["solo", "twilight"], thumb_url="t", full_url="f")
+    source = GatedImageSource(image)
+    service = GameService(source, emitter)
+    room = make_room("alice", "bob")
+
+    first = asyncio.create_task(service.start_game(room, first_index=0))
+    second = asyncio.create_task(service.start_game(room, first_index=0))
+    await asyncio.sleep(0)  # let both reach the start_game guard
+    source.gate.set()  # release the fetch(es)
+    await asyncio.gather(first, second)
+
+    assert source.calls == 1  # the loser bailed before ever fetching
+    assert emitter.types() == ["image_started", "game_started", "turn_started"]
+    assert room.name not in service._starting  # reservation cleared
     service.shutdown()
 
 

@@ -38,6 +38,7 @@ class GameService:
         self._timers: dict[str, TurnTimer] = {}
         self._current_image: dict[str, Image] = {}  # image on display, per room
         self._history: dict[str, list[dict]] = {}  # finished rounds, per room
+        self._starting: set[str] = set()  # rooms with an in-flight start
 
     async def start_game(
         self,
@@ -47,25 +48,32 @@ class GameService:
         first_index: int | None = None,
     ) -> None:
         """Fetch an image, open a game for the room's ready players, announce it."""
-        if room.active:
-            return  # a game is already in progress
+        if room.active or room.name in self._starting:
+            return  # a game is already running, or a concurrent start is in flight
+        # Reserve the room *before* the fetch await: the guard above only clears
+        # once the game exists, so without this a second start slipping in during
+        # the fetch would open a rival round. Set synchronously so the rival sees it.
+        self._starting.add(room.name)
         try:
-            image = await self._images.random_image(room.query, nsfw=room.nsfw)
-        except ImageSourceError:
-            await self._emitter.emit(room.name, [{"type": "image_error"}])
-            return
-        if image is None:
-            await self._emitter.emit(
-                room.name, [{"type": "no_image", "query": list(room.query)}]
-            )
-            return
+            try:
+                image = await self._images.random_image(room.query, nsfw=room.nsfw)
+            except ImageSourceError:
+                await self._emitter.emit(room.name, [{"type": "image_error"}])
+                return
+            if image is None:
+                await self._emitter.emit(
+                    room.name, [{"type": "no_image", "query": list(room.query)}]
+                )
+                return
 
-        options = dict(self._game_options)
-        if taxonomy is not None:
-            options["taxonomy"] = taxonomy
-        game = room.start_game(image.tags, first_index=first_index, **options)
-        self._current_image[room.name] = image
-        await self._deliver(room, game.start(), lead=[_image_started_payload(image)])
+            options = dict(self._game_options)
+            if taxonomy is not None:
+                options["taxonomy"] = taxonomy
+            game = room.start_game(image.tags, first_index=first_index, **options)
+            self._current_image[room.name] = image
+            await self._deliver(room, game.start(), lead=[_image_started_payload(image)])
+        finally:
+            self._starting.discard(room.name)
 
     async def submit_guess(self, room: Room, user_uuid: str, guess: str) -> None:
         """Apply a guess from the active player; raise ``NotYourTurn`` otherwise."""
@@ -223,6 +231,7 @@ class GameService:
         self._timers.clear()
         self._current_image.clear()
         self._history.clear()
+        self._starting.clear()
 
 
 def _image_started_payload(image: Image) -> dict:
