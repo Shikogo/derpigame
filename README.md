@@ -5,8 +5,11 @@ Derpibooru, and take turns guessing its tags. Three wrong guesses eliminate you;
 most points when the tags are all guessed (or everyone's out) wins.
 
 This repo is a rewrite of the legacy Flask app into a **FastAPI + python-socketio**
-backend and a **Vue** frontend. See [`derpigame-rewrite-plan.md`](derpigame-rewrite-plan.md)
-for the architecture and build phases.
+backend and a **Vue** frontend. The core rewrite is complete and playable
+end-to-end — both layers are built and tested; a database and user accounts are
+the main pieces still to come (room history and stats are in-memory for now). See
+[`derpigame-rewrite-plan.md`](derpigame-rewrite-plan.md) for the architecture and
+remaining phases.
 
 ## Repo layout
 
@@ -106,3 +109,10 @@ Dependencies point one way:
 
 The wire protocol is JSON — the backend emits structured, typed events and the
 Vue client owns all rendering.
+
+On the frontend, that same discipline repeats: a pure `(state, event) => state`
+reducer folds the `game_events` stream into view state with no Vue or socket
+dependency, so the game logic is unit-testable in isolation. Pinia stores are a
+thin reactive shell over it, a typed `socket.io-client` wrapper carries the wire
+contract (mirrored exactly in `src/types/wire.ts`), and components stay
+presentational.

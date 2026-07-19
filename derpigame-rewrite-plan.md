@@ -4,14 +4,14 @@ Remaking `derpigame-legacy` (Flask + Flask-SocketIO + server-rendered Jinja) int
 
 ---
 
-## 0. Status (updated 2026-07-17)
+## 0. Status (updated 2026-07-19)
 
-**Backend domain, service, and transport layers are done and tested (110 tests
-plus an end-to-end socket smoke test), and a minimal real Derpibooru image
-source is wired in; config, persistence, and the whole frontend are not
-started.**
+**The core rewrite is complete and playable end-to-end: the backend (domain /
+service / transport) and the Vue frontend are both built and tested. Config
+(Pydantic `Settings`) and persistence (a real DB) are the main unbuilt pieces —
+round history and the win tally currently live in in-memory service state.**
 
-Done:
+Backend — done (**138 tests** + a live socket smoke test):
 - **Domain** (`app/domain/`, pure — no framework imports): `Game`, `Room`,
   `User`, `Player`, `TagBucket`, `TagTaxonomy`, and the event objects
   (`app/domain/events.py`). Methods return event objects describing what
@@ -20,30 +20,58 @@ Done:
   loop (fetch → mutate domain → emit → time), the `EventEmitter` ABC, the
   asyncio `TurnTimer` (bug #3 fixed structurally, see §3b), the `ImageSource`
   abstraction with a `StaticImageSource` for tests, `singledispatch`-based
-  event→JSON serialization, and `GameActionError`/`NotYourTurn`.
+  event→JSON serialization, and `GameActionError`/`NotYourTurn`. Also composes
+  the **image payloads** the domain never sees (`image_started` at game start,
+  `image_revealed` — artist/source/page attribution — at reveal) and keeps
+  **in-memory round history + win tally** per room.
 - **Transport** (`app/transport/`): the only layer importing FastAPI/socketio
   (and only its composition root `app.py` does — emitter/handlers take the server
   injected). `RoomRegistry` (replaces the legacy `rooms = {}` global), the real
   `SocketIOEmitter`, `room_state` snapshots, gfycat-style room codes
   (`room_codes.py`), and the full socketio handler set with `GameActionError` →
   per-caller ack. `create_app()` mounts `socketio.ASGIApp` on FastAPI; runnable
-  via `uvicorn app.main:app`. Fixes bug #1 (clean `no_players_ready` ack) and
-  bug #2 (real name-uniqueness) along the way.
+  via `uvicorn app.main:app`. Per-room settings (query / nsfw / **turn length**)
+  flow through `configure_room`; a late/rejoining socket gets a game snapshot.
+  Fixes bug #1 (clean `no_players_ready` ack) and bug #2 (real name-uniqueness).
 - **Image source** (`app/service/derpibooru.py`): a minimal async
   `DerpibooruImageSource` (real `httpx` against the REST search API, not the legacy
   sync `derpibooru` package) — the default source in `create_app`, so the game is
   playable with real images. It honors Derpibooru's mandatory back-off rules via a
   cooldown gate (501 challenge → 5s, 500 block → 15min, other failures →
   exponential), and forces `https:` on image URLs. Retry/caching/alias are still
-  Phase 3.
-- **110 tests** passing (domain + service + transport + Derpibooru source), no app
-  context required, plus a live uvicorn + `socketio.AsyncClient` smoke test of the
-  join→start→guess flow.
+  Phase 3. An offline `dev_server:app` swaps in a `StaticImageSource` for
+  token-free frontend work.
 
-Not started:
-- **Config** (`app/config/`) — Pydantic `Settings`.
-- **Persistence** (`app/persistence/`) — repositories.
-- **Frontend** — not scaffolded.
+Frontend — done (**67 Vitest tests**, `vue-tsc` typecheck + `vite build` clean):
+- Scaffolded with **Vite 8 + Vue 3.5 + Pinia + Vue Router 5 (hash mode) +
+  TypeScript + Tailwind v4** (`@theme` tokens). (Note: built on Node 22 with the
+  current Vite 8 / Tailwind 4 line, not the Node-18 / Vite-5 / Tailwind-3 pin the
+  build plan first scoped.)
+- Wire-contract types (`src/types/wire.ts`) mirror the backend snake_case JSON
+  exactly — no case-translation layer — behind a thin typed `socket.io-client`
+  wrapper with ack promises.
+- Pinia stores over a **pure `(state, event) => state` reducer** (`game/reducer.ts`),
+  the frontend analogue of the pure domain, so game state is unit-testable
+  without mounting or a live socket.
+- Full component set: home hero, lobby (roster / ready / settings dialog /
+  invite link / round history), the live game (pan/zoom `ImageViewer`, turn
+  indicator + circular countdown timer, the dedicated guess box — **not** chat —,
+  per-type guess-feed badges, scoreboard, tag progress), the game-over screen
+  with **mandatory attribution** (artist + source/page links, shown on both a
+  finished and an aborted round), a social chat, and an **18+ age gate** for NSFW
+  rooms.
+- Dark-first "booru, gamified" visual identity: category-colored tag pills,
+  self-hosted fonts, an accent image glow.
+- The **per-turn time limit is configurable** in room settings.
+
+Not started / deferred:
+- **Config** (`app/config/`) — Pydantic `Settings`; `SECRET_KEY` / defaults
+  (timer duration, elimination threshold, default query) still live in code.
+- **Persistence** (`app/persistence/`) — no DB yet; history and the win tally are
+  in-memory service state, lost on restart.
+- **Automated integration / e2e tests** — deliberately skipped in favor of a
+  manual browser pass; the backend + frontend unit suites carry the coverage.
+- **Phase 2/3** (e621, accounts, stats, alias resolution) and **deployment**.
 
 ### Design refinements vs. the original plan
 
@@ -206,9 +234,9 @@ acks; room state only ever moves through the emitter.
 
 ## 4. Build phases
 
-1. **Backend API + WebSocket layer** — port `data.py` game logic into the layered structure above (domain / service / transport), replace HTML-fragment emits with JSON, fix bug #2 (real name-uniqueness check) and bug #3 (timer race, via the asyncio-task redesign) along the way.
-2. **Unit tests** — cover the domain layer in isolation (turn order, elimination, fuzzy-match scoring, tie detection) — no app context needed given the layering above.
-3. **Vue frontend** — components for login, room/lobby, image viewer, a dedicated
+1. ✅ **Backend API + WebSocket layer** — port `data.py` game logic into the layered structure above (domain / service / transport), replace HTML-fragment emits with JSON, fix bug #2 (real name-uniqueness check) and bug #3 (timer race, via the asyncio-task redesign) along the way.
+2. ✅ **Unit tests** — cover the domain layer in isolation (turn order, elimination, fuzzy-match scoring, tie detection) — no app context needed given the layering above. Done for the backend, and mirrored on the frontend (Vitest over the pure reducer, viewer geometry, stores, and the gating components).
+3. ✅ **Vue frontend** — components for login, room/lobby, image viewer, a dedicated
    guess input, correct/incorrect guess badges, user list, score display. Pinia
    store for room/game state. **The game no longer happens in the chat** (unlike
    legacy): guesses go through a purpose-built input box, and correct/incorrect
@@ -220,9 +248,9 @@ acks; room state only ever moves through the emitter.
    game ends / the image is revealed; a link to the derpibooru.org page is
    recommended; all URLs must be `https:`. (Care: don't reveal artist/source tags
    mid-game — they'd give away answers.)
-4. **Integration tests** — full flow through the transport layer: join room → ready up → start game → guess → win/lose.
-5. **Bugfixes** — fix #1 (`room` → `self.name`) and #4 (`SECRET_KEY` env var) as encountered.
-6. **New features** — see Phase 2/3 below.
+4. ⏭️ **Integration tests** — deliberately skipped: automated integration/e2e (a full transport or browser drive of join → ready → start → guess → win/lose) is low-ROI here, so this flow is verified by a manual browser pass instead. The backend and frontend unit suites carry the automated coverage.
+5. **Bugfixes** — #1 (`room` → `self.name`) ✅ done; #4 (`SECRET_KEY` env var) deferred to the config step (no auth yet).
+6. **New features** — see Phase 2/3 below (not started). Extras landed during the core port: per-room configurable turn length, round history + win tally, dark-first visual identity, and the NSFW age gate.
 
 ---
 
@@ -291,11 +319,11 @@ exists* (`app/service/derpibooru.py`, §0) — this phase hardens it:
 - [x] Port `data.py` game logic into the domain layer (pure, no framework imports)
 - [x] Replace `threading.Timer` with an `asyncio.Task`-based timer feeding the same single processing path as manual guesses (fixes bug #3 structurally)
 - [x] Define JSON event/payload shapes (replacing HTML-fragment emits) — `singledispatch` serializers
-- [x] Write unit tests for the domain layer (plus service + transport — 100 tests) and an end-to-end socket smoke test
-- [ ] Scaffold Vue app (Vite + Pinia + Vue Router, hash mode)
-- [ ] Build core components: login, lobby, image viewer, guess input box, correct/incorrect guess badges, user list (chat optional, social-only — not the guess path)
-- [ ] Wire Socket.IO client to Pinia store
-- [ ] Write integration tests (join → ready → play → win/lose)
+- [x] Write unit tests for the domain layer (plus service + transport — 138 tests) and an end-to-end socket smoke test
+- [x] Scaffold Vue app (Vite + Pinia + Vue Router, hash mode)
+- [x] Build core components: login, lobby, image viewer, guess input box, correct/incorrect guess badges, user list, chat (social-only — not the guess path), plus game-over attribution, round history, circular turn timer, and the NSFW age gate
+- [x] Wire Socket.IO client to Pinia store (thin typed client + a pure `(state, event) => state` reducer; 67 Vitest tests)
+- [x] End-to-end flow verified manually in the browser (automated integration/e2e intentionally skipped — see phase 4)
 - [x] Fix `room` NameError bug (bug #1 — zero-ready start now a clean ack) and name-uniqueness check (bug #2)
 - [ ] Fix `SECRET_KEY` → env var (via Settings object) — deferred to the config step (no auth yet)
 
