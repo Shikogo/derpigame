@@ -4,8 +4,15 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0d0e12" />
+    <meta name="theme-color" content="#171a21" />
     <title>Derpigame</title>
+    <script>
+      // Apply a persisted light theme before first paint to avoid a flash of dark.
+      try {
+        if (localStorage.getItem('derpigame:theme') === 'light')
+          document.documentElement.dataset.theme = 'light'
+      } catch (_) {}
+    </script>
   </head>
   <body>
     <div id="app"></div>

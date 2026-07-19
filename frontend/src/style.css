@@ -40,6 +40,34 @@
     color-scheme: dark; /* dark form controls + scrollbars, for free */
   }
 
+  /* Light theme: opt-in via `data-theme="light"` on <html> (see stores/theme.ts).
+     Overrides the same tokens so every `bg-*`/`text-*`/`border-*` utility flips.
+     Accent and semantic hues are deepened for contrast on light surfaces. */
+  :root[data-theme='light'] {
+    color-scheme: light;
+
+    --color-bg: #f3f4f8;
+    --color-surface: #ffffff;
+    --color-raised: #eceef4;
+    --color-border: #d6dae4;
+    --color-ink: #1a1d26;
+    --color-ink-muted: #4b5563;
+    --color-ink-faint: #626b7a;
+
+    --color-turn: #1f6feb;
+    --color-on-accent: #ffffff;
+
+    --color-correct: #12a150;
+    --color-wrong: #dc2626;
+    --color-eliminated: #5f6875;
+
+    --color-cat-1: #0d9488;
+    --color-cat-2: #b45309;
+    --color-cat-3: #db2777;
+    --color-cat-4: #7c3aed;
+    --color-cat-5: #16a34a;
+  }
+
   html,
   body,
   #app {
