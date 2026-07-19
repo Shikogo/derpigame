@@ -14,6 +14,8 @@ const guess = ref('')
 const input = ref<HTMLInputElement | null>(null)
 
 // Focus the box when your turn begins so you can type without clicking in.
+// `immediate` also covers the starting player, who is already the active player
+// when this box first mounts (no false→true transition for a plain watch).
 watch(
   () => game.isMyTurn,
   async (mine) => {
@@ -21,6 +23,7 @@ watch(
     await nextTick()
     input.value?.focus()
   },
+  { immediate: true },
 )
 
 async function submit(): Promise<void> {

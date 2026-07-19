@@ -65,6 +65,18 @@ describe('GuessInput', () => {
     wrapper.unmount()
   })
 
+  it('focuses the box when mounted already on your turn (starting player)', async () => {
+    const session = useSessionStore()
+    const game = useGameStore()
+    game.state.activePlayerUuid = session.uuid // already isMyTurn before mount
+
+    const wrapper = mount(GuessInput, { attachTo: document.body })
+    await nextTick() // immediate watcher focuses after the ref is bound
+
+    expect(document.activeElement).toBe(wrapper.find('input').element)
+    wrapper.unmount()
+  })
+
   it('does not submit an empty or whitespace-only guess', async () => {
     const session = useSessionStore()
     const game = useGameStore()
