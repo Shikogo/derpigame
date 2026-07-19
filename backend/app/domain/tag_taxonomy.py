@@ -65,6 +65,8 @@ DERPIBOORU_TAXONOMY = TagTaxonomy(
             "dead source",
             "source needed",
             "useless source link",
+            "derpibooru exclusive",
+            "youtube link",
         }
     ),
     ignored_prefixes=("spoiler:",),
