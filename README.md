@@ -86,6 +86,10 @@ Vite serves the app with hot-module reload and proxies nothing — it talks to t
 backend directly over `VITE_BACKEND_URL`, so start the backend (above) in another
 terminal. Open the app in two tabs to play a room against yourself.
 
+To start both at once, run `./run-local.sh --dev` from the repo root: it brings up
+the backend (`--reload`, `:8000`) and Vite (`:5173`) together, and Ctrl+C stops
+both. Add `--offline` to swap in the token-less offline backend (`dev_server:app`).
+
 ### Running tests
 
 ```bash
@@ -101,6 +105,17 @@ For a quick multiplayer session, the backend can serve the built frontend from
 the same origin, so a single URL (and a single tunnel) fronts both the SPA and
 the websocket. It's a self-contained alternative to the split frontend/backend
 deployment — handy for playing together, not the production topology.
+
+The quickest path is the `run-local.sh` helper at the repo root, which does the
+build and starts the server in one command:
+
+```bash
+./run-local.sh              # http://localhost:8000 (+ your LAN IP)
+./run-local.sh --share      # also open a public cloudflared tunnel
+./run-local.sh --help       # options (--no-build, PORT=…)
+```
+
+The steps below are what it automates, for when you want to run them by hand.
 
 ### 1. Build the frontend
 
