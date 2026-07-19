@@ -127,6 +127,12 @@ class GameService:
             self._record_round(room, image, None)  # aborted: no result
         await self._emitter.emit(room.name, payloads)
 
+    @property
+    def rating_levels(self) -> list[str]:
+        """The image source's rating vocabulary, for validation and the lobby UI."""
+        ladder = self._images.ratings
+        return list(ladder.levels) if ladder is not None else []
+
     def turn_seconds_for(self, room: Room) -> float:
         """The room's turn length, falling back to the deployment default."""
         return room.turn_seconds if room.turn_seconds is not None else self._turn_seconds
@@ -238,7 +244,12 @@ class GameService:
 
 def _search_options(room: Room) -> SearchOptions:
     """Map a room's search config onto a provider-agnostic query spec."""
-    return SearchOptions(nsfw=room.nsfw)
+    return SearchOptions(
+        nsfw=room.nsfw,
+        min_tag_count=room.min_tag_count,
+        min_score=room.min_score,
+        max_rating=room.max_rating,
+    )
 
 
 def _image_started_payload(image: Image) -> dict:

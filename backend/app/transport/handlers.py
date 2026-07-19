@@ -46,6 +46,23 @@ def _parse_turn_seconds(raw) -> float | None:
         return None
 
 
+def _parse_optional_int(raw, *, floor: int | None = None) -> int | None:
+    """A whole-number search bound; None turns the setting off.
+
+    Unlike ``_parse_turn_seconds``, unparseable maps to the *value* None rather
+    than "skip the assignment" — None is a real setting here, and a client that
+    wants the setting left alone omits the key entirely.
+
+    No ceiling: a bound higher than anything on the site simply matches nothing,
+    which the ``no_image`` event already handles.
+    """
+    try:
+        value = int(round(float(raw)))
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return value if floor is None else max(floor, value)
+
+
 class SocketHandlers:
     def __init__(
         self,
@@ -161,8 +178,23 @@ class SocketHandlers:
             seconds = _parse_turn_seconds(data["turn_seconds"])
             if seconds is not None:
                 room.turn_seconds = seconds
+        if "min_tag_count" in data:
+            room.min_tag_count = _parse_optional_int(data["min_tag_count"], floor=0)
+        if "min_score" in data:
+            room.min_score = _parse_optional_int(data["min_score"])
+        if "max_rating" in data:
+            room.max_rating = self._parse_max_rating(data["max_rating"])
         await self._broadcast_state(room)
         return _ok()
+
+    def _parse_max_rating(self, raw) -> str | None:
+        """A cap from the image source's own ladder; None (no cap) for anything else.
+
+        Validated against the live provider rather than a hardcoded list, so a
+        source with different rating names needs no change here.
+        """
+        value = str(raw).strip().lower()
+        return value if value in self._service.rating_levels else None
 
     # --- game actions ---------------------------------------------------------
 
@@ -289,6 +321,7 @@ class SocketHandlers:
         return {
             **room_state(room),
             "turn_seconds": self._service.turn_seconds_for(room),
+            "rating_levels": self._service.rating_levels,
             "history": self._service.room_history(room.name),
             "win_counts": self._service.room_win_counts(room.name),
         }

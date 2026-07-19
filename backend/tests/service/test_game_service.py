@@ -10,7 +10,13 @@ from app.domain.user import User
 from app.service.emitter import EventEmitter
 from app.service.errors import NotYourTurn
 from app.service.game_service import GameService
-from app.service.image_source import Image, ImageSource, ImageSourceError, StaticImageSource
+from app.service.image_source import (
+    Image,
+    ImageSource,
+    ImageSourceError,
+    SearchOptions,
+    StaticImageSource,
+)
 from app.service.tag_resolver import TagResolver
 
 
@@ -45,6 +51,18 @@ class GatedImageSource(ImageSource):
     async def random_image(self, query, *, options):
         self.calls += 1
         await self.gate.wait()
+        return self._image
+
+
+class RecordingImageSource(ImageSource):
+    """Captures the options it was handed, so the room→provider chain is testable."""
+
+    def __init__(self, image: Image):
+        self._image = image
+        self.options: SearchOptions | None = None
+
+    async def random_image(self, query, *, options):
+        self.options = options
         return self._image
 
 
@@ -166,6 +184,31 @@ async def test_concurrent_starts_open_only_one_game():
     assert emitter.types() == ["image_started", "game_started", "turn_started"]
     assert room.name not in service._starting  # reservation cleared
     service.shutdown()
+
+
+async def test_room_search_settings_reach_the_image_source():
+    emitter = RecordingEmitter()
+    source = RecordingImageSource(Image(id="1", tags=["solo"], thumb_url="", full_url=""))
+    service = GameService(source, emitter)
+    room = make_room("alice")
+    room.nsfw = True
+    room.min_tag_count = 20
+    room.min_score = 5
+    room.max_rating = "questionable"
+
+    await service.start_game(room)
+
+    assert source.options == SearchOptions(
+        nsfw=True, min_tag_count=20, min_score=5, max_rating="questionable"
+    )
+    service.shutdown()
+
+
+async def test_rating_levels_come_from_the_image_source():
+    """A source with no rating vocabulary reports none, rather than guessing."""
+    service = GameService(StaticImageSource([]), RecordingEmitter())
+
+    assert service.rating_levels == []
 
 
 async def test_no_matching_image_emits_no_image():

@@ -13,6 +13,9 @@ def room_state(room: Room) -> dict:
         "room": room.name,
         "query": list(room.query),
         "nsfw": room.nsfw,
+        "min_tag_count": room.min_tag_count,
+        "min_score": room.min_score,
+        "max_rating": room.max_rating,
         "in_progress": room.active,
         "users": [
             {"uuid": user.uuid, "name": user.name, "ready": user.ready}

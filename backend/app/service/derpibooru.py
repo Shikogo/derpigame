@@ -20,6 +20,7 @@ import urllib.parse
 
 import httpx
 
+from app.domain.rating import DERPIBOORU_RATINGS, RatingLadder
 from app.service.image_source import Image, ImageSource, ImageSourceError, SearchOptions
 from app.service.tag_resolver import TagResolver
 
@@ -56,6 +57,10 @@ _SLUG_ESCAPES = [
 
 
 class DerpibooruClient(ImageSource, TagResolver):
+    @property
+    def ratings(self) -> RatingLadder:
+        return DERPIBOORU_RATINGS
+
     def __init__(
         self,
         *,
@@ -77,7 +82,7 @@ class DerpibooruClient(ImageSource, TagResolver):
 
         terms = list(query) or ["*"]
         params: dict[str, str | int] = {
-            "q": ",".join([*terms, _EXCLUDE_VIDEO]),
+            "q": ",".join([*terms, _EXCLUDE_VIDEO, *self._filter_terms(options)]),
             "sf": "random",
             "per_page": 1,
             "filter_id": _NSFW_FILTER_ID if options.nsfw else _DEFAULT_FILTER_ID,
@@ -125,6 +130,20 @@ class DerpibooruClient(ImageSource, TagResolver):
         self._alias_cache[canonical] = canonical  # the canonical resolves to itself
         for alias in tag.get("aliases") or []:
             self._alias_cache[_slug_to_name(alias)] = canonical
+
+    def _filter_terms(self, options: SearchOptions) -> list[str]:
+        """The room's non-tag search terms; a setting that's off emits nothing."""
+        terms = []
+        if options.min_tag_count is not None:
+            terms.append(f"tag_count.gte:{options.min_tag_count}")
+        if options.min_score is not None:
+            terms.append(f"score.gte:{options.min_score}")
+        allowed = self.ratings.allowed(options.max_rating)
+        if allowed:
+            # Parenthesized because || binds looser than the comma: bare, it
+            # would swallow the surrounding terms and match far too much.
+            terms.append("(" + " || ".join(allowed) + ")")
+        return terms
 
     def _guard_cooldown(self) -> None:
         remaining = self._cooldown_until - self._clock()

@@ -131,6 +131,75 @@ async def test_videos_are_excluded_from_every_search():
     assert all("-mime_type:video/webm" in r.url.params["q"] for r in requests)
 
 
+async def test_settings_left_off_send_no_extra_terms():
+    """The regression guard: an unset room queries exactly as it always has."""
+    source, requests = make_source(respond(json=ONE_IMAGE))
+
+    await source.random_image(["cute"], options=SearchOptions())
+
+    assert requests[0].url.params["q"] == "cute,-mime_type:video/webm"
+
+
+async def test_tag_count_and_score_bounds_become_search_terms():
+    source, requests = make_source(respond(json=ONE_IMAGE))
+
+    await source.random_image(
+        ["cute"], options=SearchOptions(min_tag_count=15, min_score=10)
+    )
+
+    q = requests[0].url.params["q"]
+    assert "tag_count.gte:15" in q and "score.gte:10" in q
+
+
+async def test_a_zero_score_bound_is_a_real_filter_not_an_off_switch():
+    """score.gte:0 excludes downvoted images, so 0 must survive as a term."""
+    source, requests = make_source(respond(json=ONE_IMAGE))
+
+    await source.random_image(["cute"], options=SearchOptions(min_score=0))
+
+    assert "score.gte:0" in requests[0].url.params["q"]
+
+
+async def test_a_negative_score_bound_is_kept():
+    source, requests = make_source(respond(json=ONE_IMAGE))
+
+    await source.random_image(["cute"], options=SearchOptions(min_score=-50))
+
+    assert "score.gte:-50" in requests[0].url.params["q"]
+
+
+async def test_a_rating_cap_is_parenthesized():
+    """`||` binds looser than the comma: unbracketed it would swallow the tags."""
+    source, requests = make_source(respond(json=ONE_IMAGE))
+
+    await source.random_image(["cute"], options=SearchOptions(max_rating="suggestive"))
+
+    assert requests[0].url.params["q"] == (
+        "cute,-mime_type:video/webm,(safe || suggestive)"
+    )
+
+
+async def test_the_top_rating_caps_nothing():
+    source, requests = make_source(respond(json=ONE_IMAGE))
+
+    await source.random_image(["cute"], options=SearchOptions(max_rating="explicit"))
+
+    assert requests[0].url.params["q"] == "cute,-mime_type:video/webm"
+
+
+async def test_every_setting_at_once():
+    source, requests = make_source(respond(json=ONE_IMAGE))
+
+    await source.random_image(
+        ["cute", "pony"],
+        options=SearchOptions(min_tag_count=15, min_score=10, max_rating="safe"),
+    )
+
+    assert requests[0].url.params["q"] == (
+        "cute,pony,-mime_type:video/webm,tag_count.gte:15,score.gte:10,(safe)"
+    )
+
+
 async def test_nsfw_sends_the_nsfw_filter():
     source, requests = make_source(respond(json=ONE_IMAGE))
 

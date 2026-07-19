@@ -10,6 +10,7 @@ import asyncio
 
 import pytest
 
+from app.domain.rating import DERPIBOORU_RATINGS
 from app.service.game_service import GameService
 from app.service.image_source import Image, StaticImageSource
 from app.transport.emitter import SocketIOEmitter
@@ -62,12 +63,14 @@ def make():
     services = []
     handlers_made = []
 
-    def _make(tags=("solo", "twilight"), turn_seconds=30.0, reconnect_grace=30.0):
+    def _make(tags=("solo", "twilight"), turn_seconds=30.0, reconnect_grace=30.0, ratings=None):
         server = FakeServer()
         registry = RoomRegistry()
         image = Image(id="1", tags=list(tags), thumb_url="t", full_url="f")
         service = GameService(
-            StaticImageSource([image]), SocketIOEmitter(server), turn_seconds=turn_seconds
+            StaticImageSource([image], ratings=ratings),
+            SocketIOEmitter(server),
+            turn_seconds=turn_seconds,
         )
         handlers = SocketHandlers(server, registry, service, reconnect_grace=reconnect_grace)
         services.append(service)
@@ -234,6 +237,68 @@ async def test_configured_turn_seconds_flows_into_game_started(make):
 
     started = next(p for p in server.emits_of("game_events")[-1] if p["type"] == "game_started")
     assert started["turn_seconds"] == 60.0
+
+
+async def test_configure_room_sets_the_search_bounds_and_broadcasts_them(make):
+    handlers, server, registry, _service = make(ratings=DERPIBOORU_RATINGS)
+    code = await _create(handlers, "sa", "ua", "Alice")
+
+    ack = await handlers.configure_room(
+        "sa", {"min_tag_count": 25, "min_score": 100, "max_rating": "safe"}
+    )
+
+    assert ack == {"ok": True}
+    room = registry.get(code)
+    assert (room.min_tag_count, room.min_score, room.max_rating) == (25, 100, "safe")
+    assert server.last_state()["min_score"] == 100
+
+
+async def test_configure_room_turns_a_bound_off_with_null(make):
+    handlers, _server, registry, _service = make()
+    code = await _create(handlers, "sa", "ua", "Alice")
+
+    await handlers.configure_room("sa", {"min_tag_count": None, "min_score": None})
+
+    room = registry.get(code)
+    assert room.min_tag_count is None and room.min_score is None
+
+
+async def test_configure_room_keeps_a_zero_score_bound(make):
+    """0 is a real threshold (it excludes downvoted images), not an off switch."""
+    handlers, _server, registry, _service = make()
+    code = await _create(handlers, "sa", "ua", "Alice")
+
+    await handlers.configure_room("sa", {"min_score": 0})
+
+    assert registry.get(code).min_score == 0
+
+
+async def test_configure_room_floors_a_negative_tag_count(make):
+    handlers, _server, registry, _service = make()
+    code = await _create(handlers, "sa", "ua", "Alice")
+
+    await handlers.configure_room("sa", {"min_tag_count": -5})
+
+    assert registry.get(code).min_tag_count == 0
+
+
+async def test_configure_room_rejects_a_rating_outside_the_source_ladder(make):
+    """An unknown level means no cap, never a silently wrong one."""
+    handlers, _server, registry, _service = make(ratings=DERPIBOORU_RATINGS)
+    code = await _create(handlers, "sa", "ua", "Alice")
+
+    await handlers.configure_room("sa", {"max_rating": "sfw-ish"})
+
+    assert registry.get(code).max_rating is None
+
+
+async def test_room_state_advertises_the_source_rating_levels(make):
+    handlers, server, _registry, _service = make(ratings=DERPIBOORU_RATINGS)
+    await _create(handlers, "sa", "ua", "Alice")
+
+    await handlers.configure_room("sa", {"nsfw": True})
+
+    assert server.last_state()["rating_levels"] == list(DERPIBOORU_RATINGS.levels)
 
 
 async def test_configure_room_is_rejected_during_a_game(make):

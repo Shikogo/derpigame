@@ -9,6 +9,8 @@ deterministic in-memory provider for tests and offline development.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
+from app.domain.rating import RatingLadder
+
 
 @dataclass(frozen=True)
 class Image:
@@ -25,10 +27,14 @@ class SearchOptions:
     """What a room wants from a provider, beyond the search tags themselves.
 
     Grouped into one object so a new room setting doesn't widen every
-    ``random_image`` signature and test double.
+    ``random_image`` signature and test double. ``None`` means the setting is
+    off; ``max_rating`` is a level from the provider's own ``RatingLadder``.
     """
 
     nsfw: bool = False
+    min_tag_count: int | None = None
+    min_score: int | None = None
+    max_rating: str | None = None
 
 
 class ImageSourceError(Exception):
@@ -36,6 +42,11 @@ class ImageSourceError(Exception):
 
 
 class ImageSource(ABC):
+    @property
+    def ratings(self) -> RatingLadder | None:
+        """The provider's rating vocabulary, or None if it doesn't rate content."""
+        return None
+
     @abstractmethod
     async def random_image(self, query: list[str], *, options: SearchOptions) -> Image | None:
         """Return a random image matching ``query``, or ``None`` if none match.
@@ -51,9 +62,14 @@ class StaticImageSource(ImageSource):
     An empty list models "no matching image" by always returning ``None``.
     """
 
-    def __init__(self, images: list[Image] | None = None):
+    def __init__(self, images: list[Image] | None = None, ratings: RatingLadder | None = None):
         self._images = list(images or [])
+        self._ratings = ratings
         self._index = 0
+
+    @property
+    def ratings(self) -> RatingLadder | None:
+        return self._ratings
 
     async def random_image(self, query: list[str], *, options: SearchOptions) -> Image | None:
         if not self._images:
