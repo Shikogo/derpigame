@@ -1,7 +1,7 @@
 /**
  * Room lifecycle + lobby snapshot. Actions emit client→server events and map
  * their acks; `error` holds the last failure string (`room_not_found`,
- * `name_taken`, `no_players_ready`, `not_your_turn`, …) for the UI to render.
+ * `name_taken`, `not_ready`, `not_your_turn`, …) for the UI to render.
  * The inbound `room_state` broadcast lands here via `setRoomState`.
  */
 

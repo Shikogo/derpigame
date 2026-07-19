@@ -24,7 +24,6 @@ const nsfwOn = computed(() => room.roomState?.nsfw ?? false)
 const turnSeconds = computed(() => room.roomState?.turn_seconds ?? 30)
 
 const ready = computed(() => room.me?.ready ?? false)
-const anyReady = computed(() => room.users.some((u) => u.ready))
 
 const inviteLink = computed(
   () => `${location.origin}${location.pathname}#/room/${room.code}`,
@@ -78,12 +77,12 @@ async function copyInvite(): Promise<void> {
     <div class="flex flex-col gap-2">
       <button
         class="rounded-lg bg-turn px-4 py-2.5 text-sm font-semibold text-on-accent disabled:opacity-40"
-        :disabled="!anyReady"
+        :disabled="!ready"
         @click="room.startGame()"
       >
         Start game
       </button>
-      <p v-if="!anyReady" class="text-xs text-ink-faint">At least one player must ready up.</p>
+      <p v-if="!ready" class="text-xs text-ink-faint">Ready up to start the game.</p>
       <p v-else-if="room.error" class="text-xs text-wrong">{{ errorLabel(room.error) }}</p>
     </div>
 

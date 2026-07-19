@@ -170,11 +170,13 @@ class SocketHandlers:
         resolved = await self._resolve(sid)
         if resolved is None:
             return _err("not_in_room")
-        room, _user = resolved
+        room, user = resolved
         if room.active:
             return _err("game_in_progress")
-        if not room.ready_users():
-            return _err("no_players_ready")
+        if not user.ready:
+            # Only a ready player may start; spectators just watch. A ready
+            # caller also guarantees the round has at least one player.
+            return _err("not_ready")
         await self._service.start_game(room)
         await self._broadcast_state(room)
         return _ok()

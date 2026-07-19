@@ -2,7 +2,7 @@
 const LABELS: Record<string, string> = {
   room_not_found: 'No room with that code.',
   name_taken: 'That name is taken in this room.',
-  no_players_ready: 'At least one player must be ready to start.',
+  not_ready: 'Ready up before you can start the game.',
   not_your_turn: 'It’s not your turn.',
   game_in_progress: 'A game is already in progress.',
   bad_request: 'Enter a name (and a code to join).',

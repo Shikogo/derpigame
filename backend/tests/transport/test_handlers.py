@@ -250,14 +250,29 @@ async def test_configure_room_is_rejected_during_a_game(make):
 # --- starting a game ---------------------------------------------------------
 
 
-async def test_start_requires_a_ready_player(make):
+async def test_start_requires_the_caller_to_be_ready(make):
     # Bug #1: legacy crashed with a NameError here; now it's a clean ack.
     handlers, _server, _registry, _service = make()
-    await _create(handlers, "sa", "ua", "Alice")  # nobody ready
+    await _create(handlers, "sa", "ua", "Alice")  # not ready
 
     ack = await handlers.start_game("sa")
 
-    assert ack == {"ok": False, "error": "no_players_ready"}
+    assert ack == {"ok": False, "error": "not_ready"}
+
+
+async def test_spectator_cannot_start_but_a_ready_player_can(make):
+    handlers, _server, registry, _service = make()
+    code = await _create(handlers, "sa", "ua", "Alice")
+    await handlers.join_room("sb", {"room": code, "uuid": "ub", "name": "Bob"})
+    await handlers.set_ready("sb", {"ready": True})  # only Bob readies up
+
+    # Alice is a spectator (not ready) — she can't start, even though Bob is.
+    assert await handlers.start_game("sa") == {"ok": False, "error": "not_ready"}
+    assert not registry.get(code).active
+
+    # Bob, who's ready, can.
+    assert await handlers.start_game("sb") == {"ok": True}
+    assert registry.get(code).active
 
 
 async def test_start_happy_path_emits_game_events(make):
