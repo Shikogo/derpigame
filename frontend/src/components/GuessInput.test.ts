@@ -49,6 +49,22 @@ describe('GuessInput', () => {
     expect((wrapper.find('input').element as HTMLInputElement).value).toBe('')
   })
 
+  it('focuses the box when your turn begins', async () => {
+    const session = useSessionStore()
+    const game = useGameStore()
+
+    const wrapper = mount(GuessInput, { attachTo: document.body })
+    const input = wrapper.find('input').element as HTMLInputElement
+    expect(document.activeElement).not.toBe(input)
+
+    game.state.activePlayerUuid = session.uuid // now isMyTurn
+    await nextTick() // watcher enables the box
+    await nextTick() // ...then focuses it
+
+    expect(document.activeElement).toBe(input)
+    wrapper.unmount()
+  })
+
   it('does not submit an empty or whitespace-only guess', async () => {
     const session = useSessionStore()
     const game = useGameStore()

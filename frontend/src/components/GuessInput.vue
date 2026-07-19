@@ -3,7 +3,7 @@
  * The dedicated guess box — enabled only on your turn (guesses are the active
  * player's alone; this is never the chat path).
  */
-import { ref } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
@@ -11,6 +11,17 @@ import { useRoomStore } from '@/stores/room'
 const game = useGameStore()
 const room = useRoomStore()
 const guess = ref('')
+const input = ref<HTMLInputElement | null>(null)
+
+// Focus the box when your turn begins so you can type without clicking in.
+watch(
+  () => game.isMyTurn,
+  async (mine) => {
+    if (!mine) return
+    await nextTick()
+    input.value?.focus()
+  },
+)
 
 async function submit(): Promise<void> {
   const value = guess.value.trim()
@@ -23,6 +34,7 @@ async function submit(): Promise<void> {
 <template>
   <form class="flex gap-2" @submit.prevent="submit">
     <input
+      ref="input"
       v-model="guess"
       :disabled="!game.isMyTurn"
       type="text"
