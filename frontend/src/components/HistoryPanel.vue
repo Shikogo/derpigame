@@ -8,12 +8,18 @@ import { computed, ref } from 'vue'
 import AgeGate from '@/components/AgeGate.vue'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
+import type { RoundRecord } from '@/types/wire'
 
 const room = useRoomStore()
 const session = useSessionStore()
 
 // Newest round first; the snapshot stores them oldest-first.
 const rounds = computed(() => [...room.history].reverse())
+
+// A round reads as a "win" (green) only when *you* were among the winners.
+function youWon(round: RoundRecord): boolean {
+  return round.winners.some((w) => w.uuid === session.uuid)
+}
 
 // Past-round thumbnails are NSFW when the room is; hide them behind the same
 // 18+ attestation as the live picture. Clicking a hidden thumb opens the gate
@@ -36,21 +42,8 @@ function onBackdrop(event: MouseEvent): void {
 </script>
 
 <template>
-  <section v-if="rounds.length || room.winCounts.length" class="flex flex-col gap-3">
-    <div v-if="room.winCounts.length">
-      <h3 class="mb-1.5 text-sm font-semibold text-ink-muted">Wins</h3>
-      <ol class="flex flex-wrap gap-2">
-        <li
-          v-for="(w, i) in room.winCounts"
-          :key="w.uuid"
-          class="rounded-full bg-turn/10 px-2.5 py-1 text-xs font-medium text-turn"
-        >
-          {{ i + 1 }}. {{ w.name }} — {{ w.wins }} win{{ w.wins === 1 ? '' : 's' }}
-        </li>
-      </ol>
-    </div>
-
-    <div v-if="rounds.length">
+  <section v-if="rounds.length" class="flex flex-col gap-3">
+    <div>
       <h3 class="mb-1.5 text-sm font-semibold text-ink-muted">Past rounds</h3>
       <ul class="flex flex-col gap-2">
         <li
@@ -76,7 +69,7 @@ function onBackdrop(event: MouseEvent): void {
           <div class="min-w-0 flex-1">
             <p class="truncate">
               <span v-if="r.aborted" class="text-ink-faint">Stopped</span>
-              <span v-else-if="r.winners.length" class="text-correct">
+              <span v-else-if="r.winners.length" :class="youWon(r) ? 'text-correct' : 'text-ink-muted'">
                 Won by {{ r.winners.map((w) => w.name).join(', ') }}
               </span>
               <span v-else class="text-wrong">No winner</span>

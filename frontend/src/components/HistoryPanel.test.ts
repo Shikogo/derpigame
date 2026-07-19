@@ -73,3 +73,34 @@ describe('HistoryPanel — NSFW thumbnails', () => {
     expect(HTMLDialogElement.prototype.showModal).not.toHaveBeenCalled()
   })
 })
+
+describe('HistoryPanel — win coloring', () => {
+  let pinia: Pinia
+
+  beforeEach(() => {
+    localStorage.clear()
+    pinia = createPinia()
+    setActivePinia(pinia)
+  })
+
+  const mountPanel = () => mount(HistoryPanel, { global: { plugins: [pinia] } })
+
+  it('colors the outcome green only when you were a winner', () => {
+    const you: RoundRecord = { ...round, winners: [{ uuid: 'me', name: 'Me', score: 1, wrong_guesses: 0 }] }
+    useSessionStore().uuid = 'me'
+    useRoomStore().setRoomState(roomState({ nsfw: false, history: [you] }))
+
+    const outcome = mountPanel().find('.min-w-0 span')
+    expect(outcome.classes()).toContain('text-correct')
+    expect(outcome.classes()).not.toContain('text-ink-muted')
+  })
+
+  it("uses a neutral color when someone else won", () => {
+    useSessionStore().uuid = 'me' // round's winner is uuid 'a', not us
+    useRoomStore().setRoomState(roomState({ nsfw: false }))
+
+    const outcome = mountPanel().find('.min-w-0 span')
+    expect(outcome.classes()).toContain('text-ink-muted')
+    expect(outcome.classes()).not.toContain('text-correct')
+  })
+})
