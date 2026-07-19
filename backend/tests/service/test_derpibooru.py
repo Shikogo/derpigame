@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from app.service.derpibooru import DerpibooruClient
-from app.service.image_source import ImageSourceError
+from app.service.image_source import ImageSourceError, SearchOptions
 
 ONE_IMAGE = {
     "images": [
@@ -67,7 +67,7 @@ def respond(status=200, json=None, content=None):
 async def test_maps_a_result_to_an_image():
     source, _ = make_source(respond(json=ONE_IMAGE))
 
-    image = await source.random_image(["zipp storm"], nsfw=False)
+    image = await source.random_image(["zipp storm"], options=SearchOptions())
 
     assert image.id == "2887940"
     assert "artist:shikogo" in image.tags
@@ -80,7 +80,7 @@ async def test_maps_a_result_to_an_image():
 async def test_no_matches_returns_none():
     source, _ = make_source(respond(json={"images": []}))
 
-    assert await source.random_image(["nonexistent"], nsfw=False) is None
+    assert await source.random_image(["nonexistent"], options=SearchOptions()) is None
 
 
 async def test_protocol_relative_urls_are_forced_to_https():
@@ -91,7 +91,7 @@ async def test_protocol_relative_urls_are_forced_to_https():
     }
     source, _ = make_source(respond(json=payload))
 
-    image = await source.random_image([], nsfw=False)
+    image = await source.random_image([], options=SearchOptions())
 
     assert image.thumb_url == "https://cdn/x.png"
     assert image.full_url == "https://cdn/y.png"
@@ -103,7 +103,7 @@ async def test_protocol_relative_urls_are_forced_to_https():
 async def test_request_params_and_user_agent():
     source, requests = make_source(respond(json=ONE_IMAGE))
 
-    await source.random_image(["cute", "pony"], nsfw=False)
+    await source.random_image(["cute", "pony"], options=SearchOptions())
 
     req = requests[0]
     assert req.url.params["q"] == "cute,pony,-mime_type:video/webm"
@@ -116,7 +116,7 @@ async def test_request_params_and_user_agent():
 async def test_empty_query_becomes_wildcard():
     source, requests = make_source(respond(json=ONE_IMAGE))
 
-    await source.random_image([], nsfw=False)
+    await source.random_image([], options=SearchOptions())
 
     assert requests[0].url.params["q"] == "*,-mime_type:video/webm"
 
@@ -125,8 +125,8 @@ async def test_videos_are_excluded_from_every_search():
     """Videos are unviewable (no still representation), so they never get picked."""
     source, requests = make_source(respond(json=ONE_IMAGE))
 
-    await source.random_image(["cute"], nsfw=False)
-    await source.random_image([], nsfw=True)
+    await source.random_image(["cute"], options=SearchOptions())
+    await source.random_image([], options=SearchOptions(nsfw=True))
 
     assert all("-mime_type:video/webm" in r.url.params["q"] for r in requests)
 
@@ -134,7 +134,7 @@ async def test_videos_are_excluded_from_every_search():
 async def test_nsfw_sends_the_nsfw_filter():
     source, requests = make_source(respond(json=ONE_IMAGE))
 
-    await source.random_image(["cute"], nsfw=True)
+    await source.random_image(["cute"], options=SearchOptions(nsfw=True))
 
     assert requests[0].url.params["filter_id"] == "37432"
 
@@ -151,16 +151,16 @@ async def test_transport_error_raises_and_backs_off():
     source, requests = make_source(boom, clock=clock)
 
     with pytest.raises(ImageSourceError):
-        await source.random_image(["x"], nsfw=False)
+        await source.random_image(["x"], options=SearchOptions())
 
     # A retry before the back-off elapses must not touch the network at all.
     with pytest.raises(ImageSourceError, match="backing off"):
-        await source.random_image(["x"], nsfw=False)
+        await source.random_image(["x"], options=SearchOptions())
     assert len(requests) == 1  # second call short-circuited by the cooldown gate
 
     clock.advance(61)  # past the exponential-backoff cap
     with pytest.raises(ImageSourceError):
-        await source.random_image(["x"], nsfw=False)
+        await source.random_image(["x"], options=SearchOptions())
     assert len(requests) == 2  # cooldown expired, request allowed through again
 
 
@@ -169,16 +169,16 @@ async def test_challenge_501_backs_off_five_seconds():
     source, requests = make_source(respond(status=501, content=b"<html>challenge</html>"), clock=clock)
 
     with pytest.raises(ImageSourceError, match="challenge"):
-        await source.random_image(["x"], nsfw=False)
+        await source.random_image(["x"], options=SearchOptions())
 
     clock.advance(4)  # still inside the 5s window
     with pytest.raises(ImageSourceError, match="backing off"):
-        await source.random_image(["x"], nsfw=False)
+        await source.random_image(["x"], options=SearchOptions())
     assert len(requests) == 1  # no network during the challenge back-off
 
     clock.advance(2)  # now past 5s
     with pytest.raises(ImageSourceError):
-        await source.random_image(["x"], nsfw=False)
+        await source.random_image(["x"], options=SearchOptions())
     assert len(requests) == 2
 
 
@@ -187,16 +187,16 @@ async def test_block_500_backs_off_fifteen_minutes():
     source, requests = make_source(respond(status=500, content=b""), clock=clock)
 
     with pytest.raises(ImageSourceError, match="block"):
-        await source.random_image(["x"], nsfw=False)
+        await source.random_image(["x"], options=SearchOptions())
 
     clock.advance(14 * 60)  # still blocked
     with pytest.raises(ImageSourceError, match="backing off"):
-        await source.random_image(["x"], nsfw=False)
+        await source.random_image(["x"], options=SearchOptions())
     assert len(requests) == 1  # must not send during the block (it would reset it)
 
     clock.advance(2 * 60)  # past 15 minutes
     with pytest.raises(ImageSourceError):
-        await source.random_image(["x"], nsfw=False)
+        await source.random_image(["x"], options=SearchOptions())
     assert len(requests) == 2
 
 
@@ -213,9 +213,9 @@ async def test_success_clears_the_failure_backoff():
     source, _ = make_source(flaky, clock=clock)
 
     with pytest.raises(ImageSourceError):
-        await source.random_image(["x"], nsfw=False)
+        await source.random_image(["x"], options=SearchOptions())
     clock.advance(2)  # clear the 1s failure cooldown
-    assert (await source.random_image(["x"], nsfw=False)) is not None
+    assert (await source.random_image(["x"], options=SearchOptions())) is not None
     # After success the backoff is reset, so a later single failure starts at 1s again.
     assert source._failure_backoff == 0.0
 
@@ -284,7 +284,7 @@ async def test_canonicalize_returns_input_during_a_cooldown():
     source, requests = make_source(respond(status=500, content=b""), clock=clock)
 
     with pytest.raises(ImageSourceError):  # an image fetch trips the 15min block
-        await source.random_image(["x"], nsfw=False)
+        await source.random_image(["x"], options=SearchOptions())
 
     assert await source.canonicalize("bm") == "bm"  # degrade, don't raise
     assert len(requests) == 1  # resolving sent nothing during the block

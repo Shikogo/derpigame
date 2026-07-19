@@ -30,7 +30,7 @@ class RecordingEmitter(EventEmitter):
 
 
 class BrokenImageSource(ImageSource):
-    async def random_image(self, query, *, nsfw):
+    async def random_image(self, query, *, options):
         raise ImageSourceError("provider is down")
 
 
@@ -42,7 +42,7 @@ class GatedImageSource(ImageSource):
         self.calls = 0
         self.gate = asyncio.Event()
 
-    async def random_image(self, query, *, nsfw):
+    async def random_image(self, query, *, options):
         self.calls += 1
         await self.gate.wait()
         return self._image

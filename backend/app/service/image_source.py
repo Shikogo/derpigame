@@ -20,13 +20,24 @@ class Image:
     source_url: str | None = None  # external source, if the booru has one
 
 
+@dataclass(frozen=True)
+class SearchOptions:
+    """What a room wants from a provider, beyond the search tags themselves.
+
+    Grouped into one object so a new room setting doesn't widen every
+    ``random_image`` signature and test double.
+    """
+
+    nsfw: bool = False
+
+
 class ImageSourceError(Exception):
     """Raised when a source fails to answer (network error, timeout, bad status)."""
 
 
 class ImageSource(ABC):
     @abstractmethod
-    async def random_image(self, query: list[str], *, nsfw: bool) -> Image | None:
+    async def random_image(self, query: list[str], *, options: SearchOptions) -> Image | None:
         """Return a random image matching ``query``, or ``None`` if none match.
 
         Raises ``ImageSourceError`` on provider/transport failures (distinct
@@ -44,7 +55,7 @@ class StaticImageSource(ImageSource):
         self._images = list(images or [])
         self._index = 0
 
-    async def random_image(self, query: list[str], *, nsfw: bool) -> Image | None:
+    async def random_image(self, query: list[str], *, options: SearchOptions) -> Image | None:
         if not self._images:
             return None
         image = self._images[self._index % len(self._images)]

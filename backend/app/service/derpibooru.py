@@ -20,7 +20,7 @@ import urllib.parse
 
 import httpx
 
-from app.service.image_source import Image, ImageSource, ImageSourceError
+from app.service.image_source import Image, ImageSource, ImageSourceError, SearchOptions
 from app.service.tag_resolver import TagResolver
 
 _SEARCH_URL = "https://derpibooru.org/api/v1/json/search/images"
@@ -72,7 +72,7 @@ class DerpibooruClient(ImageSource, TagResolver):
         self._failure_backoff = 0.0
         self._alias_cache: dict[str, str] = {}  # guess/alias -> canonical, process-wide
 
-    async def random_image(self, query: list[str], *, nsfw: bool) -> Image | None:
+    async def random_image(self, query: list[str], *, options: SearchOptions) -> Image | None:
         self._guard_cooldown()  # refuse to hit the network while we owe a back-off
 
         terms = list(query) or ["*"]
@@ -80,7 +80,7 @@ class DerpibooruClient(ImageSource, TagResolver):
             "q": ",".join([*terms, _EXCLUDE_VIDEO]),
             "sf": "random",
             "per_page": 1,
-            "filter_id": _NSFW_FILTER_ID if nsfw else _DEFAULT_FILTER_ID,
+            "filter_id": _NSFW_FILTER_ID if options.nsfw else _DEFAULT_FILTER_ID,
         }
         if self._api_key:
             params["key"] = self._api_key

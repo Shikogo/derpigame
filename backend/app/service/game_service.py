@@ -12,7 +12,7 @@ from app.domain.room import Room
 from app.domain.tag_taxonomy import TagTaxonomy
 from app.service.emitter import EventEmitter
 from app.service.errors import NotYourTurn
-from app.service.image_source import Image, ImageSource, ImageSourceError
+from app.service.image_source import Image, ImageSource, ImageSourceError, SearchOptions
 from app.service.serialization import serialize_events, serialize_player
 from app.service.tag_resolver import NullTagResolver, TagResolver
 from app.service.turn_timer import TurnTimer
@@ -56,7 +56,9 @@ class GameService:
         self._starting.add(room.name)
         try:
             try:
-                image = await self._images.random_image(room.query, nsfw=room.nsfw)
+                image = await self._images.random_image(
+                    room.query, options=_search_options(room)
+                )
             except ImageSourceError:
                 await self._emitter.emit(room.name, [{"type": "image_error"}])
                 return
@@ -232,6 +234,11 @@ class GameService:
         self._current_image.clear()
         self._history.clear()
         self._starting.clear()
+
+
+def _search_options(room: Room) -> SearchOptions:
+    """Map a room's search config onto a provider-agnostic query spec."""
+    return SearchOptions(nsfw=room.nsfw)
 
 
 def _image_started_payload(image: Image) -> dict:
