@@ -11,7 +11,7 @@ service / transport) and the Vue frontend are both built and tested. Config
 (Pydantic `Settings`) and persistence (a real DB) are the main unbuilt pieces —
 round history and the win tally currently live in in-memory service state.**
 
-Backend — done (**138 tests** + a live socket smoke test):
+Backend — done (**158 tests** + a live socket smoke test):
 - **Domain** (`app/domain/`, pure — no framework imports): `Game`, `Room`,
   `User`, `Player`, `TagBucket`, `TagTaxonomy`, and the event objects
   (`app/domain/events.py`). Methods return event objects describing what
@@ -33,14 +33,15 @@ Backend — done (**138 tests** + a live socket smoke test):
   via `uvicorn app.main:app`. Per-room settings (query / nsfw / **turn length**)
   flow through `configure_room`; a late/rejoining socket gets a game snapshot.
   Fixes bug #1 (clean `no_players_ready` ack) and bug #2 (real name-uniqueness).
-- **Image source** (`app/service/derpibooru.py`): a minimal async
-  `DerpibooruImageSource` (real `httpx` against the REST search API, not the legacy
-  sync `derpibooru` package) — the default source in `create_app`, so the game is
-  playable with real images. It honors Derpibooru's mandatory back-off rules via a
-  cooldown gate (501 challenge → 5s, 500 block → 15min, other failures →
-  exponential), and forces `https:` on image URLs. Retry/caching/alias are still
-  Phase 3. An offline `dev_server:app` swaps in a `StaticImageSource` for
-  token-free frontend work.
+- **Derpibooru client** (`app/service/derpibooru.py`): an async `DerpibooruClient`
+  (real `httpx` against the REST API, not the legacy sync `derpibooru` package) —
+  the default source in `create_app`, so the game is playable with real images. It
+  honors Derpibooru's mandatory back-off rules via a cooldown gate (501 challenge →
+  5s, 500 block → 15min, other failures → exponential), and forces `https:` on image
+  URLs. It also does **live tag-alias resolution** (§6), implementing a `TagResolver`
+  interface alongside `ImageSource` so image search and alias lookup share one
+  per-IP back-off. Response caching / request-spacing are still Phase 3. An offline
+  `dev_server:app` swaps in a `StaticImageSource` for token-free frontend work.
 
 Frontend — done (**67 Vitest tests**, `vue-tsc` typecheck + `vite build` clean):
 - Scaffolded with **Vite 8 + Vue 3.5 + Pinia + Vue Router 5 (hash mode) +
@@ -71,7 +72,7 @@ Not started / deferred:
   in-memory service state, lost on restart.
 - **Automated integration / e2e tests** — deliberately skipped in favor of a
   manual browser pass; the backend + frontend unit suites carry the coverage.
-- **Phase 2/3** (e621, accounts, stats, alias resolution) and **deployment**.
+- **Phase 2/3** (e621, accounts, stats) and **deployment**.
 
 ### Design refinements vs. the original plan
 
@@ -280,11 +281,23 @@ exists* (`app/service/derpibooru.py`, §0) — this phase hardens it:
   `AsyncClient` (connection pooling) with app-lifespan cleanup instead of a client
   per request.
 
-**Alias handling** (~2-3 days, replacing the static 355KB `alias.json`):
-- On an unmatched guess, query Derpibooru's tag search API directly — it returns each tag's canonical form if the guess is an alias, so resolution can happen live instead of from a stale snapshot.
-- Cache results in a local table (`guess → canonical_tag`, with timestamp) so repeat guesses don't round-trip to the API — matters for game responsiveness.
-- Optional: background job to periodically refresh stale cache entries.
-- Lives behind the same `ImageSource` interface as search, since alias resolution is booru-specific too.
+**Alias handling** — ✅ done (replacing the legacy static `alias.json`):
+- On a guess the game doesn't already recognize, `DerpibooruClient.canonicalize`
+  queries the tag search API (`aliases:<guess>`, unquoted) and returns the tag's
+  canonical `name`; the guess is matched on that. A pure `Game.recognizes` fast path
+  means only novel guesses (aliases/typos) ever hit the network — direct hits and
+  known tags resolve locally.
+- Results are cached process-wide in memory (`guess → canonical`); a single lookup
+  also caches every sibling alias the response lists (slug-decoded back to plain
+  names), so the whole family resolves for free thereafter.
+- Best-effort: during a back-off or on any error, `canonicalize` returns the guess
+  unchanged, so play degrades to literal matching instead of stalling.
+- Lives behind a dedicated `TagResolver` interface (with `Null`/`Static` stand-ins
+  for tests), implemented by the same `DerpibooruClient` as image search so the two
+  share one per-IP back-off cooldown.
+- Deferred by choice: a persistent (DB-backed) cache and a background refresh of
+  stale entries. In-memory was picked deliberately — aliases rarely change, and the
+  cache is only lost on restart.
 
 ---
 
@@ -319,7 +332,7 @@ exists* (`app/service/derpibooru.py`, §0) — this phase hardens it:
 - [x] Port `data.py` game logic into the domain layer (pure, no framework imports)
 - [x] Replace `threading.Timer` with an `asyncio.Task`-based timer feeding the same single processing path as manual guesses (fixes bug #3 structurally)
 - [x] Define JSON event/payload shapes (replacing HTML-fragment emits) — `singledispatch` serializers
-- [x] Write unit tests for the domain layer (plus service + transport — 138 tests) and an end-to-end socket smoke test
+- [x] Write unit tests for the domain layer (plus service + transport — 158 tests) and an end-to-end socket smoke test
 - [x] Scaffold Vue app (Vite + Pinia + Vue Router, hash mode)
 - [x] Build core components: login, lobby, image viewer, guess input box, correct/incorrect guess badges, user list, chat (social-only — not the guess path), plus game-over attribution, round history, circular turn timer, and the NSFW age gate
 - [x] Wire Socket.IO client to Pinia store (thin typed client + a pure `(state, event) => state` reducer; 67 Vitest tests)
@@ -338,8 +351,8 @@ exists* (`app/service/derpibooru.py`, §0) — this phase hardens it:
 - [ ] Persistent stats (DB schema, write path off `GameOver` event, read endpoints)
 
 **Phase 3**
-- [~] `DerpibooruClient` wrapper, async, with retry/backoff and real error handling
-- [ ] Live alias resolution via Derpibooru's tag API + local cache table
+- [~] `DerpibooruClient` wrapper, async, with retry/backoff and real error handling (retry/backoff + alias done; request-spacing, response caching + a shared pooled client still to do)
+- [x] Live alias resolution via Derpibooru's tag API + in-memory cache (captures sibling aliases; DB-backed cache deferred)
 
 **Deployment**
 - [ ] Deploy backend to Render (free tier), set CORS for Pages domain

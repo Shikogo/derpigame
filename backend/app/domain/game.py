@@ -113,6 +113,23 @@ class Game:
             TurnStarted(first),
         ]
 
+    def recognizes(self, guess: str) -> bool:
+        """Whether ``submit_guess`` already has a verdict for ``guess`` as-is.
+
+        True when the guess is a known tag (in a bucket) or hits one of that
+        method's early returns (already found/wrong, default/rating/ignored). An
+        unrecognized guess is the only kind worth resolving through an alias
+        lookup — everything else needs no external help.
+        """
+        guess = guess.lower()
+        if guess in self.guessed_tags or guess in self.failed_guesses:
+            return True
+        if guess in self.query:
+            return True
+        if guess in self.taxonomy.rating_tags or guess in self.taxonomy.ignored_tags:
+            return True
+        return any(guess in bucket.tags for bucket in self.tag_buckets.values())
+
     def submit_guess(self, guess: str) -> list[GameEvent]:
         """Process the active player's guess and return what happened.
 

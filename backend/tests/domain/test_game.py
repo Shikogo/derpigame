@@ -403,5 +403,35 @@ def test_game_is_marked_over_and_ignores_further_input():
     assert game.timeout() == []
 
 
+# --- recognizes: the fast path that decides if a guess needs alias resolution -
+
+
+def test_recognizes_known_and_benign_guesses():
+    game = make_game(
+        tags=["solo", "artist:foo", "source needed"],
+        players=["alice", "bob"],
+        query=["cute"],
+    )
+    assert game.recognizes("solo")  # a goal-bucket tag
+    assert game.recognizes("artist:foo")  # a namespaced-bucket tag
+    assert game.recognizes("SOLO")  # case-insensitive
+    assert game.recognizes("cute")  # default/query tag
+    assert game.recognizes("safe")  # rating tag
+    assert game.recognizes("source needed")  # ignored tag
+
+
+def test_recognizes_a_novel_guess_is_false():
+    game = make_game(tags=["solo"])
+    assert not game.recognizes("big macintosh")  # worth an alias lookup
+
+
+def test_recognizes_after_a_tag_is_guessed_or_failed():
+    game = make_game(tags=["solo", "twilight"], first_index=0)
+    game.submit_guess("solo")  # found -> in guessed_tags
+    game.submit_guess("wrongo")  # missed -> in failed_guesses
+    assert game.recognizes("solo")  # already found, no lookup needed
+    assert game.recognizes("wrongo")  # already known wrong, no lookup needed
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))

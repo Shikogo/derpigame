@@ -11,6 +11,7 @@ from app.service.emitter import EventEmitter
 from app.service.errors import NotYourTurn
 from app.service.game_service import GameService
 from app.service.image_source import Image, ImageSource, ImageSourceError, StaticImageSource
+from app.service.tag_resolver import TagResolver
 
 
 class RecordingEmitter(EventEmitter):
@@ -31,6 +32,18 @@ class RecordingEmitter(EventEmitter):
 class BrokenImageSource(ImageSource):
     async def random_image(self, query, *, nsfw):
         raise ImageSourceError("provider is down")
+
+
+class RecordingResolver(TagResolver):
+    """Resolves from a fixed alias map and records every tag it's asked about."""
+
+    def __init__(self, aliases: dict[str, str] | None = None):
+        self._aliases = aliases or {}
+        self.calls: list[str] = []
+
+    async def canonicalize(self, tag: str) -> str:
+        self.calls.append(tag)
+        return self._aliases.get(tag.lower(), tag)
 
 
 def make_room(*names: str, query: list[str] | None = None) -> Room:
@@ -209,6 +222,54 @@ async def test_winning_guess_ends_game_and_drops_the_timer():
     assert "game_over" in emitter.types()
     assert room.game.is_over
     assert "lobby" not in service._timers  # timer released
+
+
+# --- alias resolution --------------------------------------------------------
+
+
+async def test_alias_guess_is_accepted_as_the_canonical_tag():
+    emitter = RecordingEmitter()
+    resolver = RecordingResolver({"bm": "big macintosh"})
+    service = make_service(["big macintosh", "twilight"], emitter, tag_resolver=resolver)
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+    emitter.batches.clear()
+
+    await service.submit_guess(room, "alice", "bm")
+
+    correct = next(p for p in emitter.payloads if p["type"] == "correct_guess")
+    assert correct["guess"] == "big macintosh"  # canonical shown, not the alias
+    assert resolver.calls == ["bm"]  # unrecognized, so it was resolved
+    service.shutdown()
+
+
+async def test_a_directly_known_guess_skips_the_resolver():
+    emitter = RecordingEmitter()
+    resolver = RecordingResolver()
+    service = make_service(["solo", "twilight"], emitter, tag_resolver=resolver)
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+
+    await service.submit_guess(room, "alice", "solo")  # a tag already on the image
+
+    assert "correct_guess" in emitter.types()
+    assert resolver.calls == []  # recognized: no lookup
+    service.shutdown()
+
+
+async def test_an_unrecognized_non_alias_resolves_to_itself_and_is_wrong():
+    emitter = RecordingEmitter()
+    resolver = RecordingResolver()  # knows no aliases
+    service = make_service(["solo", "twilight"], emitter, tag_resolver=resolver)
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+    emitter.batches.clear()
+
+    await service.submit_guess(room, "alice", "xyzzy")
+
+    assert "wrong_guess" in emitter.types()
+    assert resolver.calls == ["xyzzy"]  # tried, found nothing, treated literally
+    service.shutdown()
 
 
 # --- timeouts ----------------------------------------------------------------

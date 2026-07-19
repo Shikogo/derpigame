@@ -12,9 +12,10 @@ import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.service.derpibooru import DerpibooruImageSource
+from app.service.derpibooru import DerpibooruClient
 from app.service.game_service import DEFAULT_TURN_SECONDS, GameService
 from app.service.image_source import ImageSource
+from app.service.tag_resolver import NullTagResolver, TagResolver
 from app.transport.emitter import SocketIOEmitter
 from app.transport.handlers import _RECONNECT_GRACE_SECONDS, SocketHandlers
 from app.transport.registry import RoomRegistry
@@ -23,14 +24,20 @@ from app.transport.registry import RoomRegistry
 def create_app(
     *,
     image_source: ImageSource | None = None,
+    tag_resolver: TagResolver | None = None,
     turn_seconds: float = DEFAULT_TURN_SECONDS,
     reconnect_grace: float = _RECONNECT_GRACE_SECONDS,
     cors_origins: list[str] | str = "*",
 ):
     sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=cors_origins)
+    # One client for both image search and alias lookups so they share the
+    # per-IP back-off. A test that injects its own image_source gets a no-op
+    # resolver instead, so overrides never reach the live network.
+    booru = DerpibooruClient()
     service = GameService(
-        image_source or DerpibooruImageSource(),
+        image_source or booru,
         SocketIOEmitter(sio),
+        tag_resolver=tag_resolver or (NullTagResolver() if image_source else booru),
         turn_seconds=turn_seconds,
     )
     handlers = SocketHandlers(sio, RoomRegistry(), service, reconnect_grace=reconnect_grace)

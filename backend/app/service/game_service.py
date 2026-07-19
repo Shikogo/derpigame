@@ -14,6 +14,7 @@ from app.service.emitter import EventEmitter
 from app.service.errors import NotYourTurn
 from app.service.image_source import Image, ImageSource, ImageSourceError
 from app.service.serialization import serialize_events, serialize_player
+from app.service.tag_resolver import NullTagResolver, TagResolver
 from app.service.turn_timer import TurnTimer
 
 DEFAULT_TURN_SECONDS = 30.0
@@ -25,10 +26,12 @@ class GameService:
         image_source: ImageSource,
         emitter: EventEmitter,
         *,
+        tag_resolver: TagResolver | None = None,
         turn_seconds: float = DEFAULT_TURN_SECONDS,
         game_options: dict | None = None,
     ):
         self._images = image_source
+        self._resolver = tag_resolver or NullTagResolver()
         self._emitter = emitter
         self._turn_seconds = turn_seconds
         self._game_options = dict(game_options or {})
@@ -74,7 +77,19 @@ class GameService:
             return
         if game.active_player.uuid != user_uuid:
             raise NotYourTurn(game.active_player)
+        guess = await self._canonicalized(game, guess)
         await self._deliver(room, game.submit_guess(guess))
+
+    async def _canonicalized(self, game, guess: str) -> str:
+        """Map an unrecognized guess to its canonical tag; leave known ones alone.
+
+        A guess the game already recognizes needs no external help, so only novel
+        strings (aliases, typos) reach the resolver — which returns them unchanged
+        when there's no alias or the lookup can't be made.
+        """
+        if game.recognizes(guess):
+            return guess
+        return await self._resolver.canonicalize(guess)
 
     async def handle_timeout(self, room: Room) -> None:
         """The active turn ran out of time. Invoked by the turn timer."""

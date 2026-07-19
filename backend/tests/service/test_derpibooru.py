@@ -1,4 +1,4 @@
-"""DerpibooruImageSource: request shape, response mapping, and back-off rules.
+"""DerpibooruClient: request shape, response mapping, alias resolution, back-off.
 
 No network: an ``httpx.MockTransport`` serves canned responses (and records the
 outgoing request), and an injected clock drives the cooldown gate so the
@@ -8,7 +8,7 @@ mandatory back-off behavior is testable deterministically.
 import httpx
 import pytest
 
-from app.service.derpibooru import DerpibooruImageSource
+from app.service.derpibooru import DerpibooruClient
 from app.service.image_source import ImageSourceError
 
 ONE_IMAGE = {
@@ -48,7 +48,7 @@ def make_source(handler, clock=None):
         return handler(request)
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(recording))
-    source = DerpibooruImageSource(client=client, clock=clock or (lambda: 0.0))
+    source = DerpibooruClient(client=client, clock=clock or (lambda: 0.0))
     return source, requests
 
 
@@ -208,3 +208,82 @@ async def test_success_clears_the_failure_backoff():
     assert (await source.random_image(["x"], nsfw=False)) is not None
     # After success the backoff is reset, so a later single failure starts at 1s again.
     assert source._failure_backoff == 0.0
+
+
+# --- alias resolution --------------------------------------------------------
+
+BIG_MAC_TAG = {
+    "total": 1,
+    "tags": [{"id": 20869, "name": "big macintosh", "aliases": ["bm", "big+mac"]}],
+}
+
+
+def test_slug_decoding_reverses_derpibooru_escapes():
+    from app.service.derpibooru import _slug_to_name
+
+    assert _slug_to_name("big+mac") == "big mac"  # "+" is the space escape
+    assert _slug_to_name("oc-colon-fluffle+puff") == "oc:fluffle puff"
+    assert _slug_to_name("artist-colon-atryl") == "artist:atryl"
+
+
+async def test_canonicalize_maps_an_alias_to_the_canonical_name():
+    source, requests = make_source(respond(json=BIG_MAC_TAG))
+
+    assert await source.canonicalize("bm") == "big macintosh"
+
+    req = requests[0]
+    assert req.url.path == "/api/v1/json/search/tags"
+    assert req.url.params["q"] == "aliases:bm"  # unquoted; quoting returns nothing
+
+
+async def test_canonicalize_passes_through_when_there_is_no_alias():
+    source, _ = make_source(respond(json={"total": 0, "tags": []}))
+
+    assert await source.canonicalize("pony") == "pony"
+
+
+async def test_canonicalize_caches_the_lookup():
+    source, requests = make_source(respond(json=BIG_MAC_TAG))
+
+    assert await source.canonicalize("bm") == "big macintosh"
+    assert await source.canonicalize("bm") == "big macintosh"
+
+    assert len(requests) == 1  # second call served from the cache
+
+
+async def test_canonicalize_caches_sibling_aliases_from_one_lookup():
+    source, requests = make_source(respond(json=BIG_MAC_TAG))
+
+    await source.canonicalize("bm")  # one lookup teaches every sibling alias
+    assert await source.canonicalize("big mac") == "big macintosh"
+
+    assert len(requests) == 1  # the decoded sibling needs no request of its own
+
+
+async def test_canonicalize_negative_result_is_cached():
+    source, requests = make_source(respond(json={"total": 0, "tags": []}))
+
+    await source.canonicalize("pony")
+    await source.canonicalize("pony")
+
+    assert len(requests) == 1  # a "no alias" answer is remembered too
+
+
+async def test_canonicalize_returns_input_during_a_cooldown():
+    clock = Clock()
+    source, requests = make_source(respond(status=500, content=b""), clock=clock)
+
+    with pytest.raises(ImageSourceError):  # an image fetch trips the 15min block
+        await source.random_image(["x"], nsfw=False)
+
+    assert await source.canonicalize("bm") == "bm"  # degrade, don't raise
+    assert len(requests) == 1  # resolving sent nothing during the block
+
+
+async def test_canonicalize_returns_input_on_transport_error():
+    def boom(_request):
+        raise httpx.ConnectError("down")
+
+    source, _ = make_source(boom)
+
+    assert await source.canonicalize("bm") == "bm"  # best-effort: no raise
