@@ -236,7 +236,7 @@ async def test_nsfw_sends_the_nsfw_filter():
 
     await source.random_image(["cute"], options=SearchOptions(nsfw=True))
 
-    assert requests[0].url.params["filter_id"] == "37432"
+    assert requests[0].url.params["filter_id"] == "232619"
 
 
 # --- back-off rules ----------------------------------------------------------

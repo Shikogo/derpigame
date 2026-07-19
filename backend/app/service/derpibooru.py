@@ -27,11 +27,17 @@ from app.service.tag_resolver import TagResolver
 _SEARCH_URL = "https://derpibooru.org/api/v1/json/search/images"
 _TAGS_URL = "https://derpibooru.org/api/v1/json/search/tags"
 _USER_AGENT = "derpigame/0.1 (https://github.com/Shikogo/derpigame)"
-# Derpibooru system filters, sent explicitly so we never inherit the anonymous
-# site default (a legacy filter that surfaces AI-generated content). Sfw rooms get
-# the modern "Default" filter; nsfw rooms get "18+ R34".
+# Sent explicitly so we never inherit the anonymous site default (a legacy filter
+# that surfaces AI-generated content). Sfw rooms get the system "Default" filter,
+# a hard server-side gate on everything above suggestive. Nsfw rooms get a public
+# custom filter that blocks AI art but permits every rating tag, so the room's own
+# caps — not the filter — decide how far a game goes.
+#
+# A filter Derpibooru won't serve is *silently* replaced with the anonymous
+# default rather than refused, so a private or invalid id degrades quietly.
+# Verify a new id by checking that a search returns different totals.
 _DEFAULT_FILTER_ID = "100073"
-_NSFW_FILTER_ID = "37432"
+_NSFW_FILTER_ID = "232619"
 # Videos have no still representation — every size is a .webm — so the viewer has
 # nothing to show. Excluded by mime type, not the "webm" tag: a few dozen uploads
 # carry the mime type without the tag. webm is currently the only video type.
