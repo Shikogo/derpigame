@@ -17,7 +17,7 @@ from app.service.serialization import serialize_events, serialize_player
 from app.service.tag_resolver import NullTagResolver, TagResolver
 from app.service.turn_timer import TurnTimer
 
-DEFAULT_TURN_SECONDS = 30.0
+DEFAULT_TURN_SECONDS = 60.0
 
 
 class GameService:
