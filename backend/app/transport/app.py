@@ -7,10 +7,12 @@ is injectable, so tests can drive the pieces without a live server.
 """
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.service.derpibooru import DerpibooruClient
 from app.service.game_service import DEFAULT_TURN_SECONDS, GameService
@@ -28,6 +30,7 @@ def create_app(
     turn_seconds: float = DEFAULT_TURN_SECONDS,
     reconnect_grace: float = _RECONNECT_GRACE_SECONDS,
     cors_origins: list[str] | str = "*",
+    static_dir: Path | str | None = None,
 ):
     sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=cors_origins)
     # One client for both image search and alias lookups so they share the
@@ -60,5 +63,11 @@ def create_app(
     @api.get("/health")
     async def health():
         return {"status": "ok"}
+
+    # Optionally serve a built frontend from the same origin, so one URL (and one
+    # tunnel) fronts both the SPA and the websocket. Mounted last so /health and
+    # the Socket.IO paths keep priority; html=True serves index.html at /.
+    if static_dir is not None:
+        api.mount("/", StaticFiles(directory=static_dir, html=True), name="frontend")
 
     return socketio.ASGIApp(sio, other_asgi_app=api)

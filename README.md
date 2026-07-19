@@ -95,6 +95,51 @@ npm run typecheck      # vue-tsc type check
 npm run build          # type check + production build
 ```
 
+## Hosting a game with friends
+
+For a quick multiplayer session, the backend can serve the built frontend from
+the same origin, so a single URL (and a single tunnel) fronts both the SPA and
+the websocket. It's a self-contained alternative to the split frontend/backend
+deployment — handy for playing together, not the production topology.
+
+### 1. Build the frontend
+
+From `frontend/`, build with an empty `VITE_BACKEND_URL` — so each client's
+socket targets whatever origin served the page — into a throwaway `dist-local/`
+(your GitHub Pages `dist/` is left untouched). Re-run only when the frontend
+changes:
+
+```bash
+VITE_BACKEND_URL= npm run build -- --base=/ --outDir dist-local
+```
+
+### 2. Run the single-origin server
+
+From `backend/`, `serve.py` wires the real Derpibooru source to that build:
+
+```bash
+.venv/bin/uvicorn serve:app --host 0.0.0.0 --port 8000
+```
+
+The game is now reachable at:
+
+- `http://localhost:8000` — this machine
+- `http://<your-lan-ip>:8000` — friends on the same network (find the IP with
+  `hostname -I`; if a firewall is active, open the port, e.g.
+  `sudo ufw allow 8000/tcp`)
+
+### 3. Expose it to the internet (optional)
+
+For remote friends, tunnel the port — no account needed for a quick
+[cloudflared](https://github.com/cloudflare/cloudflared) tunnel:
+
+```bash
+cloudflared tunnel --url http://localhost:8000
+```
+
+It prints an ephemeral `https://<random>.trycloudflare.com` URL (new each run)
+that anyone can open; `ngrok http 8000` works the same way.
+
 ## Architecture
 
 Dependencies point one way:
