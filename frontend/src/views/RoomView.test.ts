@@ -8,6 +8,7 @@ import AgeGate from '@/components/AgeGate.vue'
 import GamePanel from '@/components/GamePanel.vue'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
+import { roomState as baseRoomState } from '@/test/factories'
 import type { RoomState } from '@/types/wire'
 
 const router = createRouter({
@@ -21,18 +22,14 @@ const router = createRouter({
 // Stub the panels so the test only exercises which one RoomView chooses.
 const stubs = { GamePanel: true, GameOverPanel: true, LobbyPanel: true, ChatPanel: true, GameControls: true }
 
+/** These tests are about the age gate over a live game, so default to both. */
 function roomState(over: Partial<RoomState> = {}): RoomState {
-  return {
-    room: 'r',
-    query: [],
+  return baseRoomState({
     nsfw: true,
     in_progress: true,
-    turn_seconds: 30,
     users: [{ uuid: 'me', name: 'ME', ready: true }],
-    history: [],
-    win_counts: [],
     ...over,
-  }
+  })
 }
 
 describe('RoomView — NSFW age gate', () => {

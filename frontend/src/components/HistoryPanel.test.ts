@@ -6,6 +6,7 @@ import HistoryPanel from '@/components/HistoryPanel.vue'
 import AgeGate from '@/components/AgeGate.vue'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
+import { roomState as baseRoomState } from '@/test/factories'
 import type { RoomState, RoundRecord } from '@/types/wire'
 
 const round: RoundRecord = {
@@ -21,8 +22,9 @@ const round: RoundRecord = {
 }
 const nsfwRound: RoundRecord = { ...round, nsfw: true }
 
+/** These tests are about thumbnails, so default to an NSFW room with a round. */
 function roomState(over: Partial<RoomState> = {}): RoomState {
-  return { room: 'r', query: [], nsfw: true, in_progress: false, turn_seconds: 30, users: [], history: [round], win_counts: [], ...over }
+  return baseRoomState({ nsfw: true, history: [round], ...over })
 }
 
 describe('HistoryPanel — NSFW thumbnails', () => {

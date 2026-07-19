@@ -5,7 +5,7 @@ import { nextTick } from 'vue'
 
 import RoomSettingsDialog from '@/components/RoomSettingsDialog.vue'
 import { useRoomStore } from '@/stores/room'
-import type { RoomState } from '@/types/wire'
+import { roomState } from '@/test/factories'
 
 // jsdom has no real <dialog> modal behaviour; stub the methods the component calls.
 beforeEach(() => {
@@ -13,10 +13,6 @@ beforeEach(() => {
   HTMLDialogElement.prototype.showModal = vi.fn()
   HTMLDialogElement.prototype.close = vi.fn()
 })
-
-function roomState(over: Partial<RoomState> = {}): RoomState {
-  return { room: 'r', query: [], nsfw: false, in_progress: false, turn_seconds: 30, users: [], history: [], win_counts: [], ...over }
-}
 
 describe('RoomSettingsDialog', () => {
   it('seeds the editor from the current snapshot each time it opens', async () => {

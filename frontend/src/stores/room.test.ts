@@ -3,13 +3,14 @@ import { createPinia, setActivePinia } from 'pinia'
 
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
+import { roomState } from '@/test/factories'
 import type { GameEvent, Player, RoomState, RoomUser } from '@/types/wire'
 
 const member = (uuid: string, ready: boolean): RoomUser => ({ uuid, name: uuid.toUpperCase(), ready })
 const player = (uuid: string): Player => ({ uuid, name: uuid.toUpperCase(), score: 0, wrong_guesses: 0 })
 
 function snapshot(inProgress: boolean, users: RoomUser[]): RoomState {
-  return { room: 'r', query: [], nsfw: false, in_progress: inProgress, turn_seconds: 30, users, history: [], win_counts: [] }
+  return roomState({ in_progress: inProgress, users })
 }
 
 function openRound(roster: string[]): GameEvent[] {
