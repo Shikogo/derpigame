@@ -13,6 +13,7 @@ from app.domain.events import (
     GameOver,
     GameStarted,
     GuessRejected,
+    NearMiss,
     PlayerEliminated,
     Timeout,
     TurnStarted,
@@ -75,6 +76,16 @@ def _(event: WrongGuess) -> dict:
         "player": serialize_player(event.player),
         "guess": event.guess,
         "wrong_count": event.wrong_count,
+        "closeness": event.closeness,
+    }
+
+
+@serialize_event.register
+def _(event: NearMiss) -> dict:
+    return {
+        "type": "near_miss",
+        "player": serialize_player(event.player),
+        "guess": event.guess,
         "closeness": event.closeness,
     }
 

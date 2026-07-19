@@ -115,6 +115,14 @@ export interface WrongGuess {
   closeness: number
 }
 
+/** A guess close enough to be a free retry: no strike, the turn stays. */
+export interface NearMiss {
+  type: 'near_miss'
+  player: Player
+  guess: string
+  closeness: number
+}
+
 export interface Timeout {
   type: 'timeout'
   player: Player
@@ -191,6 +199,7 @@ export type GameEvent =
   | GuessRejected
   | CorrectGuess
   | WrongGuess
+  | NearMiss
   | Timeout
   | PlayerEliminated
   | GameOver

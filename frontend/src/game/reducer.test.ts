@@ -128,6 +128,19 @@ describe('reduce', () => {
     expect(s.feed.map((f) => f.kind)).toEqual(['wrong', 'timeout'])
   })
 
+  it('near_miss feeds the guess with its closeness, no strike', () => {
+    const s = reduce(openedGame(), {
+      type: 'near_miss',
+      player: alice,
+      guess: 'applejck',
+      closeness: 94,
+    })
+    expect(s.feed).toEqual([
+      { seq: 1, kind: 'near_miss', player: 'Alice', guess: 'applejck', closeness: 94 },
+    ])
+    expect(s.players.a?.wrong_guesses).toBe(0)
+  })
+
   it('guess_rejected only feeds, never touches scores', () => {
     const s = reduce(openedGame(), { type: 'guess_rejected', guess: 'safe', reason: 'rating_tag' })
     expect(s.feed).toEqual([{ seq: 1, kind: 'rejected', guess: 'safe', reason: 'rating_tag' }])

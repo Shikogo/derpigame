@@ -11,6 +11,7 @@ from app.domain.events import (
     GameOver,
     GameStarted,
     GuessRejected,
+    NearMiss,
     PlayerEliminated,
     RejectReason,
     Timeout,
@@ -185,10 +186,36 @@ def test_wrong_guess_increments_count_and_advances_turn():
     assert only(events, TurnStarted).player.name == "bob"
 
 
-def test_near_miss_reports_closeness():
+def test_close_but_not_near_miss_still_costs_the_turn():
+    game = make_game(tags=["twilight"], first_index=0)
+    events = game.submit_guess("twiligth")  # similarity in [0.7, 0.9)
+
+    wrong = only(events, WrongGuess)
+    assert 0 < wrong.closeness < 90
+    assert wrong.wrong_count == 1
+    assert only(events, TurnStarted).player.name == "bob"
+
+
+def test_near_miss_is_noop_and_keeps_turn():
     game = make_game(tags=["applejack"], first_index=0)
-    wrong = only(game.submit_guess("applejck"), WrongGuess)
-    assert wrong.closeness > 0
+    events = game.submit_guess("applejck")  # a typo, similarity >= 0.9
+
+    near = only(events, NearMiss)
+    assert near.player.name == "alice"
+    assert near.closeness >= 90
+    assert not any(isinstance(e, TurnStarted) for e in events)
+    assert game.active_player.name == "alice"  # keeps the turn
+    assert game.active_player.wrong_guesses == 0  # no strike
+    assert "applejck" not in game.failed_guesses  # can be retried
+
+
+def test_near_miss_lets_the_player_correct_the_typo():
+    game = make_game(tags=["applejack"], first_index=0)
+    game.submit_guess("applejck")  # near miss, no penalty, still alice's turn
+
+    events = game.submit_guess("applejack")  # fix the typo
+    assert only(events, CorrectGuess).player.name == "alice"
+    assert game.players[0].score == 1
 
 
 def test_unrelated_guess_has_zero_closeness():

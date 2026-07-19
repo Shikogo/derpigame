@@ -7,6 +7,7 @@ from app.domain.events import (
     GameOver,
     GameStarted,
     GuessRejected,
+    NearMiss,
     PlayerEliminated,
     RejectReason,
     Timeout,
@@ -71,6 +72,13 @@ def test_wrong_guess_carries_closeness():
     assert payload["type"] == "wrong_guess"
     assert payload["wrong_count"] == 2
     assert payload["closeness"] == 85
+
+
+def test_near_miss_carries_closeness():
+    payload = serialize_event(NearMiss(make_player("bob"), "applejck", closeness=94))
+    assert payload["type"] == "near_miss"
+    assert payload["guess"] == "applejck"
+    assert payload["closeness"] == 94
 
 
 def test_timeout_payload():

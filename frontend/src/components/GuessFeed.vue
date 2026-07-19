@@ -25,8 +25,14 @@ function describe(e: FeedEntry): { tone: string; text: string } {
       return { tone: 'bg-correct/10 text-correct', text: `${e.player}: ${e.guess}` }
     case 'wrong':
       return {
-        tone: 'bg-wrong/10 text-wrong',
+        // A near-but-not-free miss reads warmer (orange) than an outright wrong (red).
+        tone: e.closeness ? 'bg-close/10 text-close' : 'bg-wrong/10 text-wrong',
         text: `${e.player}: ${e.guess}${e.closeness ? ` · ${e.closeness}%` : ''}`,
+      }
+    case 'near_miss':
+      return {
+        tone: 'bg-very-close/10 text-very-close',
+        text: `${e.player}: ${e.guess} · ${e.closeness}%`,
       }
     case 'timeout':
       return { tone: 'bg-eliminated/10 text-eliminated', text: `${e.player} timed out` }

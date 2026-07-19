@@ -59,6 +59,13 @@ class WrongGuess(GameEvent):
 
 
 @dataclass
+class NearMiss(GameEvent):
+    player: Player
+    guess: str
+    closeness: int  # similarity %, high enough to earn a free retry
+
+
+@dataclass
 class Timeout(GameEvent):
     player: Player
     wrong_count: int

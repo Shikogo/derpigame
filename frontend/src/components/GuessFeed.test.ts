@@ -13,10 +13,12 @@ beforeEach(() => {
 // One entry of every feed kind, keyed by seq so we can locate each badge.
 const FEED: FeedEntry[] = [
   { seq: 1, kind: 'correct', player: 'alice', guess: 'mare' },
-  { seq: 2, kind: 'wrong', player: 'bob', guess: 'stallion', closeness: 40 },
-  { seq: 3, kind: 'timeout', player: 'carol' },
-  { seq: 4, kind: 'eliminated', player: 'dave' },
-  { seq: 5, kind: 'rejected', guess: 'safe', reason: 'rating_tag' },
+  { seq: 2, kind: 'wrong', player: 'bob', guess: 'stallion', closeness: 0 },
+  { seq: 3, kind: 'wrong', player: 'bob', guess: 'twiligth', closeness: 78 },
+  { seq: 4, kind: 'near_miss', player: 'carol', guess: 'applejck', closeness: 94 },
+  { seq: 5, kind: 'timeout', player: 'carol' },
+  { seq: 6, kind: 'eliminated', player: 'dave' },
+  { seq: 7, kind: 'rejected', guess: 'safe', reason: 'rating_tag' },
 ]
 
 describe('GuessFeed', () => {
@@ -33,18 +35,25 @@ describe('GuessFeed', () => {
     const wrapper = mount(GuessFeed)
     const badges = wrapper.findAll('span')
 
-    // Newest-first: the rejected entry (seq 5) leads, correct (seq 1) trails.
-    expect(badges).toHaveLength(5)
+    // Newest-first: the rejected entry (seq 7) leads, correct (seq 1) trails.
+    expect(badges).toHaveLength(7)
     expect(badges[0].text()).toBe('safe — rating tag')
-    expect(badges[4].text()).toBe('alice: mare')
+    expect(badges[6].text()).toBe('alice: mare')
 
     // Each kind carries its own tone classes.
     const byText = (t: string) => badges.find((b) => b.text() === t)!
     expect(byText('alice: mare').classes()).toEqual(
       expect.arrayContaining(['bg-correct/10', 'text-correct']),
     )
-    expect(byText('bob: stallion · 40%').classes()).toEqual(
+    // Outright wrong (no closeness) is red; a close miss is orange; very close is yellow.
+    expect(byText('bob: stallion').classes()).toEqual(
       expect.arrayContaining(['bg-wrong/10', 'text-wrong']),
+    )
+    expect(byText('bob: twiligth · 78%').classes()).toEqual(
+      expect.arrayContaining(['bg-close/10', 'text-close']),
+    )
+    expect(byText('carol: applejck · 94%').classes()).toEqual(
+      expect.arrayContaining(['bg-very-close/10', 'text-very-close']),
     )
     expect(byText('carol timed out').classes()).toEqual(
       expect.arrayContaining(['bg-eliminated/10', 'text-eliminated']),
