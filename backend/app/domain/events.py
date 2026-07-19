@@ -27,7 +27,7 @@ class GameStarted(GameEvent):
     first_player: Player
     tag_count: int  # tags in the goal bucket — all must be guessed to win
     bonus_counts: dict[str, int]  # namespaced bucket key -> count, e.g. {"artists": 1}
-    query: list[str]
+    freebie_tags: list[str]  # the image's tags the query already gave away
     players: list[Player]  # full roster for the round; the rest of the room spectates
 
 

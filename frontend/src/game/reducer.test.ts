@@ -11,7 +11,7 @@ function player(base: Player, over: Partial<Player>): Player {
 }
 
 /** The opening batch: image, then game_started, then the first turn. */
-function openedGame(over: Partial<GameEvent> = {}): GameState {
+function openedGame(freebieTags: string[] = []): GameState {
   const events: GameEvent[] = [
     { type: 'image_started', id: '42', thumb_url: 't.jpg', full_url: 'f.jpg' },
     {
@@ -20,10 +20,9 @@ function openedGame(over: Partial<GameEvent> = {}): GameState {
       players: [alice],
       tag_count: 3,
       bonus_counts: { artists: 1 },
-      query: ['safe'],
+      freebie_tags: freebieTags,
       turn_seconds: 30,
-      ...over,
-    } as GameEvent,
+    },
     { type: 'turn_started', player: alice },
   ]
   return reduceAll(initialGameState(), events)
@@ -66,10 +65,25 @@ describe('reduce', () => {
     expect(s.activePlayerUuid).toBe('a')
   })
 
+  it('game_started seeds the freebies into the feed', () => {
+    const s = openedGame(['safe', 'mare'])
+    expect(s.feed).toEqual([
+      { seq: 1, kind: 'freebie', guess: 'safe' },
+      { seq: 2, kind: 'freebie', guess: 'mare' },
+    ])
+    const guessed = reduce(s, {
+      type: 'wrong_guess',
+      player: player(alice, { wrong_guesses: 1 }),
+      guess: 'nope',
+      wrong_count: 1,
+    })
+    expect(guessed.feed.at(-1)).toEqual({ seq: 3, kind: 'wrong', player: 'Alice', guess: 'nope' })
+  })
+
   it('game_started seeds the whole roster, not just the first player', () => {
     const s = reduceAll(initialGameState(), [
       { type: 'image_started', id: '1', thumb_url: 't', full_url: 'f' },
-      { type: 'game_started', first_player: alice, players: [alice, bob], tag_count: 2, bonus_counts: {}, query: [], turn_seconds: 30 },
+      { type: 'game_started', first_player: alice, players: [alice, bob], tag_count: 2, bonus_counts: {}, freebie_tags: [], turn_seconds: 30 },
       { type: 'turn_started', player: alice },
     ])
     expect(Object.keys(s.players).sort()).toEqual(['a', 'b'])
@@ -204,6 +218,7 @@ describe('reduce', () => {
       image: { id: '7', thumb_url: 't', full_url: 'f' },
       players: [player(alice, { score: 2 }), player(bob, { score: 1, wrong_guesses: 1 })],
       active_player: bob,
+      freebie_tags: ['safe', 'mare'],
       tag_count: 4,
       goal_remaining: 1,
       bonus_counts: { artists: 2 },
@@ -211,6 +226,10 @@ describe('reduce', () => {
       turn_seconds: 20,
     })
     expect(s.status).toBe('active')
+    expect(s.feed).toEqual([
+      { seq: 1, kind: 'freebie', guess: 'safe' },
+      { seq: 2, kind: 'freebie', guess: 'mare' },
+    ])
     expect(s.turnSeconds).toBe(20)
     expect(s.image).toEqual({ id: '7', thumb_url: 't', full_url: 'f' })
     expect(s.activePlayerUuid).toBe('b')

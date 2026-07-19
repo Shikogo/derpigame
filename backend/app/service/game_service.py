@@ -19,6 +19,26 @@ from app.service.turn_timer import TurnTimer
 
 DEFAULT_TURN_SECONDS = 60.0
 
+# Alias lookups spent per round start. A room's query is resolved once and then
+# cached, so this only bounds the first round — and bounds what an oversized
+# query can cost the shared rate limit.
+MAX_QUERY_LOOKUPS = 8
+
+# Query syntax that can't be a single tag: booleans, wildcards, fuzzy matches.
+_OPERATOR_CHARS = set('|&()*~"')
+
+
+def _is_plain_tag(term: str) -> bool:
+    """Whether a query term could be one tag, and so is worth an alias lookup.
+
+    Conservative on purpose: a false negative leaves a freebie unresolved, while
+    a false positive costs one lookup that finds nothing and is then cached.
+    """
+    if not term or term[0] in "-!" or _OPERATOR_CHARS & set(term):
+        return False
+    field, sep, _ = term.partition(":")
+    return not (sep and "." in field)  # score.gte:100 filters; artist:x is a tag
+
 
 class GameService:
     def __init__(
@@ -71,7 +91,10 @@ class GameService:
             options = dict(self._game_options)
             if taxonomy is not None:
                 options["taxonomy"] = taxonomy
-            game = room.start_game(image.tags, first_index=first_index, **options)
+            query = await self._canonical_query(room.query, image.tags)
+            game = room.start_game(
+                image.tags, first_index=first_index, query=query, **options
+            )
             self._current_image[room.name] = image
             await self._deliver(room, game.start(), lead=[_image_started_payload(image)])
         finally:
@@ -100,6 +123,27 @@ class GameService:
         if game.recognizes(guess):
             return guess
         return await self._resolver.canonicalize(guess)
+
+    async def _canonical_query(self, query: list[str], tags: list[str]) -> list[str]:
+        """Resolve the query's plain tags so an aliased term still frees its tag.
+
+        A term already on the image needs no lookup — the source stores canonical
+        tags only, so it's canonical by definition. That leaves only the terms
+        that could be aliases, capped at ``MAX_QUERY_LOOKUPS``. Resolution is
+        deliberately serial: the resolver stops hitting the network once it owes
+        the source a back-off, so a serial pass self-limits after a failure where
+        a concurrent one would empty the whole budget into it. Anything left
+        literal just means a freebie goes unrecognized.
+        """
+        known = {tag.lower() for tag in tags}
+        budget = MAX_QUERY_LOOKUPS
+        resolved = []
+        for term in query:
+            if term.lower() not in known and budget and _is_plain_tag(term):
+                budget -= 1
+                term = await self._resolver.canonicalize(term)
+            resolved.append(term)
+        return resolved
 
     async def handle_timeout(self, room: Room) -> None:
         """The active turn ran out of time. Invoked by the turn timer."""
@@ -197,9 +241,9 @@ class GameService:
     def game_snapshot(self, room: Room) -> dict | None:
         """An answer-safe view of the in-progress game for a (re)joining client.
 
-        Carries the current image, roster with scores, whose turn it is, and
-        remaining counts — never the unguessed goal tags. ``None`` when no game
-        is running, so a lobby join sends nothing.
+        Carries the current image, roster with scores, whose turn it is, the
+        freebie tags, and remaining counts — never the unguessed goal tags.
+        ``None`` when no game is running, so a lobby join sends nothing.
         """
         game = room.game
         image = self._current_image.get(room.name)
@@ -221,6 +265,7 @@ class GameService:
                 serialize_player(p) for p in (*game.players, *game.eliminated_players)
             ],
             "active_player": serialize_player(game.active_player),
+            "freebie_tags": list(game.freebie_tags),
             "tag_count": goal_remaining + goal_guessed,  # original goal-bucket size
             "goal_remaining": goal_remaining,
             "bonus_counts": {

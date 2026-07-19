@@ -69,6 +69,21 @@ def test_query_and_rating_tags_are_excluded_from_buckets():
     assert game.tag_buckets["tags"].tags == ["solo"]
 
 
+def test_freebies_are_the_image_tags_the_query_named():
+    game = make_game(tags=["solo", "safe", "cute"], query=["cute"])
+    assert game.freebie_tags == ["cute"]
+    assert game.start()[0].freebie_tags == ["cute"]
+
+
+def test_a_query_term_that_is_not_a_tag_is_no_freebie():
+    # Operators and range filters match no tag, so they free nothing.
+    game = make_game(
+        tags=["solo", "cute"], query=["cute", "-anthro", "score.gte:100", "a || b"]
+    )
+    assert game.freebie_tags == ["cute"]
+    assert game.tag_buckets["tags"].tags == ["solo"]
+
+
 def test_ignored_tags_do_not_gate_a_win():
     # Unguessable source-link housekeeping shouldn't land in the goal bucket.
     game = make_game(tags=["solo", "source needed", "dead source"], first_index=0)

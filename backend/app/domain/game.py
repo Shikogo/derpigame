@@ -49,6 +49,7 @@ class Game:
         self.query = [tag.lower() for tag in query]
         self.guessed_tags: list[str] = []
         self.failed_guesses: set[str] = set()  # guesses already tried and known wrong
+        self.freebie_tags: list[str] = []  # filled by _bucket_tags
         self._started = False
         self._finished = False
         self.tag_buckets = self._bucket_tags([tag.lower() for tag in tags])
@@ -67,11 +68,19 @@ class Game:
         )
 
     def _bucket_tags(self, tags: list[str]) -> dict[str, TagBucket]:
+        """Sort the image's tags into buckets, setting aside the query's freebies.
+
+        A tag the query already named is recorded as a freebie rather than
+        bucketed — it's known before the round starts, so it can't be scored.
+        """
         query = set(self.query)
         keys = [self.taxonomy.goal_bucket, *self.taxonomy.namespaces]
         buckets: dict[str, list[str]] = {key: [] for key in keys}
         for tag in tags:
-            if tag in query or self.taxonomy.is_droppable(tag):
+            if tag in query:
+                self.freebie_tags.append(tag)
+                continue
+            if self.taxonomy.is_droppable(tag):
                 continue
             buckets[self.taxonomy.bucket_for(tag)].append(tag)
         return {key: TagBucket(tags) for key, tags in buckets.items()}
@@ -108,7 +117,7 @@ class Game:
                     for key, bucket in self.tag_buckets.items()
                     if key != goal
                 },
-                query=list(self.query),
+                freebie_tags=list(self.freebie_tags),
                 players=list(self.players),
             ),
             TurnStarted(first),

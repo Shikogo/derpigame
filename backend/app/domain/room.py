@@ -65,10 +65,13 @@ class Room:
         self,
         tags: list[str],
         first_index: int | None = None,
+        query: list[str] | None = None,
         **game_options,
     ) -> Game:
         """Start a game with the room's ready users on the given image tags.
 
+        ``query`` overrides the room's own for tag matching — the service passes
+        a canonicalized form so an aliased search term still frees its tag.
         Callers should confirm ``ready_users()`` is non-empty first; an empty
         roster raises ``ValueError`` from ``Game``.
         """
@@ -76,7 +79,7 @@ class Room:
         self.game = Game(
             players,
             tags,
-            self.query,
+            self.query if query is None else query,
             first_index=first_index,
             **game_options,
         )

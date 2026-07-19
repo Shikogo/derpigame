@@ -14,7 +14,7 @@ const openRound = (roster: string[]): GameEvent[] => [
     players: roster.map(p),
     tag_count: 1,
     bonus_counts: {},
-    query: [],
+    freebie_tags: [],
     turn_seconds: 30,
   },
   { type: 'turn_started', player: p(roster[0]) },

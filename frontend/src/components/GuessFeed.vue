@@ -21,6 +21,8 @@ const REJECT: Record<RejectReason, string> = {
 // Precompute tone + text per entry so the template avoids union narrowing.
 function describe(e: FeedEntry): { tone: string; text: string } {
   switch (e.kind) {
+    case 'freebie':
+      return { tone: 'bg-raised text-ink-faint', text: `${e.guess} — freebie` }
     case 'correct':
       return { tone: 'bg-correct/10 text-correct', text: `${e.player}: ${e.guess}` }
     case 'wrong':

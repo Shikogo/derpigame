@@ -101,7 +101,8 @@ export interface GameStarted {
   tag_count: number
   /** Namespaced bonus buckets, keyed by bucket, e.g. { artists: 1, ocs: 2 }. */
   bonus_counts: Record<BucketKey, number>
-  query: string[]
+  /** The image's tags the query already gave away — free, so never scoreable. */
+  freebie_tags: string[]
   turn_seconds: number
 }
 
@@ -201,6 +202,7 @@ export interface GameSnapshot {
   image: { id: string; thumb_url: string; full_url: string }
   players: Player[]
   active_player: Player
+  freebie_tags: string[]
   /** Original goal-bucket size (the progress denominator). */
   tag_count: number
   goal_remaining: number

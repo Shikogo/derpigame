@@ -28,10 +28,18 @@ def _err(error: str, **extra) -> dict:
     return {"ok": False, "error": error, **extra}
 
 
+MAX_QUERY_TERMS = 24  # nobody types this many; an unbounded query is an abuse vector
+
+
 def _parse_query(raw) -> list[str]:
-    """Normalize a query payload (list, or newline/comma-separated string) to tags."""
+    """Normalize a query payload (list, or newline/comma-separated string) to tags.
+
+    Truncated to ``MAX_QUERY_TERMS`` — the query drives both the search string and
+    a round's alias lookups, so its length can't be the client's to choose.
+    """
     parts = raw.replace("\n", ",").split(",") if isinstance(raw, str) else list(raw)
-    return [tag for tag in (str(part).strip() for part in parts) if tag]
+    tags = [tag for tag in (str(part).strip() for part in parts) if tag]
+    return tags[:MAX_QUERY_TERMS]
 
 
 MIN_TURN_SECONDS = 10.0

@@ -14,7 +14,7 @@ from app.domain.rating import DERPIBOORU_AXES
 from app.service.game_service import GameService
 from app.service.image_source import Image, StaticImageSource
 from app.transport.emitter import SocketIOEmitter
-from app.transport.handlers import SocketHandlers
+from app.transport.handlers import MAX_QUERY_TERMS, SocketHandlers
 from app.transport.registry import RoomRegistry
 
 
@@ -204,6 +204,16 @@ async def test_configure_room_updates_query_and_nsfw_before_a_game(make):
     room = registry.get(code)
     assert room.query == ["cute", "pony"] and room.nsfw is True
     assert server.last_state()["query"] == ["cute", "pony"]
+
+
+async def test_configure_room_truncates_an_oversized_query(make):
+    handlers, server, registry, _service = make()
+    code = await _create(handlers, "sa", "ua", "Alice")
+
+    flood = ",".join(f"tag{i}" for i in range(200))
+    await handlers.configure_room("sa", {"query": flood})
+
+    assert registry.get(code).query == [f"tag{i}" for i in range(MAX_QUERY_TERMS)]
 
 
 async def test_configure_room_sets_turn_seconds_and_broadcasts_it(make):

@@ -44,7 +44,7 @@ def _(event: GameStarted) -> dict:
         "players": [serialize_player(p) for p in event.players],
         "tag_count": event.tag_count,
         "bonus_counts": event.bonus_counts,
-        "query": event.query,
+        "freebie_tags": event.freebie_tags,
     }
 
 

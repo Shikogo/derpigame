@@ -36,6 +36,7 @@ export interface GameOverResult {
 export type FeedEntry = FeedInput & { seq: number }
 
 type FeedInput =
+  | { kind: 'freebie'; guess: string }
   | { kind: 'correct'; player: string; guess: string }
   | { kind: 'wrong'; player: string; guess: string }
   | { kind: 'near_miss'; player: string; guess: string; closeness: number }
@@ -114,6 +115,7 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
         turnSeconds: event.turn_seconds,
         bonusCounts: { ...event.bonus_counts },
         players,
+        ...withFeed(prev, ...freebies(event.freebie_tags)),
       }
     }
 
@@ -235,12 +237,13 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
       }
 
     case 'game_snapshot': {
-      // A (re)join into a live round: rebuild the game view from scratch. No feed
-      // — past guesses aren't replayed, only the current standing.
+      // A (re)join into a live round: rebuild the game view from scratch. The
+      // feed starts at the round's freebies — past guesses aren't replayed.
       const players: Record<string, Player> = {}
       for (const p of event.players) recordPlayer(players, p)
+      const base = initialGameState()
       return {
-        ...initialGameState(),
+        ...base,
         status: 'active',
         image: {
           id: event.image.id,
@@ -254,6 +257,7 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
         bonusCounts: { ...event.bonus_counts },
         players,
         eliminated: [...event.eliminated],
+        ...withFeed(base, ...freebies(event.freebie_tags)),
       }
     }
 
@@ -279,9 +283,14 @@ function recordPlayer(players: Record<string, Player>, player: Player): void {
   players[player.uuid] = player
 }
 
-function withFeed(prev: GameState, entry: FeedInput): Pick<GameState, 'feed' | 'feedSeq'> {
-  const seq = prev.feedSeq + 1
-  return { feed: [...prev.feed, { seq, ...entry }], feedSeq: seq }
+function withFeed(prev: GameState, ...entries: FeedInput[]): Pick<GameState, 'feed' | 'feedSeq'> {
+  const added = entries.map((entry, i) => ({ seq: prev.feedSeq + 1 + i, ...entry }))
+  return { feed: [...prev.feed, ...added], feedSeq: prev.feedSeq + entries.length }
+}
+
+/** The round's freebies as pre-filled feed entries. */
+function freebies(tags: string[]): FeedInput[] {
+  return tags.map((guess) => ({ kind: 'freebie', guess }))
 }
 
 // `event: never` makes this a compile-time exhaustiveness guard — a new event

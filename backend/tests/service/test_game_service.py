@@ -9,7 +9,7 @@ from app.domain.room import Room
 from app.domain.user import User
 from app.service.emitter import EventEmitter
 from app.service.errors import NotYourTurn
-from app.service.game_service import GameService
+from app.service.game_service import MAX_QUERY_LOOKUPS, GameService
 from app.service.image_source import (
     Image,
     ImageSource,
@@ -644,6 +644,60 @@ async def test_game_snapshot_tracks_progress_but_keeps_the_original_total():
     snap = service.game_snapshot(room)
     assert snap["goal_remaining"] == 1
     assert snap["tag_count"] == 2  # original total, reconstructed
+    service.shutdown()
+
+
+async def test_an_aliased_query_term_still_frees_its_canonical_tag():
+    resolver = RecordingResolver({"ts": "twilight sparkle"})
+    service = make_service(
+        ["twilight sparkle", "solo"], RecordingEmitter(), tag_resolver=resolver
+    )
+    room = make_room("alice", query=["ts"])
+    await service.start_game(room, first_index=0)
+
+    assert room.game.freebie_tags == ["twilight sparkle"]
+    assert room.game.tag_buckets["tags"].tags == ["solo"]
+    service.shutdown()
+
+
+async def test_a_query_term_already_on_the_image_costs_no_lookup():
+    resolver = RecordingResolver()
+    service = make_service(["mare", "solo"], RecordingEmitter(), tag_resolver=resolver)
+    room = make_room("alice", query=["mare", "cute"])
+    await service.start_game(room, first_index=0)
+
+    assert resolver.calls == ["cute"]  # "mare" is on the image, so already canonical
+    service.shutdown()
+
+
+async def test_only_plain_query_terms_cost_an_alias_lookup():
+    resolver = RecordingResolver()
+    service = make_service(["solo"], RecordingEmitter(), tag_resolver=resolver)
+    room = make_room(
+        "alice", query=["mare", "artist:foo", "-anthro", "score.gte:100", "a || b"]
+    )
+    await service.start_game(room, first_index=0)
+
+    assert resolver.calls == ["mare", "artist:foo"]
+    service.shutdown()
+
+
+async def test_query_alias_lookups_are_capped_per_round():
+    resolver = RecordingResolver()
+    service = make_service(["solo"], RecordingEmitter(), tag_resolver=resolver)
+    room = make_room("alice", query=[f"tag{i}" for i in range(20)])
+    await service.start_game(room, first_index=0)
+
+    assert len(resolver.calls) == MAX_QUERY_LOOKUPS
+    service.shutdown()
+
+
+async def test_game_snapshot_carries_the_freebies_a_rejoin_missed():
+    service = make_service(["solo", "twilight", "mare"], RecordingEmitter())
+    room = make_room("alice", query=["mare", "score.gte:100"])
+    await service.start_game(room, first_index=0)
+
+    assert service.game_snapshot(room)["freebie_tags"] == ["mare"]
     service.shutdown()
 
 

@@ -22,7 +22,7 @@ function openRound(roster: string[]): GameEvent[] {
       players: roster.map(player),
       tag_count: 1,
       bonus_counts: {},
-      query: [],
+      freebie_tags: [],
       turn_seconds: 30,
     },
     { type: 'turn_started', player: player(roster[0]) },

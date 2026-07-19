@@ -18,6 +18,7 @@ const FEED: FeedEntry[] = [
   { seq: 5, kind: 'timeout', player: 'carol' },
   { seq: 6, kind: 'eliminated', player: 'dave' },
   { seq: 7, kind: 'rejected', guess: 'safe', reason: 'rating_tag' },
+  { seq: 8, kind: 'freebie', guess: 'pony' },
 ]
 
 describe('GuessFeed', () => {
@@ -34,10 +35,10 @@ describe('GuessFeed', () => {
     const wrapper = mount(GuessFeed)
     const badges = wrapper.findAll('span')
 
-    // Newest-first: the rejected entry (seq 7) leads, correct (seq 1) trails.
-    expect(badges).toHaveLength(6)
-    expect(badges[0].text()).toBe('safe — rating tag')
-    expect(badges[5].text()).toBe('alice: mare')
+    // Newest-first: the freebie (seq 8) leads, correct (seq 1) trails.
+    expect(badges).toHaveLength(7)
+    expect(badges[0].text()).toBe('pony — freebie')
+    expect(badges[6].text()).toBe('alice: mare')
 
     // Each kind carries its own tone classes.
     const byText = (t: string) => badges.find((b) => b.text() === t)!
@@ -58,6 +59,9 @@ describe('GuessFeed', () => {
       expect.arrayContaining(['bg-eliminated/10', 'text-eliminated']),
     )
     expect(byText('safe — rating tag').classes()).toEqual(
+      expect.arrayContaining(['bg-raised', 'text-ink-faint']),
+    )
+    expect(byText('pony — freebie').classes()).toEqual(
       expect.arrayContaining(['bg-raised', 'text-ink-faint']),
     )
   })
