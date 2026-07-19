@@ -15,6 +15,7 @@ const REJECT: Record<RejectReason, string> = {
   already_wrong: 'already tried',
   default_tag: 'freebie tag',
   rating_tag: 'rating tag',
+  ignored_tag: 'not guessable',
 }
 
 // Precompute tone + text per entry so the template avoids union narrowing.

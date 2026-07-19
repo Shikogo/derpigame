@@ -19,6 +19,7 @@ class RejectReason(str, Enum):
     ALREADY_WRONG = "already_wrong"  # a guess already tried and known wrong
     DEFAULT_TAG = "default_tag"
     RATING_TAG = "rating_tag"
+    IGNORED_TAG = "ignored_tag"  # a dropped tag that can't be derived from the image
 
 
 @dataclass

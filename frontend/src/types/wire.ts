@@ -59,7 +59,12 @@ export interface Player {
 }
 
 /** Why a guess was a no-op (never a strike). Matches the domain `RejectReason`. */
-export type RejectReason = 'already_guessed' | 'already_wrong' | 'default_tag' | 'rating_tag'
+export type RejectReason =
+  | 'already_guessed'
+  | 'already_wrong'
+  | 'default_tag'
+  | 'rating_tag'
+  | 'ignored_tag'
 
 /**
  * A taxonomy bucket key, e.g. "tags" or "artists". The set is defined by the

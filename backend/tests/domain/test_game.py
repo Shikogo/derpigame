@@ -68,6 +68,15 @@ def test_query_and_rating_tags_are_excluded_from_buckets():
     assert game.tag_buckets["tags"].tags == ["solo"]
 
 
+def test_ignored_tags_do_not_gate_a_win():
+    # Unguessable source-link housekeeping shouldn't land in the goal bucket.
+    game = make_game(tags=["solo", "source needed", "dead source"], first_index=0)
+    assert game.tag_buckets["tags"].tags == ["solo"]
+    events = game.start()
+    assert only(events, GameStarted).tag_count == 1
+    assert only(game.submit_guess("solo"), GameOver).win is True
+
+
 def test_start_reports_counts_and_first_player():
     game = make_game(
         tags=["solo", "twilight", "artist:foo", "oc:bar"], first_index=1
@@ -117,6 +126,14 @@ def test_rating_tag_is_rejected_without_penalty():
     game = make_game(tags=["solo"], first_index=0)
     events = game.submit_guess("safe")
     assert only(events, GuessRejected).reason is RejectReason.RATING_TAG
+    assert game.active_player.wrong_guesses == 0
+
+
+def test_ignored_tag_is_rejected_without_penalty():
+    game = make_game(tags=["solo"], first_index=0)
+    events = game.submit_guess("source needed")
+    assert only(events, GuessRejected).reason is RejectReason.IGNORED_TAG
+    assert game.active_player.name == "alice"  # keeps the turn
     assert game.active_player.wrong_guesses == 0
 
 

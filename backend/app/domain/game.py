@@ -117,9 +117,9 @@ class Game:
         """Process the active player's guess and return what happened.
 
         Rejected guesses (already found, already tried and wrong, default query
-        tags, rating tags) are no-ops: the player keeps their turn and takes no
-        penalty. Correct and fresh wrong guesses both end the turn and advance
-        the game. Guesses after the game is over are ignored.
+        tags, rating tags, ignored tags) are no-ops: the player keeps their turn
+        and takes no penalty. Correct and fresh wrong guesses both end the turn
+        and advance the game. Guesses after the game is over are ignored.
         """
         if self._finished:
             return []
@@ -133,6 +133,8 @@ class Game:
             return [GuessRejected(guess, RejectReason.DEFAULT_TAG)]
         if guess in self.taxonomy.rating_tags:
             return [GuessRejected(guess, RejectReason.RATING_TAG)]
+        if guess in self.taxonomy.ignored_tags:
+            return [GuessRejected(guess, RejectReason.IGNORED_TAG)]
 
         for kind, bucket in self.tag_buckets.items():
             if bucket.take(guess):
