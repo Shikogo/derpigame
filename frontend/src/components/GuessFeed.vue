@@ -22,7 +22,7 @@ const REJECT: Record<RejectReason, string> = {
 function describe(e: FeedEntry): { tone: string; text: string } {
   switch (e.kind) {
     case 'correct':
-      return { tone: 'bg-correct/10 text-correct', text: `${e.player}: ${e.guess} · ${e.tag_type}` }
+      return { tone: 'bg-correct/10 text-correct', text: `${e.player}: ${e.guess}` }
     case 'wrong':
       return {
         tone: 'bg-wrong/10 text-wrong',
