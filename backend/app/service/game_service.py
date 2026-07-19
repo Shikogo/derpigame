@@ -128,10 +128,16 @@ class GameService:
         await self._emitter.emit(room.name, payloads)
 
     @property
-    def rating_levels(self) -> list[str]:
-        """The image source's rating vocabulary, for validation and the lobby UI."""
-        ladder = self._images.ratings
-        return list(ladder.levels) if ladder is not None else []
+    def rating_axes(self) -> list[dict]:
+        """The image source's rating scales, for validation and the lobby UI."""
+        return [
+            {
+                "key": axis.key,
+                "label": axis.label,
+                "levels": [step.name for step in axis.levels],
+            }
+            for axis in self._images.rating_axes
+        ]
 
     def turn_seconds_for(self, room: Room) -> float:
         """The room's turn length, falling back to the deployment default."""
@@ -248,7 +254,7 @@ def _search_options(room: Room) -> SearchOptions:
         nsfw=room.nsfw,
         min_tag_count=room.min_tag_count,
         min_score=room.min_score,
-        max_rating=room.max_rating,
+        rating_caps=dict(room.rating_caps),
     )
 
 

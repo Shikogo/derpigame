@@ -168,21 +168,46 @@ async def test_a_negative_score_bound_is_kept():
     assert "score.gte:-50" in requests[0].url.params["q"]
 
 
-async def test_a_rating_cap_is_parenthesized():
-    """`||` binds looser than the comma: unbracketed it would swallow the tags."""
+async def test_a_rating_cap_excludes_the_levels_above_it():
+    """Exclusion, not positive selection: an image rated on neither axis still shows.
+
+    A positive `(safe || suggestive)` would drop the tens of thousands of images
+    carrying only a darkness tag, and OR-ing the two axes to fix that would let
+    an explicit image back in through its darkness tag.
+    """
     source, requests = make_source(respond(json=ONE_IMAGE))
 
-    await source.random_image(["cute"], options=SearchOptions(max_rating="suggestive"))
+    await source.random_image(
+        ["cute"], options=SearchOptions(rating_caps={"rating": "suggestive"})
+    )
 
     assert requests[0].url.params["q"] == (
-        "cute,-mime_type:video/webm,(safe || suggestive)"
+        "cute,-mime_type:video/webm,-questionable,-explicit"
     )
 
 
-async def test_the_top_rating_caps_nothing():
+async def test_the_axes_are_capped_independently():
     source, requests = make_source(respond(json=ONE_IMAGE))
 
-    await source.random_image(["cute"], options=SearchOptions(max_rating="explicit"))
+    await source.random_image(
+        ["cute"],
+        options=SearchOptions(
+            rating_caps={"rating": "questionable", "darkness": "semi-grimdark"}
+        ),
+    )
+
+    assert requests[0].url.params["q"] == (
+        "cute,-mime_type:video/webm,-explicit,-grimdark,-grotesque"
+    )
+
+
+async def test_the_top_of_an_axis_caps_nothing():
+    source, requests = make_source(respond(json=ONE_IMAGE))
+
+    await source.random_image(
+        ["cute"],
+        options=SearchOptions(rating_caps={"rating": "explicit", "darkness": "grotesque"}),
+    )
 
     assert requests[0].url.params["q"] == "cute,-mime_type:video/webm"
 
@@ -192,11 +217,17 @@ async def test_every_setting_at_once():
 
     await source.random_image(
         ["cute", "pony"],
-        options=SearchOptions(min_tag_count=15, min_score=10, max_rating="safe"),
+        options=SearchOptions(
+            min_tag_count=15,
+            min_score=10,
+            rating_caps={"rating": "safe", "darkness": "none"},
+        ),
     )
 
     assert requests[0].url.params["q"] == (
-        "cute,pony,-mime_type:video/webm,tag_count.gte:15,score.gte:10,(safe)"
+        "cute,pony,-mime_type:video/webm,tag_count.gte:15,score.gte:10,"
+        "-suggestive,-questionable,-explicit,"
+        "-semi-grimdark,-grimdark,-grotesque"
     )
 
 

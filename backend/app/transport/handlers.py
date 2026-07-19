@@ -182,19 +182,28 @@ class SocketHandlers:
             room.min_tag_count = _parse_optional_int(data["min_tag_count"], floor=0)
         if "min_score" in data:
             room.min_score = _parse_optional_int(data["min_score"])
-        if "max_rating" in data:
-            room.max_rating = self._parse_max_rating(data["max_rating"])
+        if "rating_caps" in data:
+            room.rating_caps = self._parse_rating_caps(data["rating_caps"])
         await self._broadcast_state(room)
         return _ok()
 
-    def _parse_max_rating(self, raw) -> str | None:
-        """A cap from the image source's own ladder; None (no cap) for anything else.
+    def _parse_rating_caps(self, raw) -> dict[str, str]:
+        """Keep only caps naming a real level on a real axis of the image source.
 
         Validated against the live provider rather than a hardcoded list, so a
-        source with different rating names needs no change here.
+        source with different rating scales needs no change here. An unknown
+        axis or level is dropped, which reads as "no cap" — never a wrong one.
         """
-        value = str(raw).strip().lower()
-        return value if value in self._service.rating_levels else None
+        if not isinstance(raw, dict):
+            return {}
+        levels = {axis["key"]: axis["levels"] for axis in self._service.rating_axes}
+        caps = {}
+        for key, value in raw.items():
+            allowed = levels.get(str(key))
+            name = str(value).strip().lower()
+            if allowed and name in allowed:
+                caps[str(key)] = name
+        return caps
 
     # --- game actions ---------------------------------------------------------
 
@@ -321,7 +330,7 @@ class SocketHandlers:
         return {
             **room_state(room),
             "turn_seconds": self._service.turn_seconds_for(room),
-            "rating_levels": self._service.rating_levels,
+            "rating_axes": self._service.rating_axes,
             "history": self._service.room_history(room.name),
             "win_counts": self._service.room_win_counts(room.name),
         }

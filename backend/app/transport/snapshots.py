@@ -15,7 +15,7 @@ def room_state(room: Room) -> dict:
         "nsfw": room.nsfw,
         "min_tag_count": room.min_tag_count,
         "min_score": room.min_score,
-        "max_rating": room.max_rating,
+        "rating_caps": dict(room.rating_caps),
         "in_progress": room.active,
         "users": [
             {"uuid": user.uuid, "name": user.name, "ready": user.ready}

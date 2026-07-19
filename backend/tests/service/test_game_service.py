@@ -194,21 +194,24 @@ async def test_room_search_settings_reach_the_image_source():
     room.nsfw = True
     room.min_tag_count = 20
     room.min_score = 5
-    room.max_rating = "questionable"
+    room.rating_caps = {"rating": "questionable"}
 
     await service.start_game(room)
 
     assert source.options == SearchOptions(
-        nsfw=True, min_tag_count=20, min_score=5, max_rating="questionable"
+        nsfw=True,
+        min_tag_count=20,
+        min_score=5,
+        rating_caps={"rating": "questionable"},
     )
     service.shutdown()
 
 
-async def test_rating_levels_come_from_the_image_source():
+async def test_rating_axes_come_from_the_image_source():
     """A source with no rating vocabulary reports none, rather than guessing."""
     service = GameService(StaticImageSource([]), RecordingEmitter())
 
-    assert service.rating_levels == []
+    assert service.rating_axes == []
 
 
 async def test_no_matching_image_emits_no_image():

@@ -7,9 +7,10 @@ deterministic in-memory provider for tests and offline development.
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 
-from app.domain.rating import RatingLadder
+from app.domain.rating import RatingAxis
 
 
 @dataclass(frozen=True)
@@ -34,7 +35,7 @@ class SearchOptions:
     nsfw: bool = False
     min_tag_count: int | None = None
     min_score: int | None = None
-    max_rating: str | None = None
+    rating_caps: Mapping[str, str] = field(default_factory=dict)
 
 
 class ImageSourceError(Exception):
@@ -43,9 +44,9 @@ class ImageSourceError(Exception):
 
 class ImageSource(ABC):
     @property
-    def ratings(self) -> RatingLadder | None:
-        """The provider's rating vocabulary, or None if it doesn't rate content."""
-        return None
+    def rating_axes(self) -> tuple[RatingAxis, ...]:
+        """The provider's rating scales; empty if it doesn't rate content."""
+        return ()
 
     @abstractmethod
     async def random_image(self, query: list[str], *, options: SearchOptions) -> Image | None:
@@ -62,14 +63,16 @@ class StaticImageSource(ImageSource):
     An empty list models "no matching image" by always returning ``None``.
     """
 
-    def __init__(self, images: list[Image] | None = None, ratings: RatingLadder | None = None):
+    def __init__(
+        self, images: list[Image] | None = None, rating_axes: tuple[RatingAxis, ...] = ()
+    ):
         self._images = list(images or [])
-        self._ratings = ratings
+        self._rating_axes = rating_axes
         self._index = 0
 
     @property
-    def ratings(self) -> RatingLadder | None:
-        return self._ratings
+    def rating_axes(self) -> tuple[RatingAxis, ...]:
+        return self._rating_axes
 
     async def random_image(self, query: list[str], *, options: SearchOptions) -> Image | None:
         if not self._images:

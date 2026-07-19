@@ -25,18 +25,18 @@ class Room:
         turn_seconds: float | None = None,
         min_tag_count: int | None = DEFAULT_MIN_TAG_COUNT,
         min_score: int | None = DEFAULT_MIN_SCORE,
-        max_rating: str | None = None,
+        rating_caps: dict[str, str] | None = None,
     ):
         self.name = name
         self.nsfw = nsfw
         self.query: list[str] = list(query or [])
         self.turn_seconds = turn_seconds
         # Provider search knobs: the room carries them, the image source reads
-        # them. None means off — for max_rating, a level from the source's own
-        # ladder, which the room never interprets.
+        # them. None means off; rating_caps maps an axis key to a level, both
+        # from the source's own vocabulary, which the room never interprets.
         self.min_tag_count = min_tag_count
         self.min_score = min_score
-        self.max_rating = max_rating
+        self.rating_caps: dict[str, str] = dict(rating_caps or {})
         self.users: dict[str, User] = {}
         self.game: Game | None = None
 

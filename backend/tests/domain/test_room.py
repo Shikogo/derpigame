@@ -66,7 +66,7 @@ def test_search_settings_default_to_a_playable_pool():
     room = Room("lobby")
     assert room.min_tag_count == DEFAULT_MIN_TAG_COUNT
     assert room.min_score == DEFAULT_MIN_SCORE
-    assert room.max_rating is None
+    assert room.rating_caps == {}
 
 
 def test_search_settings_can_be_turned_off():

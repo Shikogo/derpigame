@@ -22,7 +22,7 @@ def test_snapshot_carries_config_and_roster():
     assert snap["nsfw"] is True
     assert snap["min_tag_count"] == DEFAULT_MIN_TAG_COUNT
     assert snap["min_score"] == DEFAULT_MIN_SCORE
-    assert snap["max_rating"] is None  # uncapped until a host says otherwise
+    assert snap["rating_caps"] == {}  # uncapped until a host says otherwise
     assert snap["in_progress"] is False
     assert snap["users"] == [
         {"uuid": "ua", "name": "Alice", "ready": True},

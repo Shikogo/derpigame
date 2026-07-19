@@ -20,7 +20,7 @@ import urllib.parse
 
 import httpx
 
-from app.domain.rating import DERPIBOORU_RATINGS, RatingLadder
+from app.domain.rating import DERPIBOORU_AXES, RatingAxis
 from app.service.image_source import Image, ImageSource, ImageSourceError, SearchOptions
 from app.service.tag_resolver import TagResolver
 
@@ -58,8 +58,8 @@ _SLUG_ESCAPES = [
 
 class DerpibooruClient(ImageSource, TagResolver):
     @property
-    def ratings(self) -> RatingLadder:
-        return DERPIBOORU_RATINGS
+    def rating_axes(self) -> tuple[RatingAxis, ...]:
+        return DERPIBOORU_AXES
 
     def __init__(
         self,
@@ -138,11 +138,8 @@ class DerpibooruClient(ImageSource, TagResolver):
             terms.append(f"tag_count.gte:{options.min_tag_count}")
         if options.min_score is not None:
             terms.append(f"score.gte:{options.min_score}")
-        allowed = self.ratings.allowed(options.max_rating)
-        if allowed:
-            # Parenthesized because || binds looser than the comma: bare, it
-            # would swallow the surrounding terms and match far too much.
-            terms.append("(" + " || ".join(allowed) + ")")
+        for axis in self.rating_axes:
+            terms += [f"-{tag}" for tag in axis.excluded(options.rating_caps.get(axis.key))]
         return terms
 
     def _guard_cooldown(self) -> None:
