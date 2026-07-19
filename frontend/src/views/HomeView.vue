@@ -63,7 +63,7 @@ async function join(): Promise<void> {
     </label>
 
     <button
-      class="rounded-lg bg-turn px-4 py-2.5 text-sm font-semibold text-[#07101f] disabled:opacity-40"
+      class="rounded-lg bg-turn px-4 py-2.5 text-sm font-semibold text-on-accent disabled:opacity-40"
       :disabled="!name.trim() || busy"
       @click="create"
     >

@@ -41,7 +41,7 @@ watch(
         placeholder="Say something…"
         class="flex-1 rounded border border-border bg-raised px-2 py-1 text-sm text-ink placeholder:text-ink-faint focus:border-turn focus:outline-none"
       />
-      <button type="submit" class="rounded bg-turn px-3 py-1 text-sm font-medium text-[#07101f]">
+      <button type="submit" class="rounded bg-turn px-3 py-1 text-sm font-medium text-on-accent">
         Send
       </button>
     </form>

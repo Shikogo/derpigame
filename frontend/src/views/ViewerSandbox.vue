@@ -16,7 +16,7 @@ const src = ref('/viewer-test.svg')
   <main class="mx-auto flex max-w-4xl flex-col gap-4 p-6">
     <header class="flex items-center justify-between">
       <h1 class="font-display text-xl font-bold">ImageViewer sandbox</h1>
-      <button class="rounded bg-turn px-3 py-1.5 text-sm font-medium text-[#07101f]" @click="viewer?.reset()">
+      <button class="rounded bg-turn px-3 py-1.5 text-sm font-medium text-on-accent" @click="viewer?.reset()">
         Reset to fit
       </button>
     </header>

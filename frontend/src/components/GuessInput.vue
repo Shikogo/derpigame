@@ -33,7 +33,7 @@ async function submit(): Promise<void> {
     <button
       type="submit"
       :disabled="!game.isMyTurn || !guess.trim()"
-      class="rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-[#07101f] disabled:opacity-40"
+      class="rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-on-accent disabled:opacity-40"
     >
       Guess
     </button>

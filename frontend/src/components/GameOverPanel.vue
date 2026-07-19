@@ -85,7 +85,7 @@ const heading = computed(() => {
     </template>
 
     <button
-      class="self-start rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-[#07101f]"
+      class="self-start rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-on-accent"
       @click="emit('back')"
     >
       Back to lobby

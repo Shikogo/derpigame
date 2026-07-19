@@ -109,7 +109,7 @@ async function backToLobby(): Promise<void> {
           />
           <button
             :disabled="!joinName.trim() || joining"
-            class="rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-[#07101f] disabled:opacity-40"
+            class="rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-on-accent disabled:opacity-40"
           >
             Join
           </button>

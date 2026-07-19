@@ -24,7 +24,7 @@ defineEmits<{ confirm: []; decline: [] }>()
         {{ declineLabel }}
       </button>
       <button
-        class="rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-[#07101f]"
+        class="rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-on-accent"
         @click="$emit('confirm')"
       >
         I'm 18 or older
