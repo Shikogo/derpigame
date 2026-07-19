@@ -19,6 +19,9 @@ export const useRoomStore = defineStore('room', () => {
   const roomState = ref<RoomState | null>(null)
   const connected = ref(false)
   const error = ref<string | null>(null)
+  // The start ack only lands once the image is fetched and its tags resolved,
+  // so the wait is long enough to need a spinner.
+  const starting = ref(false)
 
   const code = computed(() => roomState.value?.room ?? null)
   const inProgress = computed(() => roomState.value?.in_progress ?? false)
@@ -87,7 +90,13 @@ export const useRoomStore = defineStore('room', () => {
   }
 
   async function startGame(): Promise<Ack> {
-    return request('start_game')
+    if (starting.value) return { ok: false, error: 'game_in_progress' }
+    starting.value = true
+    try {
+      return await request('start_game')
+    } finally {
+      starting.value = false
+    }
   }
 
   async function stopGame(): Promise<Ack> {
@@ -118,6 +127,7 @@ export const useRoomStore = defineStore('room', () => {
     roomState,
     connected,
     error,
+    starting,
     code,
     inProgress,
     nsfw,

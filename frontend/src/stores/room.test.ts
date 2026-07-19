@@ -1,10 +1,13 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
+import { emitAck } from '@/socket/client'
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
 import { roomState } from '@/test/factories'
 import type { GameEvent, Player, RoomState, RoomUser } from '@/types/wire'
+
+vi.mock('@/socket/client', () => ({ emitAck: vi.fn() }))
 
 const member = (uuid: string, ready: boolean): RoomUser => ({ uuid, name: uuid.toUpperCase(), ready })
 const player = (uuid: string): Player => ({ uuid, name: uuid.toUpperCase(), score: 0, wrong_guesses: 0 })
@@ -60,5 +63,46 @@ describe('room store — spectators', () => {
     const room = useRoomStore()
     room.setRoomState(snapshot(false, [member('a', false), member('b', false)]))
     expect(room.spectatorCount).toBe(0)
+  })
+})
+
+describe('room store — start pending flag', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(emitAck).mockReset()
+  })
+
+  it('stays set for the whole in-flight start, then clears', async () => {
+    const room = useRoomStore()
+    let settle: (ack: unknown) => void = () => {}
+    vi.mocked(emitAck).mockReturnValue(new Promise((resolve) => (settle = resolve)))
+
+    const pending = room.startGame()
+    expect(room.starting).toBe(true)
+
+    settle({ ok: true })
+    await pending
+    expect(room.starting).toBe(false)
+  })
+
+  it('clears when the emit rejects', async () => {
+    const room = useRoomStore()
+    vi.mocked(emitAck).mockRejectedValue(new Error('timeout'))
+
+    await room.startGame()
+
+    expect(room.starting).toBe(false)
+    expect(room.error).toBe('timeout')
+  })
+
+  it('ignores a second start while one is in flight', async () => {
+    const room = useRoomStore()
+    vi.mocked(emitAck).mockReturnValue(new Promise(() => {})) // never settles
+
+    room.startGame()
+    const second = await room.startGame()
+
+    expect(second).toEqual({ ok: false, error: 'game_in_progress' })
+    expect(emitAck).toHaveBeenCalledTimes(1)
   })
 })

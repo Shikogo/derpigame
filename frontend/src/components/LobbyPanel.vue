@@ -92,13 +92,18 @@ async function copyInvite(): Promise<void> {
 
     <div class="flex flex-col gap-2">
       <button
-        class="rounded-lg bg-turn px-4 py-2.5 text-sm font-semibold text-on-accent disabled:opacity-40"
-        :disabled="!ready"
+        class="flex items-center justify-center gap-2 rounded-lg bg-turn px-4 py-2.5 text-sm font-semibold text-on-accent disabled:opacity-40"
+        :disabled="!ready || room.starting"
         @click="room.startGame()"
       >
-        Start game
+        <span
+          v-if="room.starting"
+          class="h-4 w-4 animate-spin rounded-full border-2 border-on-accent/30 border-t-on-accent"
+        />
+        {{ room.starting ? 'Starting…' : 'Start game' }}
       </button>
-      <p v-if="!ready" class="text-xs text-ink-faint">Ready up to start the game.</p>
+      <p v-if="room.starting" class="text-xs text-ink-faint">Finding an image…</p>
+      <p v-else-if="!ready" class="text-xs text-ink-faint">Ready up to start the game.</p>
       <p v-else-if="room.error" class="text-xs text-wrong">{{ errorLabel(room.error) }}</p>
     </div>
 
