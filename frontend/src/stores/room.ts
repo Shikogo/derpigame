@@ -82,7 +82,9 @@ export const useRoomStore = defineStore('room', () => {
     return request('set_ready', { ready })
   }
 
-  async function configureRoom(config: { query?: QueryInput; nsfw?: boolean }): Promise<Ack> {
+  async function configureRoom(
+    config: { query?: QueryInput; nsfw?: boolean; turn_seconds?: number },
+  ): Promise<Ack> {
     return request('configure_room', config)
   }
 

@@ -21,6 +21,7 @@ const querySummary = computed(() => {
   return query.length ? query.join(', ') : 'anything'
 })
 const nsfwOn = computed(() => room.roomState?.nsfw ?? false)
+const turnSeconds = computed(() => room.roomState?.turn_seconds ?? 30)
 
 const ready = computed(() => room.me?.ready ?? false)
 const anyReady = computed(() => room.users.some((u) => u.ready))
@@ -46,7 +47,7 @@ async function copyInvite(): Promise<void> {
       <h2 class="font-display text-xl font-bold">Lobby</h2>
       <button
         class="rounded-lg px-4 py-2 text-sm font-semibold"
-        :class="ready ? 'bg-correct text-[#07101f]' : 'border border-border hover:bg-raised'"
+        :class="ready ? 'bg-correct text-on-accent' : 'border border-border hover:bg-raised'"
         @click="room.setReady(!ready)"
       >
         {{ ready ? 'Ready ✓' : 'Ready up' }}
@@ -61,7 +62,9 @@ async function copyInvite(): Promise<void> {
           <span class="text-ink-muted">Searching:</span>
           <span class="font-medium">{{ querySummary }}</span>
         </span>
-        <span class="text-xs text-ink-faint">NSFW: {{ nsfwOn ? 'on' : 'off' }}</span>
+        <span class="text-xs text-ink-faint">
+          NSFW: {{ nsfwOn ? 'on' : 'off' }} · {{ turnSeconds }}s per turn
+        </span>
       </div>
       <button
         class="shrink-0 rounded border border-border px-3 py-1.5 text-sm font-medium hover:bg-raised"
@@ -74,7 +77,7 @@ async function copyInvite(): Promise<void> {
 
     <div class="flex flex-col gap-2">
       <button
-        class="rounded-lg bg-turn px-4 py-2.5 text-sm font-semibold text-[#07101f] disabled:opacity-40"
+        class="rounded-lg bg-turn px-4 py-2.5 text-sm font-semibold text-on-accent disabled:opacity-40"
         :disabled="!anyReady"
         @click="room.startGame()"
       >

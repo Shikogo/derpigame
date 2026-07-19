@@ -16,10 +16,12 @@ class Room:
         name: str,
         nsfw: bool = False,
         query: list[str] | None = None,
+        turn_seconds: float | None = None,
     ):
         self.name = name
         self.nsfw = nsfw
         self.query: list[str] = list(query or [])
+        self.turn_seconds = turn_seconds
         self.users: dict[str, User] = {}
         self.game: Game | None = None
 

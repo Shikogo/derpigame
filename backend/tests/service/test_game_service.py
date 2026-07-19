@@ -87,6 +87,19 @@ async def test_game_started_carries_the_service_turn_duration():
     service.shutdown()
 
 
+async def test_room_turn_seconds_override_beats_the_deployment_default():
+    emitter = RecordingEmitter()
+    service = make_service(["solo"], emitter, turn_seconds=30.0)
+    room = make_room("alice")
+    room.turn_seconds = 90.0
+
+    await service.start_game(room, first_index=0)
+
+    started = next(p for p in emitter.payloads if p["type"] == "game_started")
+    assert started["turn_seconds"] == 90.0
+    service.shutdown()
+
+
 async def test_start_game_is_ignored_when_one_is_already_running():
     emitter = RecordingEmitter()
     service = make_service(["solo", "twilight"], emitter)

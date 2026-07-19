@@ -34,6 +34,18 @@ def _parse_query(raw) -> list[str]:
     return [tag for tag in (str(part).strip() for part in parts) if tag]
 
 
+MIN_TURN_SECONDS = 10.0
+MAX_TURN_SECONDS = 300.0
+
+
+def _parse_turn_seconds(raw) -> float | None:
+    """Clamp a turn-length setting to whole seconds in range; None if unparseable."""
+    try:
+        return float(max(MIN_TURN_SECONDS, min(MAX_TURN_SECONDS, round(float(raw)))))
+    except (TypeError, ValueError):
+        return None
+
+
 class SocketHandlers:
     def __init__(
         self,
@@ -145,6 +157,10 @@ class SocketHandlers:
             room.query = _parse_query(data["query"])
         if "nsfw" in data:
             room.nsfw = bool(data["nsfw"])
+        if "turn_seconds" in data:
+            seconds = _parse_turn_seconds(data["turn_seconds"])
+            if seconds is not None:
+                room.turn_seconds = seconds
         await self._broadcast_state(room)
         return _ok()
 
@@ -270,6 +286,7 @@ class SocketHandlers:
         """The room snapshot plus service-owned extras: round history and win tally."""
         return {
             **room_state(room),
+            "turn_seconds": self._service.turn_seconds_for(room),
             "history": self._service.room_history(room.name),
             "win_counts": self._service.room_win_counts(room.name),
         }

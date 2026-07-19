@@ -101,11 +101,15 @@ class GameService:
             self._record_round(room.name, image, None)  # aborted: no result
         await self._emitter.emit(room.name, payloads)
 
+    def turn_seconds_for(self, room: Room) -> float:
+        """The room's turn length, falling back to the deployment default."""
+        return room.turn_seconds if room.turn_seconds is not None else self._turn_seconds
+
     async def _deliver(self, room: Room, events: list, *, lead: list[dict] | None = None) -> None:
         payloads = list(lead or []) + serialize_events(events)
         for payload in payloads:
             if payload["type"] == "game_started":
-                payload["turn_seconds"] = self._turn_seconds
+                payload["turn_seconds"] = self.turn_seconds_for(room)
         game_over = next((e for e in events if isinstance(e, GameOver)), None)
         if game_over is not None:
             image = self._current_image.pop(room.name, None)
@@ -131,7 +135,7 @@ class GameService:
             self._drop_timer(room.name)
         elif any(isinstance(event, TurnStarted) for event in events):
             timer = self._timers.setdefault(room.name, TurnTimer())
-            timer.arm(self._turn_seconds, lambda: self.handle_timeout(room))
+            timer.arm(self.turn_seconds_for(room), lambda: self.handle_timeout(room))
 
     def _drop_timer(self, room_name: str) -> None:
         timer = self._timers.pop(room_name, None)
@@ -185,7 +189,7 @@ class GameService:
                 if key != goal_key
             },
             "eliminated": [p.uuid for p in game.eliminated_players],
-            "turn_seconds": self._turn_seconds,
+            "turn_seconds": self.turn_seconds_for(room),
         }
 
     def cancel_room(self, room_name: str) -> None:

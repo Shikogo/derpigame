@@ -15,13 +15,13 @@ beforeEach(() => {
 })
 
 function roomState(over: Partial<RoomState> = {}): RoomState {
-  return { room: 'r', query: [], nsfw: false, in_progress: false, users: [], history: [], win_counts: [], ...over }
+  return { room: 'r', query: [], nsfw: false, in_progress: false, turn_seconds: 30, users: [], history: [], win_counts: [], ...over }
 }
 
 describe('RoomSettingsDialog', () => {
   it('seeds the editor from the current snapshot each time it opens', async () => {
     const room = useRoomStore()
-    room.setRoomState(roomState({ query: ['safe', 'pony'], nsfw: true }))
+    room.setRoomState(roomState({ query: ['safe', 'pony'], nsfw: true, turn_seconds: 45 }))
 
     const wrapper = mount(RoomSettingsDialog)
     ;(wrapper.vm as unknown as { open: () => void }).open()
@@ -29,6 +29,7 @@ describe('RoomSettingsDialog', () => {
 
     expect((wrapper.find('textarea').element as HTMLTextAreaElement).value).toBe('safe, pony')
     expect((wrapper.find('input[type="checkbox"]').element as HTMLInputElement).checked).toBe(true)
+    expect((wrapper.find('input[type="number"]').element as HTMLInputElement).value).toBe('45')
   })
 
   it('applying broadcasts the edited settings via configureRoom', async () => {
@@ -42,9 +43,10 @@ describe('RoomSettingsDialog', () => {
 
     await wrapper.find('textarea').setValue('cute, mare')
     await wrapper.find('input[type="checkbox"]').setValue(true)
+    await wrapper.find('input[type="number"]').setValue('60')
     await wrapper.find('form').trigger('submit')
 
-    expect(configure).toHaveBeenCalledWith({ query: 'cute, mare', nsfw: true })
+    expect(configure).toHaveBeenCalledWith({ query: 'cute, mare', nsfw: true, turn_seconds: 60 })
   })
 
   it('does not broadcast when cancelled', async () => {

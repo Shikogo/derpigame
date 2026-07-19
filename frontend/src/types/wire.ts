@@ -20,6 +20,7 @@ export interface RoomState {
   query: string[]
   nsfw: boolean
   in_progress: boolean
+  turn_seconds: number
   users: RoomUser[]
   history: RoundRecord[]
   win_counts: WinCount[]

@@ -13,10 +13,12 @@ const room = useRoomStore()
 const dialog = ref<HTMLDialogElement | null>(null)
 const queryText = ref('')
 const nsfw = ref(false)
+const turnSeconds = ref(30)
 
 function open(): void {
   queryText.value = (room.roomState?.query ?? []).join(', ')
   nsfw.value = room.roomState?.nsfw ?? false
+  turnSeconds.value = room.roomState?.turn_seconds ?? 30
   dialog.value?.showModal()
 }
 
@@ -25,7 +27,7 @@ function close(): void {
 }
 
 function apply(): void {
-  room.configureRoom({ query: queryText.value, nsfw: nsfw.value })
+  room.configureRoom({ query: queryText.value, nsfw: nsfw.value, turn_seconds: turnSeconds.value })
   close()
 }
 
@@ -57,6 +59,18 @@ defineExpose({ open })
         />
       </label>
 
+      <label class="flex items-center justify-between gap-3 text-sm">
+        <span class="text-ink-muted">Seconds per turn</span>
+        <input
+          v-model.number="turnSeconds"
+          type="number"
+          min="10"
+          max="300"
+          step="5"
+          class="w-24 rounded-lg border border-border bg-raised px-2 py-1 text-right text-sm text-ink focus:border-turn focus:outline-none"
+        />
+      </label>
+
       <label class="flex items-center gap-2 text-sm">
         <input v-model="nsfw" type="checkbox" class="accent-turn" />
         Allow NSFW results
@@ -70,7 +84,7 @@ defineExpose({ open })
         >
           Cancel
         </button>
-        <button type="submit" class="rounded-lg bg-turn px-4 py-1.5 text-sm font-semibold text-[#07101f]">
+        <button type="submit" class="rounded-lg bg-turn px-4 py-1.5 text-sm font-semibold text-on-accent">
           Apply
         </button>
       </div>

@@ -20,7 +20,7 @@ const round: RoundRecord = {
 }
 
 function roomState(over: Partial<RoomState> = {}): RoomState {
-  return { room: 'r', query: [], nsfw: true, in_progress: false, users: [], history: [round], win_counts: [], ...over }
+  return { room: 'r', query: [], nsfw: true, in_progress: false, turn_seconds: 30, users: [], history: [round], win_counts: [], ...over }
 }
 
 describe('HistoryPanel — NSFW thumbnails', () => {

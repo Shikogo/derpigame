@@ -27,6 +27,7 @@ function roomState(over: Partial<RoomState> = {}): RoomState {
     query: [],
     nsfw: true,
     in_progress: true,
+    turn_seconds: 30,
     users: [{ uuid: 'me', name: 'ME', ready: true }],
     history: [],
     win_counts: [],

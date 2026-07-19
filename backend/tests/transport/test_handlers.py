@@ -203,6 +203,39 @@ async def test_configure_room_updates_query_and_nsfw_before_a_game(make):
     assert server.last_state()["query"] == ["cute", "pony"]
 
 
+async def test_configure_room_sets_turn_seconds_and_broadcasts_it(make):
+    handlers, server, registry, _service = make()
+    code = await _create(handlers, "sa", "ua", "Alice")
+
+    ack = await handlers.configure_room("sa", {"turn_seconds": 45})
+
+    assert ack == {"ok": True}
+    assert registry.get(code).turn_seconds == 45.0
+    assert server.last_state()["turn_seconds"] == 45.0
+
+
+async def test_configure_room_clamps_out_of_range_turn_seconds(make):
+    handlers, _server, registry, _service = make()
+    code = await _create(handlers, "sa", "ua", "Alice")
+
+    await handlers.configure_room("sa", {"turn_seconds": 5})  # below the floor
+    assert registry.get(code).turn_seconds == 10.0
+    await handlers.configure_room("sa", {"turn_seconds": 9999})  # above the ceiling
+    assert registry.get(code).turn_seconds == 300.0
+
+
+async def test_configured_turn_seconds_flows_into_game_started(make):
+    handlers, server, _registry, _service = make()
+    await _create(handlers, "sa", "ua", "Alice")
+    await handlers.configure_room("sa", {"turn_seconds": 60})
+    await handlers.set_ready("sa", {"ready": True})
+
+    await handlers.start_game("sa")
+
+    started = next(p for p in server.emits_of("game_events")[-1] if p["type"] == "game_started")
+    assert started["turn_seconds"] == 60.0
+
+
 async def test_configure_room_is_rejected_during_a_game(make):
     handlers, _server, _registry, _service = make()
     await _create(handlers, "sa", "ua", "Alice")
