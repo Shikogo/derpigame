@@ -9,6 +9,12 @@ from .game import Game
 from .player import Player
 from .user import User
 
+# Filters applied unless a room says otherwise: enough tags to make a round
+# worth playing, and enough score to skip the junk and troll uploads. Both cost
+# little of the available pool.
+DEFAULT_MIN_TAG_COUNT = 15
+DEFAULT_MIN_SCORE = 10
+
 
 class Room:
     def __init__(
@@ -17,11 +23,20 @@ class Room:
         nsfw: bool = False,
         query: list[str] | None = None,
         turn_seconds: float | None = None,
+        min_tag_count: int | None = DEFAULT_MIN_TAG_COUNT,
+        min_score: int | None = DEFAULT_MIN_SCORE,
+        max_rating: str | None = None,
     ):
         self.name = name
         self.nsfw = nsfw
         self.query: list[str] = list(query or [])
         self.turn_seconds = turn_seconds
+        # Provider search knobs: the room carries them, the image source reads
+        # them. None means off — for max_rating, a level from the source's own
+        # ladder, which the room never interprets.
+        self.min_tag_count = min_tag_count
+        self.min_score = min_score
+        self.max_rating = max_rating
         self.users: dict[str, User] = {}
         self.game: Game | None = None
 
