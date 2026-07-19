@@ -31,6 +31,10 @@ _USER_AGENT = "derpigame/0.1 (https://github.com/Shikogo/derpigame)"
 # the modern "Default" filter; nsfw rooms get "18+ R34".
 _DEFAULT_FILTER_ID = "100073"
 _NSFW_FILTER_ID = "37432"
+# Videos have no still representation — every size is a .webm — so the viewer has
+# nothing to show. Excluded by mime type, not the "webm" tag: a few dozen uploads
+# carry the mime type without the tag. webm is currently the only video type.
+_EXCLUDE_VIDEO = "-mime_type:video/webm"
 
 # Back-off durations (seconds) per Derpibooru's API rules.
 _CHALLENGE_BACKOFF = 5.0  # 501 text/html anti-bot challenge: silence ≥5s
@@ -71,8 +75,9 @@ class DerpibooruClient(ImageSource, TagResolver):
     async def random_image(self, query: list[str], *, nsfw: bool) -> Image | None:
         self._guard_cooldown()  # refuse to hit the network while we owe a back-off
 
+        terms = list(query) or ["*"]
         params: dict[str, str | int] = {
-            "q": ",".join(query) if query else "*",
+            "q": ",".join([*terms, _EXCLUDE_VIDEO]),
             "sf": "random",
             "per_page": 1,
             "filter_id": _NSFW_FILTER_ID if nsfw else _DEFAULT_FILTER_ID,

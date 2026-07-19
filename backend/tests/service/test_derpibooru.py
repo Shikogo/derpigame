@@ -106,7 +106,7 @@ async def test_request_params_and_user_agent():
     await source.random_image(["cute", "pony"], nsfw=False)
 
     req = requests[0]
-    assert req.url.params["q"] == "cute,pony"
+    assert req.url.params["q"] == "cute,pony,-mime_type:video/webm"
     assert req.url.params["sf"] == "random"
     assert req.url.params["per_page"] == "1"
     assert req.url.params["filter_id"] == "100073"  # sfw gets the modern default
@@ -118,7 +118,17 @@ async def test_empty_query_becomes_wildcard():
 
     await source.random_image([], nsfw=False)
 
-    assert requests[0].url.params["q"] == "*"
+    assert requests[0].url.params["q"] == "*,-mime_type:video/webm"
+
+
+async def test_videos_are_excluded_from_every_search():
+    """Videos are unviewable (no still representation), so they never get picked."""
+    source, requests = make_source(respond(json=ONE_IMAGE))
+
+    await source.random_image(["cute"], nsfw=False)
+    await source.random_image([], nsfw=True)
+
+    assert all("-mime_type:video/webm" in r.url.params["q"] for r in requests)
 
 
 async def test_nsfw_sends_the_nsfw_filter():
