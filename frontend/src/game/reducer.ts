@@ -36,7 +36,7 @@ export interface GameOverResult {
 export type FeedEntry = FeedInput & { seq: number }
 
 type FeedInput =
-  | { kind: 'correct'; player: string; guess: string; tag_type: BucketKey }
+  | { kind: 'correct'; player: string; guess: string }
   | { kind: 'wrong'; player: string; guess: string; closeness: number }
   | { kind: 'timeout'; player: string }
   | { kind: 'rejected'; guess: string; reason: RejectReason }
@@ -141,7 +141,6 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
           kind: 'correct',
           player: event.player.name,
           guess: event.guess,
-          tag_type: event.tag_type,
         }),
       }
     }

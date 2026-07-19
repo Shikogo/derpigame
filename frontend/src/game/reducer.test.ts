@@ -100,7 +100,7 @@ describe('reduce', () => {
     expect(s.goalRemaining).toBe(2)
     expect(s.bonusCounts).toEqual({ artists: 1 })
     expect(s.players.a?.score).toBe(1)
-    expect(s.feed).toEqual([{ seq: 1, kind: 'correct', player: 'Alice', guess: 'pony', tag_type: 'tags' }])
+    expect(s.feed).toEqual([{ seq: 1, kind: 'correct', player: 'Alice', guess: 'pony' }])
   })
 
   it('a correct bonus guess updates only that bucket', () => {

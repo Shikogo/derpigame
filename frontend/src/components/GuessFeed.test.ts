@@ -12,7 +12,7 @@ beforeEach(() => {
 
 // One entry of every feed kind, keyed by seq so we can locate each badge.
 const FEED: FeedEntry[] = [
-  { seq: 1, kind: 'correct', player: 'alice', guess: 'mare', tag_type: 'species' },
+  { seq: 1, kind: 'correct', player: 'alice', guess: 'mare' },
   { seq: 2, kind: 'wrong', player: 'bob', guess: 'stallion', closeness: 40 },
   { seq: 3, kind: 'timeout', player: 'carol' },
   { seq: 4, kind: 'eliminated', player: 'dave' },
@@ -36,11 +36,11 @@ describe('GuessFeed', () => {
     // Newest-first: the rejected entry (seq 5) leads, correct (seq 1) trails.
     expect(badges).toHaveLength(5)
     expect(badges[0].text()).toBe('safe — rating tag')
-    expect(badges[4].text()).toBe('alice: mare · species')
+    expect(badges[4].text()).toBe('alice: mare')
 
     // Each kind carries its own tone classes.
     const byText = (t: string) => badges.find((b) => b.text() === t)!
-    expect(byText('alice: mare · species').classes()).toEqual(
+    expect(byText('alice: mare').classes()).toEqual(
       expect.arrayContaining(['bg-correct/10', 'text-correct']),
     )
     expect(byText('bob: stallion · 40%').classes()).toEqual(
