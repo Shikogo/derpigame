@@ -55,6 +55,12 @@ def make_room(*names: str, query: list[str] | None = None) -> Room:
     return room
 
 
+def ready_up(room: Room) -> None:
+    """Re-ready everyone — a round end clears readiness, so a new round needs it."""
+    for user in room.users.values():
+        user.ready = True
+
+
 def make_service(tags: list[str], emitter: EventEmitter, **kwargs) -> GameService:
     image = Image(id="1", tags=tags, thumb_url="t", full_url="f")
     return GameService(StaticImageSource([image]), emitter, **kwargs)
@@ -222,6 +228,28 @@ async def test_winning_guess_ends_game_and_drops_the_timer():
     assert "game_over" in emitter.types()
     assert room.game.is_over
     assert "lobby" not in service._timers  # timer released
+
+
+async def test_game_over_unreadies_everyone():
+    emitter = RecordingEmitter()
+    service = make_service(["solo"], emitter)  # one regular tag -> instant win
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+
+    await service.submit_guess(room, "alice", "solo")
+
+    assert room.ready_users() == []  # a new round needs a fresh ready-up
+
+
+async def test_stop_game_unreadies_everyone():
+    emitter = RecordingEmitter()
+    service = make_service(["solo", "twilight"], emitter)
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+
+    await service.stop_game(room)
+
+    assert room.ready_users() == []
 
 
 # --- alias resolution --------------------------------------------------------
@@ -429,6 +457,7 @@ async def test_history_accumulates_across_rounds():
 
     await service.start_game(room, first_index=0)
     await service.submit_guess(room, "alice", "solo")
+    ready_up(room)  # the finished round un-readied everyone
     await service.start_game(room, first_index=0)
     await service.stop_game(room)
 
@@ -458,6 +487,7 @@ async def test_win_counts_come_from_played_rounds():
 
     await service.start_game(room, first_index=0)
     await service.submit_guess(room, "alice", "solo")  # win #1
+    ready_up(room)  # the finished round un-readied everyone
     await service.start_game(room, first_index=0)
     await service.submit_guess(room, "alice", "solo")  # win #2
 

@@ -30,6 +30,14 @@ def test_ready_users_filters_to_ready_only():
     assert {u.name for u in room.ready_users()} == {"alice", "carol"}
 
 
+def test_clear_ready_unreadies_everyone():
+    room = Room("lobby")
+    room.add_user(make_user("alice", ready=True))
+    room.add_user(make_user("bob", ready=True))
+    room.clear_ready()
+    assert room.ready_users() == []
+
+
 def test_room_is_inactive_without_a_game():
     assert Room("lobby").active is False
 

@@ -109,6 +109,7 @@ class GameService:
             return
         self._drop_timer(room.name)
         room.end_game()
+        room.clear_ready()  # aborting returns everyone to an unready lobby
         payloads: list[dict] = [{"type": "game_aborted"}]
         image = self._current_image.pop(room.name, None)
         if image is not None:
@@ -131,6 +132,7 @@ class GameService:
             if image is not None:
                 payloads.append(_image_revealed_payload(image))
                 self._record_round(room.name, image, game_over)
+            room.clear_ready()  # round's done — the next needs a fresh ready-up
         try:
             if payloads:
                 await self._emitter.emit(room.name, payloads)

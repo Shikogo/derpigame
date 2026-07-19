@@ -42,6 +42,10 @@ class Room:
     def ready_users(self) -> list[User]:
         return [user for user in self.users.values() if user.ready]
 
+    def clear_ready(self) -> None:
+        for user in self.users.values():
+            user.ready = False
+
     def start_game(
         self,
         tags: list[str],
