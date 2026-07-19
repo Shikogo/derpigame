@@ -29,8 +29,7 @@ from .tag_taxonomy import DERPIBOORU_TAXONOMY, TagTaxonomy
 
 class Game:
     ELIMINATION_THRESHOLD = 3
-    SIMILARITY_THRESHOLD = 0.7  # ratio; min similarity to report closeness
-    NEAR_MISS_THRESHOLD = 0.9  # ratio; at/above this a guess is a free retry
+    NEAR_MISS_THRESHOLD = 0.85  # ratio; at/above this a guess is a free retry
 
     def __init__(
         self,
@@ -40,7 +39,7 @@ class Game:
         first_index: int | None = None,
         taxonomy: TagTaxonomy | None = None,
         elimination_threshold: int | None = None,
-        similarity_threshold: float | None = None,
+        near_miss_threshold: float | None = None,
     ):
         if not players:
             raise ValueError("a game needs at least one player")
@@ -61,10 +60,10 @@ class Game:
             if elimination_threshold is None
             else elimination_threshold
         )
-        self.similarity_threshold = (
-            self.SIMILARITY_THRESHOLD
-            if similarity_threshold is None
-            else similarity_threshold
+        self.near_miss_threshold = (
+            self.NEAR_MISS_THRESHOLD
+            if near_miss_threshold is None
+            else near_miss_threshold
         )
 
     def _bucket_tags(self, tags: list[str]) -> dict[str, TagBucket]:
@@ -170,10 +169,10 @@ class Game:
                 return [correct, *self._progress()]
 
         similarity = self._similarity(guess)
-        closeness = round(similarity * 100)  # percent, for display
-        if similarity >= self.NEAR_MISS_THRESHOLD:
+        if similarity >= self.near_miss_threshold:
+            closeness = round(similarity * 100)  # percent, for display
             return [NearMiss(self.active_player, guess, closeness)]
-        return [self._wrong_guess(guess, closeness), *self._progress()]
+        return [self._wrong_guess(guess), *self._progress()]
 
     def timeout(self) -> list[GameEvent]:
         """The active player ran out of time — counts as a wrong guess."""
@@ -183,16 +182,16 @@ class Game:
         player.wrong_guesses += 1
         return [Timeout(player, player.wrong_guesses), *self._progress()]
 
-    def _wrong_guess(self, guess: str, closeness: int) -> WrongGuess:
+    def _wrong_guess(self, guess: str) -> WrongGuess:
         player = self.active_player
         player.wrong_guesses += 1
         self.failed_guesses.add(guess)
-        return WrongGuess(player, guess, player.wrong_guesses, closeness)
+        return WrongGuess(player, guess, player.wrong_guesses)
 
     def _similarity(self, guess: str) -> float:
         """Best fuzzy match of ``guess`` against the relevant bucket, as a ratio.
 
-        Returns 0.0 when nothing clears the similarity threshold. A namespaced
+        Returns 0.0 when nothing reaches the near-miss threshold. A namespaced
         guess is matched against its own bucket with the prefix stripped, so the
         shared namespace doesn't inflate the ratio.
         """
@@ -204,10 +203,10 @@ class Game:
         best = 0.0
         for candidate in candidates:
             matcher = SequenceMatcher(None, needle, candidate)
-            if matcher.quick_ratio() >= self.similarity_threshold:
+            if matcher.quick_ratio() >= self.near_miss_threshold:
                 best = max(best, matcher.ratio())
 
-        return best if best >= self.similarity_threshold else 0.0
+        return best if best >= self.near_miss_threshold else 0.0
 
     def _progress(self) -> list[GameEvent]:
         """Advance the game after a turn-ending guess or timeout."""

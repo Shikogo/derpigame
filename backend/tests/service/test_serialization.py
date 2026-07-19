@@ -67,11 +67,11 @@ def test_correct_guess_payload():
     assert payload["remaining"] == 3
 
 
-def test_wrong_guess_carries_closeness():
-    payload = serialize_event(WrongGuess(make_player("bob"), "twiligth", 2, closeness=85))
+def test_wrong_guess_payload():
+    payload = serialize_event(WrongGuess(make_player("bob"), "twiligth", 2))
     assert payload["type"] == "wrong_guess"
     assert payload["wrong_count"] == 2
-    assert payload["closeness"] == 85
+    assert "closeness" not in payload
 
 
 def test_near_miss_carries_closeness():

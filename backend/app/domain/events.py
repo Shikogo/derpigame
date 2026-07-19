@@ -55,7 +55,6 @@ class WrongGuess(GameEvent):
     player: Player
     guess: str
     wrong_count: int
-    closeness: int = 0  # similarity %, 0 when not a near miss
 
 
 @dataclass

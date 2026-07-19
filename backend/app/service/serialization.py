@@ -76,7 +76,6 @@ def _(event: WrongGuess) -> dict:
         "player": serialize_player(event.player),
         "guess": event.guess,
         "wrong_count": event.wrong_count,
-        "closeness": event.closeness,
     }
 
 

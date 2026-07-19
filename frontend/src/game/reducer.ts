@@ -37,7 +37,7 @@ export type FeedEntry = FeedInput & { seq: number }
 
 type FeedInput =
   | { kind: 'correct'; player: string; guess: string }
-  | { kind: 'wrong'; player: string; guess: string; closeness: number }
+  | { kind: 'wrong'; player: string; guess: string }
   | { kind: 'near_miss'; player: string; guess: string; closeness: number }
   | { kind: 'timeout'; player: string }
   | { kind: 'rejected'; guess: string; reason: RejectReason }
@@ -156,7 +156,6 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
           kind: 'wrong',
           player: event.player.name,
           guess: event.guess,
-          closeness: event.closeness,
         }),
       }
     }

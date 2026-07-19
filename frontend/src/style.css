@@ -21,8 +21,7 @@
   /* Game semantics, retuned to read on dark */
   --color-correct: #3ddc84;
   --color-wrong: #ff6b6b;
-  /* Fuzzy-guess tiers: orange when close (costs a turn), yellow when very close (free retry) */
-  --color-close: #ffa94d;
+  /* Near miss: yellow when very close (free retry) */
   --color-very-close: #ffd43b;
   --color-eliminated: #7f8798;
 
@@ -62,7 +61,6 @@
 
     --color-correct: #12a150;
     --color-wrong: #dc2626;
-    --color-close: #c2410c;
     --color-very-close: #a16207;
     --color-eliminated: #5f6875;
 

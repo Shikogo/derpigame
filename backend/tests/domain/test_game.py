@@ -182,27 +182,27 @@ def test_wrong_guess_increments_count_and_advances_turn():
     wrong = only(events, WrongGuess)
     assert wrong.player.name == "alice"
     assert wrong.wrong_count == 1
-    assert wrong.closeness == 0
     assert only(events, TurnStarted).player.name == "bob"
 
 
-def test_close_but_not_near_miss_still_costs_the_turn():
+def test_moderate_typo_qualifies_as_a_near_miss():
+    # ~0.88 similarity: below the old 0.9 bar but at/above the current 0.85 one.
     game = make_game(tags=["twilight"], first_index=0)
-    events = game.submit_guess("twiligth")  # similarity in [0.7, 0.9)
+    events = game.submit_guess("twiligth")
 
-    wrong = only(events, WrongGuess)
-    assert 0 < wrong.closeness < 90
-    assert wrong.wrong_count == 1
-    assert only(events, TurnStarted).player.name == "bob"
+    near = only(events, NearMiss)
+    assert near.closeness >= 85
+    assert not any(isinstance(e, TurnStarted) for e in events)
+    assert game.active_player.wrong_guesses == 0  # free retry, no strike
 
 
 def test_near_miss_is_noop_and_keeps_turn():
     game = make_game(tags=["applejack"], first_index=0)
-    events = game.submit_guess("applejck")  # a typo, similarity >= 0.9
+    events = game.submit_guess("applejck")  # a typo, similarity >= 0.85
 
     near = only(events, NearMiss)
     assert near.player.name == "alice"
-    assert near.closeness >= 90
+    assert near.closeness >= 85
     assert not any(isinstance(e, TurnStarted) for e in events)
     assert game.active_player.name == "alice"  # keeps the turn
     assert game.active_player.wrong_guesses == 0  # no strike
@@ -218,10 +218,11 @@ def test_near_miss_lets_the_player_correct_the_typo():
     assert game.players[0].score == 1
 
 
-def test_unrelated_guess_has_zero_closeness():
+def test_unrelated_guess_is_a_plain_wrong_guess():
     game = make_game(tags=["applejack"], first_index=0)
-    wrong = only(game.submit_guess("xyz"), WrongGuess)
-    assert wrong.closeness == 0
+    events = game.submit_guess("xyz")
+    only(events, WrongGuess)  # a plain wrong guess, not a near miss
+    assert not any(isinstance(e, NearMiss) for e in events)
 
 
 # --- elimination -------------------------------------------------------------

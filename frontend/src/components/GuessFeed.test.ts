@@ -13,8 +13,7 @@ beforeEach(() => {
 // One entry of every feed kind, keyed by seq so we can locate each badge.
 const FEED: FeedEntry[] = [
   { seq: 1, kind: 'correct', player: 'alice', guess: 'mare' },
-  { seq: 2, kind: 'wrong', player: 'bob', guess: 'stallion', closeness: 0 },
-  { seq: 3, kind: 'wrong', player: 'bob', guess: 'twiligth', closeness: 78 },
+  { seq: 2, kind: 'wrong', player: 'bob', guess: 'stallion' },
   { seq: 4, kind: 'near_miss', player: 'carol', guess: 'applejck', closeness: 94 },
   { seq: 5, kind: 'timeout', player: 'carol' },
   { seq: 6, kind: 'eliminated', player: 'dave' },
@@ -36,21 +35,18 @@ describe('GuessFeed', () => {
     const badges = wrapper.findAll('span')
 
     // Newest-first: the rejected entry (seq 7) leads, correct (seq 1) trails.
-    expect(badges).toHaveLength(7)
+    expect(badges).toHaveLength(6)
     expect(badges[0].text()).toBe('safe — rating tag')
-    expect(badges[6].text()).toBe('alice: mare')
+    expect(badges[5].text()).toBe('alice: mare')
 
     // Each kind carries its own tone classes.
     const byText = (t: string) => badges.find((b) => b.text() === t)!
     expect(byText('alice: mare').classes()).toEqual(
       expect.arrayContaining(['bg-correct/10', 'text-correct']),
     )
-    // Outright wrong (no closeness) is red; a close miss is orange; very close is yellow.
+    // A wrong guess is red; a near miss (free retry) is yellow.
     expect(byText('bob: stallion').classes()).toEqual(
       expect.arrayContaining(['bg-wrong/10', 'text-wrong']),
-    )
-    expect(byText('bob: twiligth · 78%').classes()).toEqual(
-      expect.arrayContaining(['bg-close/10', 'text-close']),
     )
     expect(byText('carol: applejck · 94%').classes()).toEqual(
       expect.arrayContaining(['bg-very-close/10', 'text-very-close']),
@@ -64,13 +60,5 @@ describe('GuessFeed', () => {
     expect(byText('safe — rating tag').classes()).toEqual(
       expect.arrayContaining(['bg-raised', 'text-ink-faint']),
     )
-  })
-
-  it('omits the closeness suffix on a wrong guess with zero closeness', () => {
-    const game = useGameStore()
-    game.state.feed = [{ seq: 1, kind: 'wrong', player: 'bob', guess: 'x', closeness: 0 }]
-
-    const wrapper = mount(GuessFeed)
-    expect(wrapper.find('span').text()).toBe('bob: x')
   })
 })

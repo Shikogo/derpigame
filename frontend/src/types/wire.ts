@@ -112,8 +112,6 @@ export interface WrongGuess {
   player: Player
   guess: string
   wrong_count: number
-  /** Similarity %, 0 when not a near miss. */
-  closeness: number
 }
 
 /** A guess close enough to be a free retry: no strike, the turn stays. */

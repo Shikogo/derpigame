@@ -121,7 +121,6 @@ describe('reduce', () => {
       player: player(alice, { wrong_guesses: 1 }),
       guess: 'nope',
       wrong_count: 1,
-      closeness: 80,
     })
     s = reduce(s, { type: 'timeout', player: player(alice, { wrong_guesses: 2 }), wrong_count: 2 })
     expect(s.players.a?.wrong_guesses).toBe(2)
