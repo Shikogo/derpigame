@@ -15,10 +15,28 @@ export interface RoomUser {
   ready: boolean
 }
 
+/**
+ * One rating scale of the image source, least to most permissive. Boorus rate
+ * along several independent axes (Derpibooru: sexual content and darkness) and
+ * name their levels differently, so the vocabulary is server data — render the
+ * controls from this, never from a hardcoded list.
+ */
+export interface RatingAxis {
+  key: string
+  label: string
+  levels: string[]
+}
+
 export interface RoomState {
   room: string
   query: string[]
   nsfw: boolean
+  /** Search bounds; `null` means the setting is off. `min_score: 0` is real. */
+  min_tag_count: number | null
+  min_score: number | null
+  /** Axis key -> the most permissive level allowed; a missing key is uncapped. */
+  rating_caps: Record<string, string>
+  rating_axes: RatingAxis[]
   in_progress: boolean
   turn_seconds: number
   users: RoomUser[]
@@ -258,9 +276,14 @@ export interface SetReadyPayload {
   ready: boolean
 }
 
+/** Only the keys present are changed; omitting one leaves that setting alone. */
 export interface ConfigureRoomPayload {
   query?: QueryInput
   nsfw?: boolean
+  turn_seconds?: number
+  min_tag_count?: number | null
+  min_score?: number | null
+  rating_caps?: Record<string, string>
 }
 
 export interface SubmitGuessPayload {

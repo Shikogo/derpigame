@@ -13,7 +13,7 @@ import { emitAck } from '@/socket/client'
 import { useChatStore } from '@/stores/chat'
 import { useGameStore } from '@/stores/game'
 import { useSessionStore } from '@/stores/session'
-import type { Ack, QueryInput, RoomState } from '@/types/wire'
+import type { Ack, ConfigureRoomPayload, QueryInput, RoomState } from '@/types/wire'
 
 export const useRoomStore = defineStore('room', () => {
   const roomState = ref<RoomState | null>(null)
@@ -40,7 +40,7 @@ export const useRoomStore = defineStore('room', () => {
   })
 
   /** Emit an ack-bearing event; record the error string, return the raw ack. */
-  async function request(event: string, payload: Record<string, unknown> = {}): Promise<Ack> {
+  async function request(event: string, payload: object = {}): Promise<Ack> {
     try {
       const ack = await emitAck<Ack>(event, payload)
       error.value = ack.ok ? null : ack.error
@@ -82,9 +82,7 @@ export const useRoomStore = defineStore('room', () => {
     return request('set_ready', { ready })
   }
 
-  async function configureRoom(
-    config: { query?: QueryInput; nsfw?: boolean; turn_seconds?: number },
-  ): Promise<Ack> {
+  async function configureRoom(config: ConfigureRoomPayload): Promise<Ack> {
     return request('configure_room', config)
   }
 

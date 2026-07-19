@@ -23,6 +23,21 @@ const querySummary = computed(() => {
 const nsfwOn = computed(() => room.roomState?.nsfw ?? false)
 const turnSeconds = computed(() => room.roomState?.turn_seconds ?? 30)
 
+/** Every search bound and rating cap, `·`-separated. `null` means no limit. */
+const boundsSummary = computed(() => {
+  const state = room.roomState
+  if (!state) return []
+  const parts = [
+    state.min_tag_count === null ? 'any tag count' : `${state.min_tag_count}+ tags`,
+    state.min_score === null ? 'any score' : `score ${state.min_score}+`,
+  ]
+  for (const axis of state.rating_axes) {
+    const cap = state.rating_caps[axis.key]
+    parts.push(`${axis.label.toLowerCase()} ${cap ? `≤ ${cap}` : 'any'}`)
+  }
+  return parts
+})
+
 const ready = computed(() => room.me?.ready ?? false)
 
 const inviteLink = computed(
@@ -64,6 +79,7 @@ async function copyInvite(): Promise<void> {
         <span class="text-xs text-ink-faint">
           NSFW: {{ nsfwOn ? 'on' : 'off' }} · {{ turnSeconds }}s per turn
         </span>
+        <span class="text-xs text-ink-faint">{{ boundsSummary.join(' · ') }}</span>
       </div>
       <button
         class="shrink-0 rounded border border-border px-3 py-1.5 text-sm font-medium hover:bg-raised"

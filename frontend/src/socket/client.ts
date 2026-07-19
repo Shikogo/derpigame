@@ -23,7 +23,7 @@ interface ServerToClientEvents {
 // open (create_room, join_room, submit_guess, …) so `emitAck` stays generic.
 type ClientToServerEvents = Record<
   string,
-  (payload: Record<string, unknown>, ack: (response: Ack) => void) => void
+  (payload: object, ack: (response: Ack) => void) => void
 >
 
 const ACK_TIMEOUT_MS = 8000
@@ -37,10 +37,7 @@ export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(
  * Emit a client→server event and await its per-caller ack, rejecting if the
  * server stays silent past the timeout. Every contract event carries an ack.
  */
-export async function emitAck<T = Ack>(
-  event: string,
-  payload: Record<string, unknown> = {},
-): Promise<T> {
+export async function emitAck<T = Ack>(event: string, payload: object = {}): Promise<T> {
   return (await socket.timeout(ACK_TIMEOUT_MS).emitWithAck(event, payload)) as T
 }
 
