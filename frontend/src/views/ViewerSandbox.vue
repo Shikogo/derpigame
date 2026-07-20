@@ -25,9 +25,8 @@ const src = ref('/viewer-test.svg')
     </header>
 
     <p class="text-sm text-ink-muted">
-      Drag to pan · wheel / trackpad-pinch to zoom toward the cursor · two-finger pinch on touch ·
-      double-click to reset. Corners are colored (TL red, TR green, BL blue, BR yellow); cells are
-      labeled with their image coordinates.
+      The viewer states its own gestures; this harness adds a readout. Corners are colored (TL red,
+      TR green, BL blue, BR yellow); cells are labeled with their image coordinates.
     </p>
 
     <!-- A deliberately non-square frame so letterboxing/centering is visible. -->

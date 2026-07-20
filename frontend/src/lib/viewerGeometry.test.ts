@@ -5,7 +5,10 @@ import {
   clampTranslate,
   fitScale,
   fitView,
+  isFitted,
+  isMaxZoomed,
   panBy,
+  zoomPercent,
   zoomToPoint,
   type View,
 } from './viewerGeometry'
@@ -75,6 +78,31 @@ describe('clampTranslate — elastic (give > 0)', () => {
 describe('fitView', () => {
   it('is the minimum scale, centered', () => {
     expect(fitView(frame, { width: 200, height: 100 })).toEqual({ scale: 0.5, tx: 0, ty: 25 })
+  })
+})
+
+describe('range predicates', () => {
+  const image = { width: 200, height: 200 } // fit = 0.5, max = 4
+
+  it('reports a fitted view, including one nudged below fit by rounding', () => {
+    expect(isFitted({ scale: 0.5, tx: 0, ty: 0 }, frame, image)).toBe(true)
+    expect(isFitted({ scale: 0.5000001, tx: 0, ty: 0 }, frame, image)).toBe(true)
+    expect(isFitted({ scale: 0.6, tx: 0, ty: 0 }, frame, image)).toBe(false)
+  })
+
+  it('reports a maxed-out view', () => {
+    expect(isMaxZoomed({ scale: 4, tx: 0, ty: 0 }, frame, image)).toBe(true)
+    expect(isMaxZoomed({ scale: 3.9999999, tx: 0, ty: 0 }, frame, image)).toBe(true)
+    expect(isMaxZoomed({ scale: 3, tx: 0, ty: 0 }, frame, image)).toBe(false)
+  })
+})
+
+describe('zoomPercent', () => {
+  it('counts from fit-to-frame, not from the image’s natural size', () => {
+    const image = { width: 200, height: 200 } // fit = 0.5
+    expect(zoomPercent({ scale: 0.5, tx: 0, ty: 0 }, frame, image)).toBe(100)
+    expect(zoomPercent({ scale: 1, tx: 0, ty: 0 }, frame, image)).toBe(200)
+    expect(zoomPercent({ scale: 4, tx: 0, ty: 0 }, frame, image)).toBe(800)
   })
 })
 

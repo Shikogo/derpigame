@@ -27,6 +27,12 @@ export interface View {
 /** How far past fit-to-frame a user may zoom in. */
 export const MAX_ZOOM_FACTOR = 8
 
+/** Multiplier for one press of a zoom button. */
+export const ZOOM_STEP = 1.6
+
+// Scales are floating-point, so the range ends need a little slack to test against.
+const SLACK = 1.001
+
 /** Scale at which the whole image fits inside the frame (contain). */
 export function fitScale(frame: Size, image: Size): number {
   if (image.width <= 0 || image.height <= 0) return 1
@@ -80,6 +86,26 @@ function clampAxis(t: number, displayed: number, frame: number, give: number): n
 function rubber(overshoot: number, give: number): number {
   if (give <= 0) return 0
   return give * (1 - 1 / (overshoot / give + 1))
+}
+
+/** Whether the view is already fitted, i.e. resetting or zooming out is a no-op. */
+export function isFitted(view: View, frame: Size, image: Size): boolean {
+  return view.scale <= fitScale(frame, image) * SLACK
+}
+
+/** Whether the view is zoomed all the way in, i.e. zooming in further is a no-op. */
+export function isMaxZoomed(
+  view: View,
+  frame: Size,
+  image: Size,
+  factor = MAX_ZOOM_FACTOR,
+): boolean {
+  return view.scale >= scaleBounds(frame, image, factor).max / SLACK
+}
+
+/** Zoom level for display: 100% is the whole image in frame, 800% the max. */
+export function zoomPercent(view: View, frame: Size, image: Size): number {
+  return Math.round((view.scale / fitScale(frame, image)) * 100)
 }
 
 /** Fit-to-frame view: minimum scale, centered. */
