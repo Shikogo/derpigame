@@ -9,8 +9,17 @@ import type { GameEvent, Player, RoomState, RoomUser } from '@/types/wire'
 
 vi.mock('@/socket/client', () => ({ emitAck: vi.fn() }))
 
-const member = (uuid: string, ready: boolean): RoomUser => ({ uuid, name: uuid.toUpperCase(), ready })
-const player = (uuid: string): Player => ({ uuid, name: uuid.toUpperCase(), score: 0, wrong_guesses: 0 })
+const member = (uuid: string, ready: boolean): RoomUser => ({
+  uuid,
+  name: uuid.toUpperCase(),
+  ready,
+})
+const player = (uuid: string): Player => ({
+  uuid,
+  name: uuid.toUpperCase(),
+  score: 0,
+  wrong_guesses: 0,
+})
 
 function snapshot(inProgress: boolean, users: RoomUser[]): RoomState {
   return roomState({ in_progress: inProgress, users })

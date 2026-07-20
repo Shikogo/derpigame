@@ -649,9 +649,7 @@ async def test_game_snapshot_tracks_progress_but_keeps_the_original_total():
 
 async def test_an_aliased_query_term_still_frees_its_canonical_tag():
     resolver = RecordingResolver({"ts": "twilight sparkle"})
-    service = make_service(
-        ["twilight sparkle", "solo"], RecordingEmitter(), tag_resolver=resolver
-    )
+    service = make_service(["twilight sparkle", "solo"], RecordingEmitter(), tag_resolver=resolver)
     room = make_room("alice", query=["ts"])
     await service.start_game(room, first_index=0)
 
@@ -673,9 +671,7 @@ async def test_a_query_term_already_on_the_image_costs_no_lookup():
 async def test_only_plain_query_terms_cost_an_alias_lookup():
     resolver = RecordingResolver()
     service = make_service(["solo"], RecordingEmitter(), tag_resolver=resolver)
-    room = make_room(
-        "alice", query=["mare", "artist:foo", "-anthro", "score.gte:100", "a || b"]
-    )
+    room = make_room("alice", query=["mare", "artist:foo", "-anthro", "score.gte:100", "a || b"])
     await service.start_game(room, first_index=0)
 
     assert resolver.calls == ["mare", "artist:foo"]

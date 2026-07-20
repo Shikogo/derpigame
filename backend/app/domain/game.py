@@ -53,18 +53,12 @@ class Game:
         self._started = False
         self._finished = False
         self.tag_buckets = self._bucket_tags([tag.lower() for tag in tags])
-        self._active_index = (
-            randrange(len(self.players)) if first_index is None else first_index
-        )
+        self._active_index = randrange(len(self.players)) if first_index is None else first_index
         self.elimination_threshold = (
-            self.ELIMINATION_THRESHOLD
-            if elimination_threshold is None
-            else elimination_threshold
+            self.ELIMINATION_THRESHOLD if elimination_threshold is None else elimination_threshold
         )
         self.near_miss_threshold = (
-            self.NEAR_MISS_THRESHOLD
-            if near_miss_threshold is None
-            else near_miss_threshold
+            self.NEAR_MISS_THRESHOLD if near_miss_threshold is None else near_miss_threshold
         )
 
     def _bucket_tags(self, tags: list[str]) -> dict[str, TagBucket]:
@@ -113,9 +107,7 @@ class Game:
                 first_player=first,
                 tag_count=self._goal_bucket.tag_count,
                 bonus_counts={
-                    key: bucket.tag_count
-                    for key, bucket in self.tag_buckets.items()
-                    if key != goal
+                    key: bucket.tag_count for key, bucket in self.tag_buckets.items() if key != goal
                 },
                 freebie_tags=list(self.freebie_tags),
                 players=list(self.players),
@@ -206,8 +198,8 @@ class Game:
         """
         bucket_key = self.taxonomy.bucket_for(guess)
         prefix = self.taxonomy.prefix_of(bucket_key)
-        needle = guess[len(prefix):]
-        candidates = [tag[len(prefix):] for tag in self.tag_buckets[bucket_key].tags]
+        needle = guess[len(prefix) :]
+        candidates = [tag[len(prefix) :] for tag in self.tag_buckets[bucket_key].tags]
 
         best = 0.0
         for candidate in candidates:

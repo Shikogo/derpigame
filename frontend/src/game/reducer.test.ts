@@ -83,7 +83,15 @@ describe('reduce', () => {
   it('game_started seeds the whole roster, not just the first player', () => {
     const s = reduceAll(initialGameState(), [
       { type: 'image_started', id: '1', thumb_url: 't', full_url: 'f' },
-      { type: 'game_started', first_player: alice, players: [alice, bob], tag_count: 2, bonus_counts: {}, freebie_tags: [], turn_seconds: 30 },
+      {
+        type: 'game_started',
+        first_player: alice,
+        players: [alice, bob],
+        tag_count: 2,
+        bonus_counts: {},
+        freebie_tags: [],
+        turn_seconds: 30,
+      },
       { type: 'turn_started', player: alice },
     ])
     expect(Object.keys(s.players).sort()).toEqual(['a', 'b'])
@@ -196,7 +204,11 @@ describe('reduce', () => {
       page_url: 'https://derpi/42',
     })
     expect(s.status).toBe('over')
-    expect(s.reveal).toEqual({ artists: ['foo'], source_url: 'https://src', page_url: 'https://derpi/42' })
+    expect(s.reveal).toEqual({
+      artists: ['foo'],
+      source_url: 'https://src',
+      page_url: 'https://derpi/42',
+    })
   })
 
   it('image_revealed attribution also surfaces on an aborted round', () => {

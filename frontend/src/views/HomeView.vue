@@ -47,7 +47,9 @@ async function join(): Promise<void> {
       </h1>
       <p class="mt-2 text-sm text-ink-muted">A booru tag guessing game</p>
       <div class="mt-4 flex flex-wrap justify-center gap-1.5">
-        <span v-for="t in sampleTags" :key="t" class="pill" :style="categoryPillStyle(t)">{{ t }}</span>
+        <span v-for="t in sampleTags" :key="t" class="pill" :style="categoryPillStyle(t)">
+          {{ t }}
+        </span>
       </div>
     </header>
 

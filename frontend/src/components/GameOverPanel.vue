@@ -42,7 +42,9 @@ const heading = computed(() => {
     </div>
 
     <div v-if="reveal" class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-      <span v-if="reveal.artists.length" class="font-medium">by {{ reveal.artists.join(', ') }}</span>
+      <span v-if="reveal.artists.length" class="font-medium"
+        >by {{ reveal.artists.join(', ') }}</span
+      >
       <span v-else class="text-ink-faint">artist unknown</span>
       <a
         v-if="reveal.source_url"
@@ -74,7 +76,9 @@ const heading = computed(() => {
           :key="p.uuid"
           class="flex items-center justify-between px-3 py-2"
         >
-          <span><span class="mr-2 font-mono text-ink-faint">{{ i + 1 }}.</span>{{ p.name }}</span>
+          <span
+            ><span class="mr-2 font-mono text-ink-faint">{{ i + 1 }}.</span>{{ p.name }}</span
+          >
           <span class="font-mono font-semibold tabular-nums">{{ p.score }}</span>
         </li>
       </ol>

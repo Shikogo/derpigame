@@ -40,9 +40,7 @@ const boundsSummary = computed(() => {
 
 const ready = computed(() => room.me?.ready ?? false)
 
-const inviteLink = computed(
-  () => `${location.origin}${location.pathname}#/room/${room.code}`,
-)
+const inviteLink = computed(() => `${location.origin}${location.pathname}#/room/${room.code}`)
 const copied = ref(false)
 async function copyInvite(): Promise<void> {
   try {
@@ -70,7 +68,9 @@ async function copyInvite(): Promise<void> {
 
     <UserList />
 
-    <div class="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface p-3">
+    <div
+      class="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface p-3"
+    >
       <div class="flex min-w-0 flex-col gap-0.5 text-sm">
         <span class="truncate">
           <span class="text-ink-muted">Searching:</span>

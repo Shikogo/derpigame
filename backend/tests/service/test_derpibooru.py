@@ -86,7 +86,11 @@ async def test_no_matches_returns_none():
 async def test_protocol_relative_urls_are_forced_to_https():
     payload = {
         "images": [
-            {"id": 1, "tags": [], "representations": {"medium": "//cdn/x.png", "full": "//cdn/y.png"}}
+            {
+                "id": 1,
+                "tags": [],
+                "representations": {"medium": "//cdn/x.png", "full": "//cdn/y.png"},
+            }
         ]
     }
     source, _ = make_source(respond(json=payload))
@@ -143,9 +147,7 @@ async def test_settings_left_off_send_no_extra_terms():
 async def test_tag_count_and_score_bounds_become_search_terms():
     source, requests = make_source(respond(json=ONE_IMAGE))
 
-    await source.random_image(
-        ["cute"], options=SearchOptions(min_tag_count=15, min_score=10)
-    )
+    await source.random_image(["cute"], options=SearchOptions(min_tag_count=15, min_score=10))
 
     q = requests[0].url.params["q"]
     assert "tag_count.gte:15" in q and "score.gte:10" in q
@@ -177,13 +179,9 @@ async def test_a_rating_cap_excludes_the_levels_above_it():
     """
     source, requests = make_source(respond(json=ONE_IMAGE))
 
-    await source.random_image(
-        ["cute"], options=SearchOptions(rating_caps={"rating": "suggestive"})
-    )
+    await source.random_image(["cute"], options=SearchOptions(rating_caps={"rating": "suggestive"}))
 
-    assert requests[0].url.params["q"] == (
-        "cute,-mime_type:video/webm,-questionable,-explicit"
-    )
+    assert requests[0].url.params["q"] == ("cute,-mime_type:video/webm,-questionable,-explicit")
 
 
 async def test_the_axes_are_capped_independently():
@@ -191,9 +189,7 @@ async def test_the_axes_are_capped_independently():
 
     await source.random_image(
         ["cute"],
-        options=SearchOptions(
-            rating_caps={"rating": "questionable", "darkness": "semi-grimdark"}
-        ),
+        options=SearchOptions(rating_caps={"rating": "questionable", "darkness": "semi-grimdark"}),
     )
 
     assert requests[0].url.params["q"] == (
@@ -266,7 +262,9 @@ async def test_transport_error_raises_and_backs_off():
 
 async def test_challenge_501_backs_off_five_seconds():
     clock = Clock()
-    source, requests = make_source(respond(status=501, content=b"<html>challenge</html>"), clock=clock)
+    source, requests = make_source(
+        respond(status=501, content=b"<html>challenge</html>"), clock=clock
+    )
 
     with pytest.raises(ImageSourceError, match="challenge"):
         await source.random_image(["x"], options=SearchOptions())

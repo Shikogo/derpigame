@@ -83,8 +83,16 @@
     color: var(--color-ink);
     /* Faint azure glow top & bottom so the dark field isn't flat. */
     background-image:
-      radial-gradient(1200px 620px at 50% -12%, color-mix(in srgb, var(--color-turn) 12%, transparent), transparent 62%),
-      radial-gradient(900px 900px at 50% 120%, color-mix(in srgb, var(--color-turn) 6%, transparent), transparent 60%);
+      radial-gradient(
+        1200px 620px at 50% -12%,
+        color-mix(in srgb, var(--color-turn) 12%, transparent),
+        transparent 62%
+      ),
+      radial-gradient(
+        900px 900px at 50% 120%,
+        color-mix(in srgb, var(--color-turn) 6%, transparent),
+        transparent 60%
+      );
     background-attachment: fixed;
   }
 

@@ -108,7 +108,10 @@ describe('HistoryPanel — win coloring', () => {
   const mountPanel = () => mount(HistoryPanel, { global: { plugins: [pinia] } })
 
   it('colors the outcome green only when you were a winner', () => {
-    const you: RoundRecord = { ...round, winners: [{ uuid: 'me', name: 'Me', score: 1, wrong_guesses: 0 }] }
+    const you: RoundRecord = {
+      ...round,
+      winners: [{ uuid: 'me', name: 'Me', score: 1, wrong_guesses: 0 }],
+    }
     useSessionStore().uuid = 'me'
     useRoomStore().setRoomState(roomState({ nsfw: false, history: [you] }))
 
@@ -117,7 +120,7 @@ describe('HistoryPanel — win coloring', () => {
     expect(outcome.classes()).not.toContain('text-ink-muted')
   })
 
-  it("uses a neutral color when someone else won", () => {
+  it('uses a neutral color when someone else won', () => {
     useSessionStore().uuid = 'me' // round's winner is uuid 'a', not us
     useRoomStore().setRoomState(roomState({ nsfw: false }))
 

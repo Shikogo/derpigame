@@ -5,7 +5,11 @@ from app.domain.rating import DERPIBOORU_AXES, RatingAxis, RatingLevel
 AXIS = RatingAxis(
     key="heat",
     label="Heat",
-    levels=(RatingLevel("mild", ("mild",)), RatingLevel("spicy", ("spicy",)), RatingLevel("hot", ("hot",))),
+    levels=(
+        RatingLevel("mild", ("mild",)),
+        RatingLevel("spicy", ("spicy",)),
+        RatingLevel("hot", ("hot",)),
+    ),
 )
 
 

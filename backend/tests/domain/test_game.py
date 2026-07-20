@@ -77,9 +77,7 @@ def test_freebies_are_the_image_tags_the_query_named():
 
 def test_a_query_term_that_is_not_a_tag_is_no_freebie():
     # Operators and range filters match no tag, so they free nothing.
-    game = make_game(
-        tags=["solo", "cute"], query=["cute", "-anthro", "score.gte:100", "a || b"]
-    )
+    game = make_game(tags=["solo", "cute"], query=["cute", "-anthro", "score.gte:100", "a || b"])
     assert game.freebie_tags == ["cute"]
     assert game.tag_buckets["tags"].tags == ["solo"]
 
@@ -94,9 +92,7 @@ def test_ignored_tags_do_not_gate_a_win():
 
 
 def test_start_reports_counts_and_first_player():
-    game = make_game(
-        tags=["solo", "twilight", "artist:foo", "oc:bar"], first_index=1
-    )
+    game = make_game(tags=["solo", "twilight", "artist:foo", "oc:bar"], first_index=1)
     events = game.start()
     started = only(events, GameStarted)
     assert started.first_player is game.players[1]

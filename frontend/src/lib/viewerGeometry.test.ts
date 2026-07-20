@@ -83,7 +83,10 @@ describe('zoomToPoint', () => {
     const image = { width: 100, height: 100 }
     const start: View = { scale: 1, tx: 0, ty: 0 }
     const pivot = { x: 50, y: 50 }
-    const pixelBefore = { x: (pivot.x - start.tx) / start.scale, y: (pivot.y - start.ty) / start.scale }
+    const pixelBefore = {
+      x: (pivot.x - start.tx) / start.scale,
+      y: (pivot.y - start.ty) / start.scale,
+    }
 
     const next = zoomToPoint(start, 2, pivot, frame, image)
     const pixelAfter = { x: (pivot.x - next.tx) / next.scale, y: (pivot.y - next.ty) / next.scale }

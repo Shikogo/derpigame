@@ -57,9 +57,7 @@ function apply(): void {
     turn_seconds: turnSeconds.value,
     min_tag_count: parseBound(minTagCount.value),
     min_score: parseBound(minScore.value),
-    rating_caps: Object.fromEntries(
-      Object.entries(caps.value).filter(([, level]) => level !== ''),
-    ),
+    rating_caps: Object.fromEntries(Object.entries(caps.value).filter(([, level]) => level !== '')),
   })
   close()
 }
@@ -164,7 +162,10 @@ defineExpose({ open })
         >
           Cancel
         </button>
-        <button type="submit" class="rounded-lg bg-turn px-4 py-1.5 text-sm font-semibold text-on-accent">
+        <button
+          type="submit"
+          class="rounded-lg bg-turn px-4 py-1.5 text-sm font-semibold text-on-accent"
+        >
           Apply
         </button>
       </div>

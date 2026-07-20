@@ -573,7 +573,9 @@ async def test_chat_broadcasts_and_never_touches_the_game(make):
 # --- acting before joining ---------------------------------------------------
 
 
-@pytest.mark.parametrize("action", ["set_ready", "configure_room", "start_game", "submit_guess", "stop_game"])
+@pytest.mark.parametrize(
+    "action", ["set_ready", "configure_room", "start_game", "submit_guess", "stop_game"]
+)
 async def test_actions_before_joining_are_rejected(make, action):
     handlers, _server, _registry, _service = make()
 

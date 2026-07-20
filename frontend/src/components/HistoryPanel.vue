@@ -66,7 +66,11 @@ function onBackdrop(event: MouseEvent): void {
             title="Click to reveal (18+)"
             @click="openGate"
           >
-            <img :src="r.thumb_url" alt="round image" class="h-12 w-12 rounded object-cover blur-md" />
+            <img
+              :src="r.thumb_url"
+              alt="round image"
+              class="h-12 w-12 rounded object-cover blur-md"
+            />
           </button>
           <img
             v-else
@@ -78,7 +82,10 @@ function onBackdrop(event: MouseEvent): void {
           <div class="min-w-0 flex-1">
             <p class="truncate">
               <span v-if="r.aborted" class="text-ink-faint">Stopped</span>
-              <span v-else-if="r.winners.length" :class="youWon(r) ? 'text-correct' : 'text-ink-muted'">
+              <span
+                v-else-if="r.winners.length"
+                :class="youWon(r) ? 'text-correct' : 'text-ink-muted'"
+              >
                 Won by {{ r.winners.map((w) => w.name).join(', ') }}
               </span>
               <span v-else class="text-wrong">No winner</span>

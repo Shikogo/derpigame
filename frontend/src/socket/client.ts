@@ -21,10 +21,7 @@ interface ServerToClientEvents {
 
 // Every client→server event takes a payload plus an ack callback; the names are
 // open (create_room, join_room, submit_guess, …) so `emitAck` stays generic.
-type ClientToServerEvents = Record<
-  string,
-  (payload: object, ack: (response: Ack) => void) => void
->
+type ClientToServerEvents = Record<string, (payload: object, ack: (response: Ack) => void) => void>
 
 const ACK_TIMEOUT_MS = 8000
 

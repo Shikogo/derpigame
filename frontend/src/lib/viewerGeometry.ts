@@ -40,7 +40,12 @@ export function scaleBounds(frame: Size, image: Size, factor = MAX_ZOOM_FACTOR) 
 }
 
 /** Clamp a desired scale into `[fit, fit·factor]`. */
-export function clampScale(scale: number, frame: Size, image: Size, factor = MAX_ZOOM_FACTOR): number {
+export function clampScale(
+  scale: number,
+  frame: Size,
+  image: Size,
+  factor = MAX_ZOOM_FACTOR,
+): number {
   const { min, max } = scaleBounds(frame, image, factor)
   return Math.min(Math.max(scale, min), max)
 }

@@ -29,18 +29,13 @@ export const useGameStore = defineStore('game', () => {
     return uuid ? (state.value.players[uuid] ?? null) : null
   })
 
-  const isMyTurn = computed(
-    () =>
-      state.value.activePlayerUuid === session.uuid,
-  )
+  const isMyTurn = computed(() => state.value.activePlayerUuid === session.uuid)
 
   const scoreboard = computed<Player[]>(() =>
     Object.values(state.value.players).sort((a, b) => b.score - a.score),
   )
 
-  const ended = computed(
-    () => state.value.status === 'over' || state.value.status === 'aborted',
-  )
+  const ended = computed(() => state.value.status === 'over' || state.value.status === 'aborted')
 
   // The round's locked roster (seeded from game_started); the room store diffs
   // it against the membership list to find spectators.

@@ -20,7 +20,13 @@ const router = createRouter({
 })
 
 // Stub the panels so the test only exercises which one RoomView chooses.
-const stubs = { GamePanel: true, GameOverPanel: true, LobbyPanel: true, ChatPanel: true, GameControls: true }
+const stubs = {
+  GamePanel: true,
+  GameOverPanel: true,
+  LobbyPanel: true,
+  ChatPanel: true,
+  GameControls: true,
+}
 
 /** These tests are about the age gate over a live game, so default to both. */
 function roomState(over: Partial<RoomState> = {}): RoomState {

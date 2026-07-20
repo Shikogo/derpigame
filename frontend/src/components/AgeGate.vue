@@ -10,11 +10,12 @@ defineEmits<{ confirm: []; decline: [] }>()
 </script>
 
 <template>
-  <div class="m-auto max-w-md rounded-xl border border-border bg-surface p-6 text-center shadow-2xl">
+  <div
+    class="m-auto max-w-md rounded-xl border border-border bg-surface p-6 text-center shadow-2xl"
+  >
     <h2 class="font-display text-xl font-bold">Adult content</h2>
     <p class="mt-2 text-sm text-ink-muted">
-      This room is set to show NSFW results from Derpibooru. You must be 18 or
-      older to view them.
+      This room is set to show NSFW results from Derpibooru. You must be 18 or older to view them.
     </p>
     <div class="mt-5 flex justify-center gap-3">
       <button

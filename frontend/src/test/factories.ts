@@ -18,8 +18,16 @@ export function roomState(over: Partial<RoomState> = {}): RoomState {
     min_score: 10,
     rating_caps: {},
     rating_axes: [
-      { key: 'rating', label: 'Rating', levels: ['safe', 'suggestive', 'questionable', 'explicit'] },
-      { key: 'darkness', label: 'Darkness', levels: ['none', 'semi-grimdark', 'grimdark', 'grotesque'] },
+      {
+        key: 'rating',
+        label: 'Rating',
+        levels: ['safe', 'suggestive', 'questionable', 'explicit'],
+      },
+      {
+        key: 'darkness',
+        label: 'Darkness',
+        levels: ['none', 'semi-grimdark', 'grimdark', 'grotesque'],
+      },
     ],
     in_progress: false,
     turn_seconds: 30,

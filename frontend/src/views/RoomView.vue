@@ -56,9 +56,7 @@ onMounted(async () => {
 })
 
 const showGameOver = computed(() => game.ended)
-const showGame = computed(
-  () => !game.ended && (room.inProgress || game.state.status === 'active'),
-)
+const showGame = computed(() => !game.ended && (room.inProgress || game.state.status === 'active'))
 // A live round with a picture — the point where the rail shows the turn controls.
 const live = computed(() => game.state.status === 'active' && !!game.state.image)
 // Block the picture (live round or the game-over reveal) behind a 18+ gate when
@@ -94,7 +92,8 @@ async function backToLobby(): Promise<void> {
         v-if="reconnecting && !room.error"
         class="rounded-xl border border-border bg-surface p-6 text-center text-sm text-ink-muted"
       >
-        Reconnecting to room <span class="font-mono uppercase text-turn">{{ code }}</span>…
+        Reconnecting to room <span class="font-mono uppercase text-turn">{{ code }}</span
+        >…
       </div>
       <div v-else class="rounded-xl border border-border bg-surface p-6">
         <h1 class="mb-1 font-display text-xl font-bold">
@@ -149,11 +148,7 @@ async function backToLobby(): Promise<void> {
           <p v-if="notice" class="rounded-lg bg-wrong/10 px-3 py-2 text-sm text-wrong">
             {{ notice }}
           </p>
-          <AgeGate
-            v-if="needsAgeGate"
-            @confirm="session.acknowledgeNsfw()"
-            @decline="leave"
-          />
+          <AgeGate v-if="needsAgeGate" @confirm="session.acknowledgeNsfw()" @decline="leave" />
           <GameOverPanel v-else-if="showGameOver" @back="backToLobby" />
           <GamePanel v-else-if="showGame" />
           <LobbyPanel v-else />

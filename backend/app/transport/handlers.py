@@ -89,9 +89,17 @@ class SocketHandlers:
 
     def register(self) -> None:
         for event in (
-            "connect", "disconnect", "create_room", "join_room", "set_ready",
-            "configure_room", "start_game", "submit_guess", "stop_game",
-            "leave_room", "chat",
+            "connect",
+            "disconnect",
+            "create_room",
+            "join_room",
+            "set_ready",
+            "configure_room",
+            "start_game",
+            "submit_guess",
+            "stop_game",
+            "leave_room",
+            "chat",
         ):
             self._sio.on(event, getattr(self, event))
 
@@ -265,9 +273,7 @@ class SocketHandlers:
         text = str((data or {}).get("text", "")).strip()
         if not text:
             return _err("empty")
-        await self._sio.emit(
-            "chat", {"name": session.get("name"), "text": text}, room=room_name
-        )
+        await self._sio.emit("chat", {"name": session.get("name"), "text": text}, room=room_name)
         return _ok()
 
     # --- helpers --------------------------------------------------------------
@@ -294,9 +300,7 @@ class SocketHandlers:
             user.name = name
         user.ready = False
 
-        await self._sio.save_session(
-            sid, {"uuid": uuid, "room": room.name, "name": name}
-        )
+        await self._sio.save_session(sid, {"uuid": uuid, "room": room.name, "name": name})
         await self._sio.enter_room(sid, room.name)
         self._owner[uuid] = sid
         self._cancel_grace(uuid)  # a reconnect cancels any pending teardown
@@ -370,9 +374,7 @@ class SocketHandlers:
     def _schedule_teardown(self, sid: str, room_name: str, uuid: str) -> None:
         """After a disconnect, keep the room briefly so a reload can reclaim it."""
         self._cancel_grace(uuid)
-        self._grace[uuid] = asyncio.create_task(
-            self._drop_after_grace(sid, room_name, uuid)
-        )
+        self._grace[uuid] = asyncio.create_task(self._drop_after_grace(sid, room_name, uuid))
 
     def _cancel_grace(self, uuid: str) -> None:
         task = self._grace.pop(uuid, None)

@@ -76,9 +76,7 @@ class GameService:
         self._starting.add(room.name)
         try:
             try:
-                image = await self._images.random_image(
-                    room.query, options=_search_options(room)
-                )
+                image = await self._images.random_image(room.query, options=_search_options(room))
             except ImageSourceError:
                 await self._emitter.emit(room.name, [{"type": "image_error"}])
                 return
@@ -92,9 +90,7 @@ class GameService:
             if taxonomy is not None:
                 options["taxonomy"] = taxonomy
             query = await self._canonical_query(room.query, image.tags)
-            game = room.start_game(
-                image.tags, first_index=first_index, query=query, **options
-            )
+            game = room.start_game(image.tags, first_index=first_index, query=query, **options)
             self._current_image[room.name] = image
             await self._deliver(room, game.start(), lead=[_image_started_payload(image)])
         finally:
@@ -261,17 +257,13 @@ class GameService:
                 "thumb_url": image.thumb_url,
                 "full_url": image.full_url,
             },
-            "players": [
-                serialize_player(p) for p in (*game.players, *game.eliminated_players)
-            ],
+            "players": [serialize_player(p) for p in (*game.players, *game.eliminated_players)],
             "active_player": serialize_player(game.active_player),
             "freebie_tags": list(game.freebie_tags),
             "tag_count": goal_remaining + goal_guessed,  # original goal-bucket size
             "goal_remaining": goal_remaining,
             "bonus_counts": {
-                key: bucket.tag_count
-                for key, bucket in game.tag_buckets.items()
-                if key != goal_key
+                key: bucket.tag_count for key, bucket in game.tag_buckets.items() if key != goal_key
             },
             "eliminated": [p.uuid for p in game.eliminated_players],
             "turn_seconds": self.turn_seconds_for(room),
@@ -317,11 +309,7 @@ _ARTIST_PREFIX = "artist:"
 
 
 def _artist_names(image: Image) -> list[str]:
-    return [
-        tag[len(_ARTIST_PREFIX):]
-        for tag in image.tags
-        if tag.startswith(_ARTIST_PREFIX)
-    ]
+    return [tag[len(_ARTIST_PREFIX) :] for tag in image.tags if tag.startswith(_ARTIST_PREFIX)]
 
 
 def _image_revealed_payload(image: Image) -> dict:

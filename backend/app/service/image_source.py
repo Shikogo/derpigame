@@ -63,9 +63,7 @@ class StaticImageSource(ImageSource):
     An empty list models "no matching image" by always returning ``None``.
     """
 
-    def __init__(
-        self, images: list[Image] | None = None, rating_axes: tuple[RatingAxis, ...] = ()
-    ):
+    def __init__(self, images: list[Image] | None = None, rating_axes: tuple[RatingAxis, ...] = ()):
         self._images = list(images or [])
         self._rating_axes = rating_axes
         self._index = 0

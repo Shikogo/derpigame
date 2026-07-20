@@ -22,7 +22,11 @@ describe('categoryColor', () => {
   })
 
   it('distinguishes distinct keys (not all one color)', () => {
-    const seen = new Set([categoryColor('artist'), categoryColor('character'), categoryColor('species')])
+    const seen = new Set([
+      categoryColor('artist'),
+      categoryColor('character'),
+      categoryColor('species'),
+    ])
     expect(seen.size).toBeGreaterThan(1)
   })
 })

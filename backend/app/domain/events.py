@@ -5,7 +5,7 @@ The service/transport layers translate them into messages and socket events.
 """
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 from .player import Player
 
@@ -14,7 +14,7 @@ class GameEvent:
     """Base class for everything a game action can report."""
 
 
-class RejectReason(str, Enum):
+class RejectReason(StrEnum):
     ALREADY_GUESSED = "already_guessed"  # a tag that was already found
     ALREADY_WRONG = "already_wrong"  # a guess already tried and known wrong
     DEFAULT_TAG = "default_tag"

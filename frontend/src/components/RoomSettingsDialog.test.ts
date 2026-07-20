@@ -134,7 +134,10 @@ describe('RoomSettingsDialog', () => {
     const { wrapper, configure } = await openWith()
 
     await wrapper.find('[name="query"]').setValue('discarded')
-    await wrapper.findAll('button').find((b) => b.text() === 'Cancel')!.trigger('click')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === 'Cancel')!
+      .trigger('click')
 
     expect(configure).not.toHaveBeenCalled()
   })
