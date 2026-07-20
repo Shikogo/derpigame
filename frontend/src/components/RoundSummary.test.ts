@@ -30,18 +30,26 @@ describe('RoundSummary', () => {
   })
 
   it('shows found tags with their guesser, and freebies as free', () => {
-    const text = mountWithRound().text()
-    expect(text).toContain('mare')
-    expect(text).toContain('alice')
-    expect(text).toContain('oc:nyx')
-    expect(text).toContain('free') // the freebie has no guesser
-    expect(text).not.toContain('stallion') // a wrong guess is not a found tag
+    const found = mountWithRound().findAll('section')[0].text()
+    expect(found).toContain('mare')
+    expect(found).toContain('alice')
+    expect(found).toContain('oc:nyx')
+    expect(found).toContain('free') // the freebie has no guesser
+    expect(found).not.toContain('stallion') // a wrong guess is not a found tag
   })
 
-  it('counts found and missed tags separately', () => {
+  it('counts found, missed and suggested tags separately', () => {
     const text = mountWithRound().text()
     expect(text).toContain('Found 3') // 2 correct + 1 freebie
     expect(text).toContain('Missed 2') // across both buckets
+    expect(text).toContain('Consider adding 1')
+  })
+
+  it('lists wrong guesses as tags to consider adding', () => {
+    const suggested = mountWithRound().findAll('section').at(-1)!.text()
+    expect(suggested).toContain('Consider adding')
+    expect(suggested).toContain('stallion')
+    expect(suggested).toContain('bob')
   })
 
   it('labels each missed bucket and lists its tags', () => {
@@ -52,11 +60,34 @@ describe('RoundSummary', () => {
     expect(text).toContain('artist:foo')
   })
 
-  it('shows the found tags alone when the room missed nothing', () => {
+  it('links every found and missed tag to its booru search', () => {
+    const links = mountWithRound().findAll('a')
+    expect(links.map((a) => a.attributes('href'))).toEqual([
+      'https://derpibooru.org/search?q=safe',
+      'https://derpibooru.org/search?q=mare',
+      'https://derpibooru.org/search?q=oc%3Anyx',
+      'https://derpibooru.org/search?q=rarity',
+      'https://derpibooru.org/search?q=artist%3Afoo',
+    ])
+  })
+
+  it('opens tag links in a new tab without leaking the opener', () => {
+    const link = mountWithRound().find('a')
+    expect(link.attributes('target')).toBe('_blank')
+    expect(link.attributes('rel')).toBe('noopener noreferrer')
+  })
+
+  it('leaves wrong guesses unlinked — they may not be real tags', () => {
+    const suggested = mountWithRound().findAll('section').at(-1)!
+    expect(suggested.findAll('a')).toHaveLength(0)
+  })
+
+  it('drops the missed section when the room got every tag', () => {
     const game = useGameStore()
     game.state.feed = FEED
     const text = mount(RoundSummary).text()
     expect(text).toContain('Found 3')
     expect(text).not.toContain('Missed')
+    expect(text).toContain('Consider adding') // wrong guesses still stand
   })
 })

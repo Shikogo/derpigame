@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { type GameState, initialGameState, reduceAll } from './reducer'
-import { foundTags, missedGroups } from './roundSummary'
+import { foundTags, missedGroups, suggestedTags } from './roundSummary'
 import type { GameEvent, Player } from '@/types/wire'
 
 const alice: Player = { uuid: 'a', name: 'Alice', score: 0, wrong_guesses: 0 }
@@ -32,6 +32,12 @@ function playedRound(): GameState {
     { type: 'timeout', player: bob, wrong_count: 2 },
     { type: 'guess_rejected', guess: 'pony', reason: 'already_guessed' },
     { type: 'player_eliminated', player: bob },
+    {
+      type: 'wrong_guess',
+      player: { ...alice, wrong_guesses: 1 },
+      guess: 'unicorn',
+      wrong_count: 1,
+    },
     {
       type: 'correct_guess',
       player: { ...alice, score: 2 },
@@ -93,5 +99,29 @@ describe('missedGroups', () => {
     const state = playedRound()
     missedGroups(state)
     expect(state.unguessed.tags).toEqual(['rarity', 'mare']) // sorted a copy
+  })
+})
+
+describe('suggestedTags', () => {
+  it('keeps wrong guesses with their guesser, in feed order', () => {
+    expect(suggestedTags(playedRound())).toEqual([
+      { tag: 'nope', player: 'Bob' },
+      { tag: 'unicorn', player: 'Alice' },
+    ])
+  })
+
+  it('excludes near misses — those are typos of a tag the image already has', () => {
+    expect(suggestedTags(playedRound()).map((t) => t.tag)).not.toContain('ponee')
+  })
+
+  it('excludes correct guesses, freebies, timeouts and rejections', () => {
+    const tags = suggestedTags(playedRound()).map((t) => t.tag)
+    expect(tags).not.toContain('pony')
+    expect(tags).not.toContain('safe')
+    expect(tags).toHaveLength(2)
+  })
+
+  it('is empty for a round with no wrong guesses', () => {
+    expect(suggestedTags(initialGameState())).toEqual([])
   })
 })
