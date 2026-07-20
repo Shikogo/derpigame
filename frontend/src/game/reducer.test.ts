@@ -156,6 +156,46 @@ describe('reduce', () => {
     })
     expect(s.bonusCounts).toEqual({ artists: 0 })
     expect(s.goalRemaining).toBe(3) // untouched
+    // Totals are the round's starting sizes, so a cleared bucket is still
+    // distinguishable from one the image never had.
+    expect(s.bonusTotals).toEqual({ artists: 1 })
+  })
+
+  it('game_started seeds bonusTotals from the opening counts', () => {
+    const s = reduceAll(initialGameState(), [
+      {
+        type: 'game_started',
+        first_player: alice,
+        players: [alice],
+        tag_count: 3,
+        bonus_counts: { artists: 2, ocs: 0 },
+        freebie_tags: [],
+        turn_seconds: 30,
+      },
+    ])
+    expect(s.bonusTotals).toEqual({ artists: 2, ocs: 0 })
+  })
+
+  it('a snapshot rebuilds bonusTotals by adding the feed back to what remains', () => {
+    // The snapshot only carries remaining counts, so a rejoining client has to
+    // recover the starting size from the round's retained feed.
+    const s = reduce(
+      initialGameState(),
+      snapshot({
+        bonus_counts: { artists: 1, ocs: 0 },
+        feed: [
+          {
+            type: 'correct_guess',
+            player: player(alice, { score: 1 }),
+            guess: 'artist:foo',
+            tag_type: 'artists',
+            remaining: 1,
+          },
+        ],
+      }),
+    )
+    expect(s.bonusCounts).toEqual({ artists: 1, ocs: 0 })
+    expect(s.bonusTotals).toEqual({ artists: 2, ocs: 0 })
   })
 
   it('wrong_guess and timeout record the player and feed the entry', () => {

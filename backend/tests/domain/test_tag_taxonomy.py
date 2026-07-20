@@ -1,0 +1,69 @@
+"""How a taxonomy classifies tags: bucketing, prefixes, and what it drops.
+
+Pure value-object tests — no Game, no app context.
+"""
+
+from dataclasses import replace
+
+from app.domain.tag_taxonomy import DERPIBOORU_TAXONOMY, TagTaxonomy
+
+
+def test_a_namespaced_tag_lands_in_its_own_bucket():
+    assert DERPIBOORU_TAXONOMY.bucket_for("artist:shikogo") == "artists"
+    assert DERPIBOORU_TAXONOMY.bucket_for("oc:littlepip") == "ocs"
+    assert DERPIBOORU_TAXONOMY.bucket_for("comic:friendship is magic") == "comics"
+    assert DERPIBOORU_TAXONOMY.bucket_for("fanfic:fallout equestria") == "fanfics"
+    assert DERPIBOORU_TAXONOMY.bucket_for("series:some diary") == "series"
+
+
+def test_a_plain_tag_lands_in_the_goal_bucket():
+    assert DERPIBOORU_TAXONOMY.bucket_for("twilight sparkle") == "tags"
+    # Ships are plain tags on Derpibooru's side of the wire: the site aliases
+    # bare names like "twilestia" onto ship:, so they arrive canonicalized and
+    # belong in the goal bucket rather than a namespace of their own.
+    assert DERPIBOORU_TAXONOMY.bucket_for("ship:twilestia") == "tags"
+
+
+def test_bucket_for_takes_the_first_matching_namespace():
+    # Insertion order decides overlaps, so a taxonomy can nest prefixes.
+    taxonomy = TagTaxonomy(namespaces={"specific": "oc:only:", "general": "oc:"})
+    assert taxonomy.bucket_for("oc:only:bob") == "specific"
+    assert taxonomy.bucket_for("oc:bob") == "general"
+
+
+def test_prefix_of_maps_a_bucket_back_to_its_namespace():
+    assert DERPIBOORU_TAXONOMY.prefix_of("artists") == "artist:"
+    assert DERPIBOORU_TAXONOMY.prefix_of("tags") == ""
+    assert DERPIBOORU_TAXONOMY.prefix_of("nonsense") == ""
+
+
+def test_bare_strips_a_tags_own_namespace():
+    assert DERPIBOORU_TAXONOMY.bare("artist:shikogo") == "shikogo"
+    assert DERPIBOORU_TAXONOMY.bare("comic:the comic") == "the comic"
+
+
+def test_bare_leaves_an_unnamespaced_tag_alone():
+    assert DERPIBOORU_TAXONOMY.bare("twilight sparkle") == "twilight sparkle"
+    # A colon that isn't a known namespace is part of the tag, not a prefix.
+    assert DERPIBOORU_TAXONOMY.bare("editor:someone") == "editor:someone"
+
+
+def test_the_constant_drops_ratings_but_curates_nothing_on_its_own():
+    assert DERPIBOORU_TAXONOMY.is_droppable("safe")
+    assert DERPIBOORU_TAXONOMY.is_droppable("semi-grimdark")
+    # Ignored tags and prefixes are curation from config.toml, so a taxonomy
+    # built here ignores nothing.
+    assert not DERPIBOORU_TAXONOMY.is_droppable("source needed")
+    assert not DERPIBOORU_TAXONOMY.is_droppable("spoiler:the-ending")
+
+
+def test_curation_makes_tags_and_whole_namespaces_droppable():
+    curated = replace(
+        DERPIBOORU_TAXONOMY,
+        ignored_tags=frozenset({"source needed"}),
+        ignored_prefixes=("spoiler:", "editor:"),
+    )
+    assert curated.is_droppable("source needed")
+    assert curated.is_droppable("spoiler:the-ending")
+    assert curated.is_droppable("editor:someone")
+    assert not curated.is_droppable("solo")

@@ -11,8 +11,12 @@ const found = computed(() => game.state.goalTagCount - game.state.goalRemaining)
 const pct = computed(() =>
   game.state.goalTagCount ? (found.value / game.state.goalTagCount) * 100 : 0,
 )
-// Bucket keys are opaque (source-defined taxonomy) — render them as-is.
-const bonuses = computed(() => Object.entries(game.state.bonusCounts))
+// Bucket keys are opaque (source-defined taxonomy) — render them as-is. Only
+// buckets this image actually had are shown; one the players cleared keeps its
+// "0 left" chip, since that's earned rather than empty.
+const bonuses = computed(() =>
+  Object.entries(game.state.bonusCounts).filter(([key]) => game.state.bonusTotals[key] > 0),
+)
 </script>
 
 <template>

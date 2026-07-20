@@ -59,6 +59,12 @@ export interface GameState {
   turnRemaining: number
   /** Remaining count per bonus bucket, keyed by opaque bucket key. */
   bonusCounts: Record<BucketKey, number>
+  /**
+   * Each bonus bucket's size at the start of the round. `bonusCounts` is
+   * decremented as tags are found, so only this distinguishes a bucket the
+   * image never had from one the players have cleared.
+   */
+  bonusTotals: Record<BucketKey, number>
   /** Players seen so far this round, keyed by uuid (latest score snapshot). */
   players: Record<string, Player>
   eliminated: string[]
@@ -89,6 +95,7 @@ export function initialGameState(): GameState {
     turnSeconds: DEFAULT_TURN_SECONDS,
     turnRemaining: DEFAULT_TURN_SECONDS,
     bonusCounts: {},
+    bonusTotals: {},
     players: {},
     eliminated: [],
     feed: [],
@@ -123,6 +130,7 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
         turnSeconds: event.turn_seconds,
         turnRemaining: event.turn_seconds,
         bonusCounts: { ...event.bonus_counts },
+        bonusTotals: { ...event.bonus_counts },
         players,
         ...withFeed(prev, ...freebies(event.freebie_tags)),
       }
@@ -271,6 +279,16 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
         { ...base, ...withFeed(base, ...freebies(event.freebie_tags)) },
         event.feed,
       )
+      // The snapshot carries remaining counts, not starting ones. The round's
+      // feed is retained whole, so adding back each bucket's correct guesses
+      // recovers the totals — the same reconstruction the server does for the
+      // goal bucket's tag_count.
+      const bonusTotals = { ...event.bonus_counts }
+      for (const entry of replayed.feed) {
+        if (entry.kind === 'correct' && Object.hasOwn(bonusTotals, entry.tagType)) {
+          bonusTotals[entry.tagType] += 1
+        }
+      }
       return {
         ...replayed,
         status: 'active',
@@ -288,6 +306,7 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
         turnSeconds: event.turn_seconds,
         turnRemaining: event.turn_remaining,
         bonusCounts: { ...event.bonus_counts },
+        bonusTotals,
         players,
         eliminated: [...event.eliminated],
       }

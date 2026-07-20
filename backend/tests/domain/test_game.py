@@ -75,6 +75,20 @@ def test_tags_are_bucketed_by_kind():
     assert game.tag_buckets["ocs"].tags == ["oc:bar"]
 
 
+def test_credit_namespaces_do_not_gate_a_win():
+    # comic:/fanfic:/series: are optional bonuses, not part of the goal — a
+    # round with one is winnable without ever naming it.
+    game = make_game(
+        tags=["solo", "comic:the comic", "fanfic:the fic", "series:the series"],
+        first_index=0,
+    )
+    assert game.tag_buckets["comics"].tags == ["comic:the comic"]
+    assert game.tag_buckets["fanfics"].tags == ["fanfic:the fic"]
+    assert game.tag_buckets["series"].tags == ["series:the series"]
+    assert only(game.start(), GameStarted).tag_count == 1
+    assert only(game.submit_guess("solo"), GameOver).win is True
+
+
 def test_query_and_rating_tags_are_excluded_from_buckets():
     game = make_game(tags=["solo", "safe", "cute"], query=["cute"])
     assert game.tag_buckets["tags"].tags == ["solo"]
@@ -113,7 +127,15 @@ def test_start_reports_counts_and_first_player():
     assert started.first_player is game.players[1]
     assert started.players == game.players
     assert started.tag_count == 2
-    assert started.bonus_counts == {"artists": 1, "ocs": 1}
+    # Every bonus bucket is reported, including the ones this image has none of
+    # — the client tells goal from bonus by which keys are present here.
+    assert started.bonus_counts == {
+        "artists": 1,
+        "ocs": 1,
+        "comics": 0,
+        "fanfics": 0,
+        "series": 0,
+    }
     assert only(events, TurnStarted).player is game.players[1]
 
 
@@ -196,6 +218,83 @@ def test_correct_artist_guess_reports_artist_bucket():
     game = make_game(tags=["solo", "artist:foo"], first_index=0)
     events = game.submit_guess("artist:foo")
     assert only(events, CorrectGuess).tag_type == "artists"
+
+
+# --- guessing without the namespace prefix -----------------------------------
+
+
+def test_bare_name_scores_and_reports_the_canonical_tag():
+    game = make_game(tags=["solo", "artist:foo"], first_index=0)
+    correct = only(game.submit_guess("foo"), CorrectGuess)
+    assert correct.guess == "artist:foo"  # echoed back with the prefix, to teach it
+    assert correct.tag_type == "artists"
+    assert game.players[0].score == 1
+    assert game.tag_buckets["artists"].tags == []
+
+
+def test_bare_name_works_for_every_namespace():
+    game = make_game(tags=["solo", "oc:bar", "comic:the comic"], first_index=0)
+    assert only(game.submit_guess("bar"), CorrectGuess).tag_type == "ocs"
+    assert only(game.submit_guess("the comic"), CorrectGuess).tag_type == "comics"
+
+
+def test_the_prefixed_form_still_works():
+    game = make_game(tags=["solo", "artist:foo"], first_index=0)
+    assert only(game.submit_guess("artist:foo"), CorrectGuess).guess == "artist:foo"
+
+
+def test_repeating_a_bare_name_is_rejected_as_already_guessed():
+    game = make_game(tags=["solo", "artist:foo"], first_index=0)
+    game.submit_guess("foo")
+    # Both spellings resolve to the same tag, so neither is a fresh guess.
+    assert only(game.submit_guess("foo"), GuessRejected).reason is RejectReason.ALREADY_GUESSED
+    assert only(game.submit_guess("artist:foo"), GuessRejected).reason is (
+        RejectReason.ALREADY_GUESSED
+    )
+
+
+def test_a_plain_tag_wins_a_collision_with_a_bare_name():
+    # "foo" is both a goal tag and an artist's bare name. The goal tag gates the
+    # win, so it has to be what a bare guess takes.
+    game = make_game(tags=["foo", "artist:foo"], first_index=0)
+    correct = only(game.submit_guess("foo"), CorrectGuess)
+    assert correct.guess == "foo"
+    assert correct.tag_type == "tags"
+    assert game.tag_buckets["artists"].tags == ["artist:foo"]
+
+
+def test_a_query_term_is_not_reachable_as_a_bare_name():
+    # The query already named it, so it's a freebie — guessing it can't score.
+    game = make_game(tags=["solo", "artist:foo"], query=["foo"], first_index=0)
+    assert only(game.submit_guess("foo"), GuessRejected).reason is RejectReason.DEFAULT_TAG
+
+
+def test_a_reserved_word_is_not_reachable_as_a_bare_name():
+    # An artist named "safe" mustn't turn the rating tag into a scoring guess.
+    game = make_game(tags=["solo", "artist:safe"], first_index=0)
+    assert only(game.submit_guess("safe"), GuessRejected).reason is RejectReason.RATING_TAG
+    assert game.tag_buckets["artists"].tags == ["artist:safe"]
+
+
+def test_bare_name_collision_between_namespaces_goes_to_the_first():
+    game = make_game(tags=["solo", "artist:foo", "oc:foo"], first_index=0)
+    assert only(game.submit_guess("foo"), CorrectGuess).tag_type == "artists"
+
+
+def test_recognizes_a_bare_name():
+    # Keeps the service from spending an alias lookup on a guess we can settle.
+    game = make_game(tags=["solo", "artist:foo"])
+    assert game.recognizes("foo")
+    assert game.recognizes("FOO")
+    assert not game.recognizes("unrelated")
+
+
+def test_a_bare_typo_does_not_near_miss_a_namespaced_bucket():
+    # Fuzzy matching stays scoped to the bucket the guess's own prefix implies,
+    # so arbitrary artist/OC names can't soak up near misses from plain guesses.
+    game = make_game(tags=["solo", "artist:applejack"], first_index=0)
+    events = game.submit_guess("applejck")
+    assert only(events, WrongGuess).guess == "applejck"
 
 
 # --- wrong guesses & near misses --------------------------------------------

@@ -144,5 +144,7 @@ def test_the_shipped_config_file_is_valid_and_carries_the_curation():
 
     assert curated.is_droppable("source needed")  # housekeeping, not on the image
     assert curated.is_droppable("spoiler:the-ending")  # a dropped namespace
+    assert curated.is_droppable("commissioner:someone")  # a credit, not guessable
+    assert curated.is_droppable("editor:someone")
     assert not curated.is_droppable("solo")  # a real, guessable tag
     assert settings.room_defaults.min_tag_count > 0

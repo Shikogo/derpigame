@@ -53,6 +53,7 @@ class Game:
         self._started = False
         self._finished = False
         self.tag_buckets = self._bucket_tags([tag.lower() for tag in tags])
+        self._bare_names = self._index_bare_names()
         self._active_index = randrange(len(self.players)) if first_index is None else first_index
         self.elimination_threshold = (
             self.ELIMINATION_THRESHOLD if elimination_threshold is None else elimination_threshold
@@ -78,6 +79,42 @@ class Game:
                 continue
             buckets[self.taxonomy.bucket_for(tag)].append(tag)
         return {key: TagBucket(tags) for key, tags in buckets.items()}
+
+    def _index_bare_names(self) -> dict[str, str]:
+        """Map each namespaced tag's bare name to the tag itself.
+
+        Lets a player score ``shikogo`` for ``artist:shikogo``: the prefix is
+        booru schema literacy, not something you read off the picture. A bare
+        name that's already a plain tag, a query term, or a reserved word is
+        left out — a plain tag gates the win and a rating is meant to be
+        refused, so neither can lose the collision to an artist who happens to
+        share the name. Between two namespaces the first in taxonomy order wins.
+        """
+        taken = (
+            set(self._goal_bucket.tags)
+            | set(self.query)
+            | self.taxonomy.rating_tags
+            | self.taxonomy.ignored_tags
+        )
+        goal = self.taxonomy.goal_bucket
+        index: dict[str, str] = {}
+        for key, bucket in self.tag_buckets.items():
+            if key == goal:
+                continue
+            for tag in bucket.tags:
+                bare = self.taxonomy.bare(tag)
+                if bare not in taken:
+                    index.setdefault(bare, tag)
+        return index
+
+    def _resolve(self, guess: str) -> str:
+        """A bare name expanded to the namespaced tag it names, else unchanged.
+
+        Applied before anything else looks at a guess, so the rest of the game
+        only ever handles canonical tags — which is what makes "already
+        guessed" and the reported ``tag_type`` fall out without special cases.
+        """
+        return self._bare_names.get(guess, guess)
 
     @property
     def _goal_bucket(self) -> TagBucket:
@@ -132,7 +169,7 @@ class Game:
         unrecognized guess is the only kind worth resolving through an alias
         lookup — everything else needs no external help.
         """
-        guess = guess.lower()
+        guess = self._resolve(guess.lower())
         if guess in self.guessed_tags or guess in self.failed_guesses:
             return True
         if guess in self.query:
@@ -150,10 +187,13 @@ class Game:
         NEAR_MISS_THRESHOLD) is treated the same — no penalty, retry allowed.
         Correct and fresh wrong guesses both end the turn and advance the game.
         Guesses after the game is over are ignored.
+
+        A bare ``shikogo`` is resolved to ``artist:shikogo`` first, so the events
+        report the canonical tag and the feed shows the prefix back.
         """
         if self._finished:
             return []
-        guess = guess.lower()
+        guess = self._resolve(guess.lower())
 
         if guess in self.guessed_tags:
             return [GuessRejected(guess, RejectReason.ALREADY_GUESSED)]
@@ -206,9 +246,8 @@ class Game:
         shared namespace doesn't inflate the ratio.
         """
         bucket_key = self.taxonomy.bucket_for(guess)
-        prefix = self.taxonomy.prefix_of(bucket_key)
-        needle = guess[len(prefix) :]
-        candidates = [tag[len(prefix) :] for tag in self.tag_buckets[bucket_key].tags]
+        needle = self.taxonomy.bare(guess)
+        candidates = [self.taxonomy.bare(tag) for tag in self.tag_buckets[bucket_key].tags]
 
         best = 0.0
         for candidate in candidates:

@@ -44,6 +44,10 @@ class TagTaxonomy:
         """The namespace prefix for a bucket, or ``""`` for the goal bucket."""
         return self.namespaces.get(bucket_key, "")
 
+    def bare(self, tag: str) -> str:
+        """``tag`` without its namespace prefix; unchanged if it has none."""
+        return tag[len(self.prefix_of(self.bucket_for(tag))) :]
+
     def is_droppable(self, tag: str) -> bool:
         """Whether a tag is a rating, ignored outright, or under an ignored prefix."""
         return (
@@ -54,7 +58,13 @@ class TagTaxonomy:
 
 
 DERPIBOORU_TAXONOMY = TagTaxonomy(
-    namespaces={"artists": "artist:", "ocs": "oc:"},
+    namespaces={
+        "artists": "artist:",
+        "ocs": "oc:",
+        "comics": "comic:",
+        "fanfics": "fanfic:",
+        "series": "series:",
+    },
     rating_tags=frozenset(
         {
             "explicit",

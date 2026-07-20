@@ -34,8 +34,10 @@ ignored_tags = [
 ]
 
 # Whole namespaces to drop. Spoilers name plot points rather than describing the
-# picture, so they're neither guessable nor worth showing.
-ignored_prefixes = ["spoiler:"]
+# picture; commissioners and editors are credits you can't read off the image.
+# None are guessable, and all would otherwise land in the goal bucket and block a
+# win nobody could reach.
+ignored_prefixes = ["spoiler:", "commissioner:", "editor:"]
 
 
 [room_defaults]
