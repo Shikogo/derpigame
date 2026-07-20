@@ -81,17 +81,17 @@ const bucketKeys = computed(() => Object.keys(game.state.bonusCounts))
         Consider adding
         <span class="font-mono text-ink-faint tabular-nums">{{ suggested.length }}</span>
       </h3>
-      <p class="text-xs text-ink-faint">
+      <p class="text-xs text-ink-muted">
         These guesses didn't match the image. Consider adding them if they fit!
       </p>
       <div class="flex flex-wrap gap-1.5">
         <span
           v-for="(t, i) in suggested"
           :key="`${t.tag}-${i}`"
-          class="pill border border-dashed border-border text-ink-faint"
+          class="pill border border-dashed border-border text-ink"
         >
           {{ t.tag }}
-          <span class="font-normal opacity-70">{{ t.player }}</span>
+          <span class="font-normal text-ink-muted">{{ t.player }}</span>
         </span>
       </div>
     </section>
