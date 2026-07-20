@@ -22,6 +22,8 @@ export const useRoomStore = defineStore('room', () => {
   // The start ack only lands once the image is fetched and its tags resolved,
   // so the wait is long enough to need a spinner.
   const starting = ref(false)
+  // Likewise a guess: resolving aliases can round-trip to Derpibooru first.
+  const guessing = ref(false)
 
   const code = computed(() => roomState.value?.room ?? null)
   const inProgress = computed(() => roomState.value?.in_progress ?? false)
@@ -104,7 +106,13 @@ export const useRoomStore = defineStore('room', () => {
   }
 
   async function submitGuess(guess: string): Promise<Ack> {
-    return request('submit_guess', { guess })
+    if (guessing.value) return { ok: false, error: 'guess_in_flight' }
+    guessing.value = true
+    try {
+      return await request('submit_guess', { guess })
+    } finally {
+      guessing.value = false
+    }
   }
 
   async function leaveRoom(): Promise<Ack> {
@@ -128,6 +136,7 @@ export const useRoomStore = defineStore('room', () => {
     connected,
     error,
     starting,
+    guessing,
     code,
     inProgress,
     nsfw,

@@ -115,3 +115,44 @@ describe('room store — start pending flag', () => {
     expect(emitAck).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('room store — guess pending flag', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(emitAck).mockReset()
+  })
+
+  it('stays set for the whole in-flight guess, then clears', async () => {
+    const room = useRoomStore()
+    let settle: (ack: unknown) => void = () => {}
+    vi.mocked(emitAck).mockReturnValue(new Promise((resolve) => (settle = resolve)))
+
+    const pending = room.submitGuess('mare')
+    expect(room.guessing).toBe(true)
+
+    settle({ ok: true })
+    await pending
+    expect(room.guessing).toBe(false)
+  })
+
+  it('clears when the emit rejects', async () => {
+    const room = useRoomStore()
+    vi.mocked(emitAck).mockRejectedValue(new Error('timeout'))
+
+    await room.submitGuess('mare')
+
+    expect(room.guessing).toBe(false)
+    expect(room.error).toBe('timeout')
+  })
+
+  it('ignores a second guess while one is in flight', async () => {
+    const room = useRoomStore()
+    vi.mocked(emitAck).mockReturnValue(new Promise(() => {})) // never settles
+
+    room.submitGuess('mare')
+    const second = await room.submitGuess('pony')
+
+    expect(second).toEqual({ ok: false, error: 'guess_in_flight' })
+    expect(emitAck).toHaveBeenCalledTimes(1)
+  })
+})

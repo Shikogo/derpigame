@@ -28,7 +28,7 @@ watch(
 
 async function submit(): Promise<void> {
   const value = guess.value.trim()
-  if (!value || !game.isMyTurn) return
+  if (!value || !game.isMyTurn || room.guessing) return
   guess.value = ''
   await room.submitGuess(value)
 }
@@ -47,10 +47,14 @@ async function submit(): Promise<void> {
     />
     <button
       type="submit"
-      :disabled="!game.isMyTurn || !guess.trim()"
-      class="rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-on-accent disabled:opacity-40"
+      :disabled="!game.isMyTurn || !guess.trim() || room.guessing"
+      class="flex min-w-20 items-center justify-center rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-on-accent disabled:opacity-40"
     >
-      Guess
+      <span
+        v-if="room.guessing"
+        class="h-4 w-4 animate-spin rounded-full border-2 border-on-accent/30 border-t-on-accent"
+      />
+      <template v-else>Guess</template>
     </button>
   </form>
 </template>

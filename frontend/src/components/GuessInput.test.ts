@@ -77,6 +77,41 @@ describe('GuessInput', () => {
     wrapper.unmount()
   })
 
+  it('spins the button while a guess is in flight, leaving the box usable', async () => {
+    const session = useSessionStore()
+    const game = useGameStore()
+    game.state.activePlayerUuid = session.uuid
+
+    const room = useRoomStore()
+    const wrapper = mount(GuessInput)
+
+    expect(wrapper.find('button span.animate-spin').exists()).toBe(false)
+
+    room.guessing = true
+    await nextTick()
+
+    expect(wrapper.find('button span.animate-spin').exists()).toBe(true)
+    expect((wrapper.find('button').element as HTMLButtonElement).disabled).toBe(true)
+    // The box stays enabled so it keeps focus for the next guess this turn.
+    expect((wrapper.find('input').element as HTMLInputElement).disabled).toBe(false)
+  })
+
+  it('does not submit while a guess is already in flight', async () => {
+    const session = useSessionStore()
+    const game = useGameStore()
+    game.state.activePlayerUuid = session.uuid
+
+    const room = useRoomStore()
+    room.guessing = true
+    const guess = vi.spyOn(room, 'submitGuess').mockResolvedValue({ ok: true })
+
+    const wrapper = mount(GuessInput)
+    await wrapper.find('input').setValue('mare')
+    await wrapper.find('form').trigger('submit')
+
+    expect(guess).not.toHaveBeenCalled()
+  })
+
   it('does not submit an empty or whitespace-only guess', async () => {
     const session = useSessionStore()
     const game = useGameStore()
