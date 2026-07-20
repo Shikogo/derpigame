@@ -1,0 +1,37 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "W",    # warnings
+    "I",    # import sorting
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "C4",   # comprehensions
+    "SIM",  # simplify
+    "TID",  # tidy imports — carries the layering rule below
+]
+
+# The domain layer is pure game rules: no framework, no I/O, and no reaching
+# "up" into the layers that orchestrate it. Banned here rather than by
+# convention because it's the constraint most likely to erode unnoticed.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"fastapi".msg = "domain must stay framework-free"
+"socketio".msg = "domain must stay framework-free"
+"starlette".msg = "domain must stay framework-free"
+"uvicorn".msg = "domain must stay framework-free"
+"httpx".msg = "domain must stay I/O-free"
+"aiohttp".msg = "domain must stay I/O-free"
+"pydantic_settings".msg = "domain takes config as arguments, not from settings"
+"app.config".msg = "domain takes config as arguments, not from settings"
+"app.service".msg = "dependencies point inward: service imports domain, not the reverse"
+"app.transport".msg = "dependencies point inward: transport imports domain, not the reverse"
+"app.persistence".msg = "dependencies point inward: persistence imports domain, not the reverse"
+
+[tool.ruff.lint.per-file-ignores]
+# The ban list above is the domain's alone; everywhere else may import freely.
+"!app/domain/**" = ["TID251"]

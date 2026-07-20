@@ -6,3 +6,4 @@ httpx
 pytest
 pytest-asyncio
 aiohttp  # Socket.IO async client for smoke/integration tests
+ruff  # lint + the domain layering rule (configured in pyproject.toml)
