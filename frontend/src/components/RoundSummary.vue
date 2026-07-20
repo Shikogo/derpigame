@@ -53,7 +53,7 @@ const bucketKeys = computed(() => Object.keys(game.state.bonusCounts))
         class="flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:gap-3"
       >
         <span
-          class="font-mono text-xs uppercase sm:w-16 sm:shrink-0 sm:text-right"
+          class="font-mono text-xs uppercase sm:w-20 sm:shrink-0 sm:text-right"
           :style="{ color: bucketColor(group.bucket, bucketKeys) }"
         >
           {{ group.bucket }}
