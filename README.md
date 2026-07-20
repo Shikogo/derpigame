@@ -4,12 +4,11 @@ A real-time multiplayer party game: players join a room, get a random image from
 Derpibooru, and take turns guessing its tags. Three wrong guesses eliminate you;
 most points when the tags are all guessed (or everyone's out) wins.
 
-This repo is a rewrite of the legacy Flask app into a **FastAPI + python-socketio**
-backend and a **Vue** frontend. The core rewrite is complete and playable
-end-to-end — both layers are built and tested; a database and user accounts are
-the main pieces still to come (room history and stats are in-memory for now). See
-[`derpigame-rewrite-plan.md`](derpigame-rewrite-plan.md) for the architecture and
-remaining phases.
+A **FastAPI + python-socketio** backend with a **Vue** frontend. The game is
+complete and playable end-to-end — both layers are built and tested; a database
+and user accounts are the main pieces still to come (room history and stats are
+in-memory for now). See [`ROADMAP.md`](ROADMAP.md) for what's left and
+[`DEVELOPMENT.md`](DEVELOPMENT.md) for the lint/format/test commands.
 
 ## Repo layout
 

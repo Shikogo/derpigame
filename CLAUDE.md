@@ -4,51 +4,78 @@ Guidance for working in this repo.
 
 ## What this is
 
-A rewrite of `derpigame-legacy` (Flask + Flask-SocketIO + server-rendered Jinja)
-into a Vue frontend backed by a FastAPI + python-socketio API/WebSocket layer.
-It's a real-time multiplayer party game: players join a room, get a random image
-from Derpibooru, and take turns guessing its tags.
+A real-time multiplayer party game: players join a room, get a random image from
+Derpibooru, and take turns guessing its tags. Vue frontend, FastAPI +
+python-socketio backend.
 
-The full rewrite plan lives in `derpigame-rewrite-plan.md` — read it for the
-architecture rationale, known legacy bugs, and build phases.
+The core is built and playable. `ROADMAP.md` tracks what's left — config,
+persistence, a hardened image client, e621, accounts, deployment.
 
 ## Repo layout
 
 - `backend/` — FastAPI + python-socketio. Layered (see below).
-- `frontend/` — Vue app (Vite + Pinia + Vue Router). Not scaffolded yet.
-- The legacy app is at `../derpigame-legacy` for reference (not part of this repo).
+- `frontend/` — Vue app (Vite + Pinia + Vue Router + Tailwind).
 
 ## Backend architecture
 
 Strict layering — keep dependencies pointing one direction:
 
 - `app/domain/` — pure game rules (`Game`, `Room`, `User`, `TagTaxonomy`,
-  `TagBucket`). **No framework imports** (no FastAPI, no socketio, no HTTP).
-  Tag classification is a data-driven `TagTaxonomy` value object injected into
-  `Game`, not a per-source `TagType`. Methods return result
-  objects describing what happened; they don't emit or render. This is what
-  makes the domain unit-testable without an app context.
+  `TagBucket`). **No framework imports** (no FastAPI, no socketio, no HTTP) and
+  no importing an outer layer. Tag classification is a data-driven `TagTaxonomy`
+  value object injected into `Game`. Methods return event objects describing what
+  happened; they don't emit or render. This is what makes the domain
+  unit-testable without an app context.
 - `app/service/` — orchestrates domain objects, image sources, persistence.
 - `app/transport/` — thin FastAPI + socketio adapters: parse message, call
   service, serialize result to JSON, emit.
 - `app/persistence/` — repositories (DB access), swappable/mockable.
 - `app/config/` — centralized Pydantic `Settings`, injected.
 
-If you find yourself importing socketio or FastAPI into `domain/`, stop — the
-logic belongs in a different layer.
+This is enforced, not just documented: ruff fails the lint if `domain/` imports a
+framework, an HTTP client, or any outer layer. If you hit that error, the fix is
+almost never an ignore — the logic belongs in `service/`.
 
-## Porting mindset
+The frontend mirrors the same discipline: a pure `(state, event) => state`
+reducer (`src/game/reducer.ts`) holds the game-view logic with no Vue or socket
+dependency, and Pinia stores are a thin reactive shell over it.
 
-This is a rewrite, not a transcription. The legacy code is low quality — you're
-**encouraged to suggest improvements** to game logic, structure, naming, and
-behavior as you port, rather than faithfully reproducing legacy quirks. When you
-spot a legacy bug or an odd behavior, flag it and propose the fix instead of
-silently carrying it over. Preserving intended game rules matters; preserving
-accidental behavior does not.
+## Checks — run these before committing
+
+Backend, from `backend/`:
+
+```bash
+.venv/bin/ruff check app tests && .venv/bin/ruff format app tests
+.venv/bin/python -m pytest
+```
+
+Frontend, from `frontend/`:
+
+```bash
+npm run lint && npm run format && npm run typecheck && npm run test
+```
+
+Nothing runs these automatically — there's no CI or pre-commit hook, so they're
+easy to forget. `DEVELOPMENT.md` has the details, including why the configs are
+the way they are; don't add layout rules to ESLint (Prettier owns formatting) and
+use `npm run typecheck`, never `tsc --noEmit`.
+
+## Working style
+
+- New logic ships with unit tests, frontend included — not just backend.
+  Presentation-only tweaks don't need them.
+- Suggest improvements rather than doing the literal thing asked when the literal
+  thing is worse. Flag odd behavior instead of quietly working around it.
+- Verify multiplayer flows by hand in the browser (two tabs, or `./run-local.sh
+  --dev`). There's no e2e suite by choice.
+- The wire contract lives in two mirrored places: the Python serializers
+  (`app/service/serialization.py`, `app/transport/`) and `src/types/wire.ts`.
+  Change both together — there's no case-translation layer.
 
 ## Conventions
 
 - **Commits: Conventional Commits** (`feat:`, `fix:`, `refactor:`, `test:`,
   `docs:`, `chore:`, etc.). Scope optional, e.g. `feat(domain): add turn rotation`.
-- Wire protocol is **JSON**, not HTML fragments (unlike the legacy app).
+- Commit finished work before starting something unrelated — especially before a
+  formatter or codemod, which can't be unpicked per-hunk afterwards.
 - Only commit or push when asked.
