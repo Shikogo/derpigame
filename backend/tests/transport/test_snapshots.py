@@ -1,12 +1,14 @@
 """room_state: the whole-snapshot lobby view broadcast on any lobby change."""
 
-from app.domain.room import DEFAULT_MIN_SCORE, DEFAULT_MIN_TAG_COUNT, Room
+from app.domain.room import Room
 from app.domain.user import User
 from app.transport.snapshots import room_state
 
 
 def _room_with_users() -> Room:
-    room = Room("happy-derpy-pony", nsfw=True, query=["cute", "pony"])
+    room = Room(
+        "happy-derpy-pony", nsfw=True, query=["cute", "pony"], min_tag_count=15, min_score=10
+    )
     alice = User("ua", "Alice")
     alice.ready = True
     room.add_user(alice)
@@ -20,8 +22,8 @@ def test_snapshot_carries_config_and_roster():
     assert snap["room"] == "happy-derpy-pony"
     assert snap["query"] == ["cute", "pony"]
     assert snap["nsfw"] is True
-    assert snap["min_tag_count"] == DEFAULT_MIN_TAG_COUNT
-    assert snap["min_score"] == DEFAULT_MIN_SCORE
+    assert snap["min_tag_count"] == 15
+    assert snap["min_score"] == 10
     assert snap["rating_caps"] == {}  # uncapped until a host says otherwise
     assert snap["in_progress"] is False
     assert snap["users"] == [

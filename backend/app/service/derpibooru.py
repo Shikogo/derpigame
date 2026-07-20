@@ -20,34 +20,17 @@ import urllib.parse
 
 import httpx
 
+from app.config import DerpibooruSettings
 from app.domain.rating import DERPIBOORU_AXES, RatingAxis
 from app.service.image_source import Image, ImageSource, ImageSourceError, SearchOptions
 from app.service.tag_resolver import TagResolver
 
 _SEARCH_URL = "https://derpibooru.org/api/v1/json/search/images"
 _TAGS_URL = "https://derpibooru.org/api/v1/json/search/tags"
-_USER_AGENT = "derpigame/0.1 (https://github.com/Shikogo/derpigame)"
-# Sent explicitly so we never inherit the anonymous site default (a legacy filter
-# that surfaces AI-generated content). Sfw rooms get the system "Default" filter,
-# a hard server-side gate on everything above suggestive. Nsfw rooms get a public
-# custom filter that blocks AI art but permits every rating tag, so the room's own
-# caps — not the filter — decide how far a game goes.
-#
-# A filter Derpibooru won't serve is *silently* replaced with the anonymous
-# default rather than refused, so a private or invalid id degrades quietly.
-# Verify a new id by checking that a search returns different totals.
-_DEFAULT_FILTER_ID = "100073"
-_NSFW_FILTER_ID = "232619"
 # Videos have no still representation — every size is a .webm — so the viewer has
 # nothing to show. Excluded by mime type, not the "webm" tag: a few dozen uploads
 # carry the mime type without the tag. webm is currently the only video type.
 _EXCLUDE_VIDEO = "-mime_type:video/webm"
-
-# Back-off durations (seconds) per Derpibooru's API rules.
-_CHALLENGE_BACKOFF = 5.0  # 501 text/html anti-bot challenge: silence ≥5s
-_BLOCK_BACKOFF = 15 * 60.0  # 500 empty body: IP blocked ≥15min; a request resets it
-_FAILURE_BACKOFF_BASE = 1.0  # other failures back off exponentially from here...
-_FAILURE_BACKOFF_MAX = 60.0  # ...capped here
 
 # Reverse of Derpibooru's tag-name → slug escaping, applied after url-decoding
 # (which turns the "+" space escape back into a space). Order mirrors the reverse
@@ -70,13 +53,11 @@ class DerpibooruClient(ImageSource, TagResolver):
     def __init__(
         self,
         *,
-        api_key: str | None = None,
-        timeout: float = 10.0,
+        config: DerpibooruSettings | None = None,
         client: httpx.AsyncClient | None = None,
         clock=time.monotonic,
     ):
-        self._api_key = api_key
-        self._timeout = timeout
+        self._config = config or DerpibooruSettings()
         self._client = client  # an injected client is reused (and owned) by the caller
         self._clock = clock
         self._cooldown_until = 0.0
@@ -91,10 +72,12 @@ class DerpibooruClient(ImageSource, TagResolver):
             "q": ",".join([*terms, _EXCLUDE_VIDEO, *self._filter_terms(options)]),
             "sf": "random",
             "per_page": 1,
-            "filter_id": _NSFW_FILTER_ID if options.nsfw else _DEFAULT_FILTER_ID,
+            "filter_id": (
+                self._config.nsfw_filter_id if options.nsfw else self._config.default_filter_id
+            ),
         }
-        if self._api_key:
-            params["key"] = self._api_key
+        if self._config.api_key:
+            params["key"] = self._config.api_key
 
         payload = await self._get(_SEARCH_URL, params)
         images = payload.get("images") or []
@@ -113,8 +96,8 @@ class DerpibooruClient(ImageSource, TagResolver):
             return self._alias_cache[key]
 
         params = {"q": f"aliases:{key}", "per_page": 1}
-        if self._api_key:
-            params["key"] = self._api_key
+        if self._config.api_key:
+            params["key"] = self._config.api_key
         try:
             self._guard_cooldown()  # don't resolve while we owe the server a back-off
             payload = await self._get(_TAGS_URL, params)
@@ -154,7 +137,7 @@ class DerpibooruClient(ImageSource, TagResolver):
             raise ImageSourceError(f"backing off from Derpibooru for {remaining:.0f}s")
 
     async def _get(self, url: str, params: dict) -> dict:
-        headers = {"User-Agent": _USER_AGENT}
+        headers = {"User-Agent": self._config.user_agent}
         try:
             response = await self._request(url, params, headers)
         except httpx.HTTPError as exc:  # transport error / timeout
@@ -163,11 +146,16 @@ class DerpibooruClient(ImageSource, TagResolver):
 
         status = response.status_code
         if status == 501:  # anti-bot challenge (text/html body)
-            self._cooldown(_CHALLENGE_BACKOFF)
-            raise ImageSourceError("Derpibooru anti-bot challenge (501); backing off 5s")
-        if status == 500:  # IP blocked; sending again resets the 15min timer
-            self._cooldown(_BLOCK_BACKOFF)
-            raise ImageSourceError("Derpibooru block (500); backing off 15min")
+            self._cooldown(self._config.challenge_backoff)
+            raise ImageSourceError(
+                f"Derpibooru anti-bot challenge (501); backing off "
+                f"{self._config.challenge_backoff:.0f}s"
+            )
+        if status == 500:  # IP blocked; sending again resets the timer
+            self._cooldown(self._config.block_backoff)
+            raise ImageSourceError(
+                f"Derpibooru block (500); backing off {self._config.block_backoff / 60:.0f}min"
+            )
         if status >= 400:
             self._back_off_failure()
             raise ImageSourceError(f"Derpibooru returned HTTP {status}")
@@ -184,7 +172,7 @@ class DerpibooruClient(ImageSource, TagResolver):
     async def _request(self, url: str, params: dict, headers: dict) -> httpx.Response:
         if self._client is not None:
             return await self._client.get(url, params=params, headers=headers)
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with httpx.AsyncClient(timeout=self._config.timeout) as client:
             return await client.get(url, params=params, headers=headers)
 
     def _cooldown(self, seconds: float) -> None:
@@ -192,7 +180,8 @@ class DerpibooruClient(ImageSource, TagResolver):
 
     def _back_off_failure(self) -> None:
         self._failure_backoff = min(
-            max(self._failure_backoff * 2, _FAILURE_BACKOFF_BASE), _FAILURE_BACKOFF_MAX
+            max(self._failure_backoff * 2, self._config.failure_backoff_base),
+            self._config.failure_backoff_max,
         )
         self._cooldown(self._failure_backoff)
 

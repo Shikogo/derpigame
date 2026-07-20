@@ -9,22 +9,24 @@ from .game import Game
 from .player import Player
 from .user import User
 
-# Filters applied unless a room says otherwise: enough tags to make a round
-# worth playing, and enough score to skip the junk and troll uploads. Both cost
-# little of the available pool.
-DEFAULT_MIN_TAG_COUNT = 15
-DEFAULT_MIN_SCORE = 10
-
 
 class Room:
+    """A room's membership, search config, and current game.
+
+    Every argument defaults to off/empty rather than to a house policy: how
+    strict a new room should be is a deployment choice, so the real values come
+    from ``config.toml`` via the composition root's room factory. A bare
+    ``Room(name)`` is the unopinionated baseline, not what players actually get.
+    """
+
     def __init__(
         self,
         name: str,
         nsfw: bool = False,
         query: list[str] | None = None,
         turn_seconds: float | None = None,
-        min_tag_count: int | None = DEFAULT_MIN_TAG_COUNT,
-        min_score: int | None = DEFAULT_MIN_SCORE,
+        min_tag_count: int | None = None,
+        min_score: int | None = None,
         rating_caps: dict[str, str] | None = None,
     ):
         self.name = name

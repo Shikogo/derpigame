@@ -4,6 +4,8 @@ These run with no framework or app context: build a Game, drive it with
 guesses/timeouts, and assert on the returned event objects and state.
 """
 
+from dataclasses import replace
+
 import pytest
 
 from app.domain.events import (
@@ -20,8 +22,16 @@ from app.domain.events import (
 )
 from app.domain.game import Game
 from app.domain.player import Player
-from app.domain.tag_taxonomy import TagTaxonomy
+from app.domain.tag_taxonomy import DERPIBOORU_TAXONOMY, TagTaxonomy
 from app.domain.user import User
+
+# Which housekeeping tags to ignore is curation and lives in config.toml, not in
+# the taxonomy constant — so a test that exercises dropping them brings its own.
+CURATED_TAXONOMY = replace(
+    DERPIBOORU_TAXONOMY,
+    ignored_tags=frozenset({"source needed", "dead source"}),
+    ignored_prefixes=("spoiler:",),
+)
 
 
 def make_players(*names: str) -> list[Player]:
@@ -58,6 +68,7 @@ def test_tags_are_bucketed_by_kind():
     game = make_game(
         tags=["solo", "artist:foo", "oc:bar", "spoiler:reveal", "safe"],
         query=["cute"],
+        taxonomy=CURATED_TAXONOMY,
     )
     assert game.tag_buckets["tags"].tags == ["solo"]
     assert game.tag_buckets["artists"].tags == ["artist:foo"]
@@ -84,7 +95,11 @@ def test_a_query_term_that_is_not_a_tag_is_no_freebie():
 
 def test_ignored_tags_do_not_gate_a_win():
     # Unguessable source-link housekeeping shouldn't land in the goal bucket.
-    game = make_game(tags=["solo", "source needed", "dead source"], first_index=0)
+    game = make_game(
+        tags=["solo", "source needed", "dead source"],
+        first_index=0,
+        taxonomy=CURATED_TAXONOMY,
+    )
     assert game.tag_buckets["tags"].tags == ["solo"]
     events = game.start()
     assert only(events, GameStarted).tag_count == 1
@@ -142,7 +157,7 @@ def test_rating_tag_is_rejected_without_penalty():
 
 
 def test_ignored_tag_is_rejected_without_penalty():
-    game = make_game(tags=["solo"], first_index=0)
+    game = make_game(tags=["solo"], first_index=0, taxonomy=CURATED_TAXONOMY)
     events = game.submit_guess("source needed")
     assert only(events, GuessRejected).reason is RejectReason.IGNORED_TAG
     assert game.active_player.name == "alice"  # keeps the turn
@@ -465,6 +480,7 @@ def test_recognizes_known_and_benign_guesses():
         tags=["solo", "artist:foo", "source needed"],
         players=["alice", "bob"],
         query=["cute"],
+        taxonomy=CURATED_TAXONOMY,
     )
     assert game.recognizes("solo")  # a goal-bucket tag
     assert game.recognizes("artist:foo")  # a namespaced-bucket tag

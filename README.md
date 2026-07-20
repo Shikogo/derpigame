@@ -48,6 +48,30 @@ server instead — it serves a fixed image from a static source:
 .venv/bin/uvicorn dev_server:app --reload   # http://localhost:8000
 ```
 
+### Configuration
+
+Server settings live in `backend/config.toml` — the ignored-tag list, the
+defaults a new room opens with, the game rules, provider settings, and the limits
+on what a client may ask for. It's checked in and commented; edit it and restart.
+
+Secrets and per-deployment values belong in the environment instead. Any field
+can be overridden as `DERPIGAME_<SECTION>__<FIELD>` (double underscore before the
+field), either exported or dropped in `backend/.env`:
+
+```bash
+cd backend
+cp .env.example .env   # then fill in what you need
+
+DERPIGAME_DERPIBOORU__API_KEY=...            # optional; raises the rate limit
+DERPIGAME_SERVER__CORS_ORIGINS='["https://example.com"]'
+DERPIGAME_ROOM_DEFAULTS__TURN_SECONDS=90
+```
+
+Precedence is environment → `.env` → `config.toml` → built-in defaults. Every
+field is validated at startup and unknown keys are rejected, so a typo fails
+loudly instead of silently doing nothing. Settings are read in one place
+(`create_app`) and injected from there — nothing deeper reaches for them.
+
 ### Running tests
 
 The domain layer is pure (no framework or app context), so the suite runs in

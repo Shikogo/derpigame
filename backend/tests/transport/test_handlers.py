@@ -10,12 +10,15 @@ import asyncio
 
 import pytest
 
+from app.config import LimitsSettings
 from app.domain.rating import DERPIBOORU_AXES
 from app.service.game_service import GameService
 from app.service.image_source import Image, StaticImageSource
 from app.transport.emitter import SocketIOEmitter
-from app.transport.handlers import MAX_QUERY_TERMS, SocketHandlers
+from app.transport.handlers import SocketHandlers
 from app.transport.registry import RoomRegistry
+
+MAX_QUERY_TERMS = LimitsSettings().max_query_terms
 
 
 class FakeServer:

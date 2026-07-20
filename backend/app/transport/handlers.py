@@ -9,6 +9,7 @@ parse, dispatch, and translate — nothing more.
 
 import asyncio
 
+from app.config import LimitsSettings
 from app.domain.user import User
 from app.service.errors import GameActionError, NotYourTurn
 from app.service.game_service import GameService
@@ -17,7 +18,6 @@ from app.transport.room_codes import new_code
 from app.transport.snapshots import room_state
 
 _ALLOCATE_ATTEMPTS = 10  # fresh code draws before giving up (collisions are rare)
-_RECONNECT_GRACE_SECONDS = 30.0  # keep a drained room this long for a reload/reconnect
 
 
 def _ok(**extra) -> dict:
@@ -28,28 +28,21 @@ def _err(error: str, **extra) -> dict:
     return {"ok": False, "error": error, **extra}
 
 
-MAX_QUERY_TERMS = 24  # nobody types this many; an unbounded query is an abuse vector
-
-
-def _parse_query(raw) -> list[str]:
+def _parse_query(raw, *, max_terms: int) -> list[str]:
     """Normalize a query payload (list, or newline/comma-separated string) to tags.
 
-    Truncated to ``MAX_QUERY_TERMS`` — the query drives both the search string and
-    a round's alias lookups, so its length can't be the client's to choose.
+    Truncated to ``max_terms`` — the query drives both the search string and a
+    round's alias lookups, so its length can't be the client's to choose.
     """
     parts = raw.replace("\n", ",").split(",") if isinstance(raw, str) else list(raw)
     tags = [tag for tag in (str(part).strip() for part in parts) if tag]
-    return tags[:MAX_QUERY_TERMS]
+    return tags[:max_terms]
 
 
-MIN_TURN_SECONDS = 10.0
-MAX_TURN_SECONDS = 300.0
-
-
-def _parse_turn_seconds(raw) -> float | None:
+def _parse_turn_seconds(raw, *, minimum: float, maximum: float) -> float | None:
     """Clamp a turn-length setting to whole seconds in range; None if unparseable."""
     try:
-        return float(max(MIN_TURN_SECONDS, min(MAX_TURN_SECONDS, round(float(raw)))))
+        return float(max(minimum, min(maximum, round(float(raw)))))
     except (TypeError, ValueError):
         return None
 
@@ -78,12 +71,18 @@ class SocketHandlers:
         registry: RoomRegistry,
         service: GameService,
         *,
-        reconnect_grace: float = _RECONNECT_GRACE_SECONDS,
+        limits: LimitsSettings | None = None,
+        reconnect_grace: float | None = None,
     ):
         self._sio = sio
         self._registry = registry
         self._service = service
-        self._reconnect_grace = reconnect_grace
+        self._limits = limits or LimitsSettings()
+        # An explicit grace wins over the configured one, so a test can shorten it
+        # without standing up a whole settings object.
+        self._reconnect_grace = (
+            self._limits.reconnect_grace_seconds if reconnect_grace is None else reconnect_grace
+        )
         self._owner: dict[str, str] = {}  # uuid -> the sid that currently holds it
         self._grace: dict[str, asyncio.Task] = {}  # uuid -> pending teardown
 
@@ -138,7 +137,7 @@ class SocketHandlers:
         if "nsfw" in data:
             room.nsfw = bool(data["nsfw"])
         if "query" in data:
-            room.query = _parse_query(data["query"])
+            room.query = self._parse_query(data["query"])
 
         return await self._join(sid, room, name, uuid)
 
@@ -187,11 +186,11 @@ class SocketHandlers:
             return _err("game_in_progress")
         data = data or {}
         if "query" in data:
-            room.query = _parse_query(data["query"])
+            room.query = self._parse_query(data["query"])
         if "nsfw" in data:
             room.nsfw = bool(data["nsfw"])
         if "turn_seconds" in data:
-            seconds = _parse_turn_seconds(data["turn_seconds"])
+            seconds = self._parse_turn_seconds(data["turn_seconds"])
             if seconds is not None:
                 room.turn_seconds = seconds
         if "min_tag_count" in data:
@@ -202,6 +201,16 @@ class SocketHandlers:
             room.rating_caps = self._parse_rating_caps(data["rating_caps"])
         await self._broadcast_state(room)
         return _ok()
+
+    def _parse_query(self, raw) -> list[str]:
+        return _parse_query(raw, max_terms=self._limits.max_query_terms)
+
+    def _parse_turn_seconds(self, raw) -> float | None:
+        return _parse_turn_seconds(
+            raw,
+            minimum=self._limits.min_turn_seconds,
+            maximum=self._limits.max_turn_seconds,
+        )
 
     def _parse_rating_caps(self, raw) -> dict[str, str]:
         """Keep only caps naming a real level on a real axis of the image source.

@@ -14,6 +14,12 @@ picks the taxonomy that matches whichever image source it pulled from.
   guessable, never shown. ``ignored_tags`` covers plain tags that can't be
   derived from the image (source-link housekeeping, say) so they mustn't gate a
   win.
+
+The constants below carry only what's *structural* about a source — its
+namespaces and rating vocabulary, facts you can't change by preferring
+otherwise. Which housekeeping tags to ignore is curation, so it lives in
+``config.toml`` and is applied over the constant at startup; a taxonomy built
+here on its own therefore ignores nothing.
 """
 
 from dataclasses import dataclass
@@ -60,14 +66,4 @@ DERPIBOORU_TAXONOMY = TagTaxonomy(
             "suggestive",
         }
     ),
-    ignored_tags=frozenset(
-        {
-            "dead source",
-            "source needed",
-            "useless source link",
-            "derpibooru exclusive",
-            "youtube link",
-        }
-    ),
-    ignored_prefixes=("spoiler:",),
 )

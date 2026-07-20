@@ -8,6 +8,7 @@ mandatory back-off behavior is testable deterministically.
 import httpx
 import pytest
 
+from app.config import DerpibooruSettings
 from app.service.derpibooru import DerpibooruClient
 from app.service.image_source import ImageSourceError, SearchOptions
 
@@ -39,7 +40,7 @@ class Clock:
         self.now += seconds
 
 
-def make_source(handler, clock=None):
+def make_source(handler, clock=None, config=None):
     """Build a source whose HTTP goes through a recording MockTransport handler."""
     requests = []
 
@@ -48,7 +49,7 @@ def make_source(handler, clock=None):
         return handler(request)
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(recording))
-    source = DerpibooruClient(client=client, clock=clock or (lambda: 0.0))
+    source = DerpibooruClient(client=client, clock=clock or (lambda: 0.0), config=config)
     return source, requests
 
 
@@ -395,3 +396,51 @@ async def test_canonicalize_returns_input_on_transport_error():
     source, _ = make_source(boom)
 
     assert await source.canonicalize("bm") == "bm"  # best-effort: no raise
+
+
+# --- configuration ------------------------------------------------------------
+
+
+async def test_configured_credentials_and_identity_reach_the_request():
+    config = DerpibooruSettings(api_key="s3cret", user_agent="test-agent/9")
+    source, requests = make_source(respond(json=ONE_IMAGE), config=config)
+
+    await source.random_image(["cute"], options=SearchOptions())
+
+    assert requests[0].url.params["key"] == "s3cret"
+    assert requests[0].headers["user-agent"] == "test-agent/9"
+
+
+async def test_configured_filter_ids_are_used_per_room_rating():
+    config = DerpibooruSettings(default_filter_id="111", nsfw_filter_id="222")
+    source, requests = make_source(respond(json=ONE_IMAGE), config=config)
+
+    await source.random_image([], options=SearchOptions(nsfw=False))
+    await source.random_image([], options=SearchOptions(nsfw=True))
+
+    assert requests[0].url.params["filter_id"] == "111"
+    assert requests[1].url.params["filter_id"] == "222"
+
+
+async def test_configured_backoff_governs_the_cooldown():
+    # The back-offs are API-compliance rules, so a config value that didn't reach
+    # the gate would leave us hammering a source that asked for silence.
+    clock = Clock()
+    config = DerpibooruSettings(challenge_backoff=42.0)
+    source, requests = make_source(
+        respond(status=501, content="<html/>"), clock=clock, config=config
+    )
+
+    with pytest.raises(ImageSourceError, match="backing off 42s"):
+        await source.random_image([], options=SearchOptions())
+    assert len(requests) == 1
+
+    clock.advance(41.0)  # still inside the window: refused without touching the network
+    with pytest.raises(ImageSourceError, match="backing off"):
+        await source.random_image([], options=SearchOptions())
+    assert len(requests) == 1
+
+    clock.advance(2.0)  # past it: the request is attempted again
+    with pytest.raises(ImageSourceError):
+        await source.random_image([], options=SearchOptions())
+    assert len(requests) == 2

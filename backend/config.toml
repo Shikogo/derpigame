@@ -1,0 +1,85 @@
+# derpigame server config.
+#
+# Checked in on purpose: this is curation and tuning, the kind of change worth
+# seeing in a diff. Secrets and per-deployment values belong in the environment
+# (or backend/.env, which is gitignored) — every field here can be overridden
+# with DERPIGAME_<SECTION>__<FIELD>, e.g.:
+#
+#   DERPIGAME_DERPIBOORU__API_KEY=...
+#   DERPIGAME_SERVER__CORS_ORIGINS='["https://shikogo.github.io"]'
+#
+# Unknown keys are a startup error, so a typo here won't silently do nothing.
+
+
+[server]
+# Origins allowed to reach the API *and* open the websocket. "*" is fine for
+# local play; narrow this to the real frontend origin before deploying.
+cors_origins = ["*"]
+
+
+[taxonomy]
+# Tags the game refuses to score. These replace the taxonomy's own lists rather
+# than adding to them — this file is the whole truth, so deleting a line here
+# makes that tag guessable again.
+
+# Plain tags that can't be derived from looking at the image. They'd otherwise
+# sit in the goal bucket and block a win nobody could reach.
+ignored_tags = [
+  "commission",
+  "dead source",
+  "derpibooru exclusive",
+  "source needed",
+  "useless source link",
+  "youtube link",
+]
+
+# Whole namespaces to drop. Spoilers name plot points rather than describing the
+# picture, so they're neither guessable nor worth showing.
+ignored_prefixes = ["spoiler:"]
+
+
+[room_defaults]
+# What a new room starts with, before anyone opens the settings panel.
+nsfw = false
+query = []
+turn_seconds = 60.0
+# Enough tags to make a round worth playing; enough score to skip junk uploads.
+# A room can switch either bound off at runtime; TOML has no null, so it can't
+# be done from here — set 0 to make the bound effectively inert instead.
+min_tag_count = 15
+min_score = 10
+# rating_caps maps an axis key to the highest level allowed, both from the image
+# source's vocabulary — e.g. rating = "suggestive", darkness = "none".
+[room_defaults.rating_caps]
+
+
+[game]
+# Wrong guesses (or timeouts) before a player is out.
+elimination_threshold = 3
+# Similarity at or above which a wrong guess is a free retry instead of a strike.
+near_miss_threshold = 0.85
+
+
+[derpibooru]
+timeout = 10.0
+user_agent = "derpigame/0.1 (https://github.com/Shikogo/derpigame)"
+# Sent explicitly so we never inherit the anonymous site default, a legacy filter
+# that surfaces AI-generated content. The nsfw filter blocks AI art but permits
+# every rating tag, so a room's own caps decide how far a game goes.
+default_filter_id = "100073"
+nsfw_filter_id = "232619"
+# Derpibooru's mandatory back-offs. Raising these is always safe; lowering them
+# risks an IP block. api_key belongs in the environment, not here.
+challenge_backoff = 5.0
+block_backoff = 900.0
+failure_backoff_base = 1.0
+failure_backoff_max = 60.0
+
+
+[limits]
+# Bounds on what a client may ask for — abuse control, not gameplay tuning.
+max_query_terms = 24
+min_turn_seconds = 10.0
+max_turn_seconds = 300.0
+max_query_lookups = 8
+reconnect_grace_seconds = 30.0

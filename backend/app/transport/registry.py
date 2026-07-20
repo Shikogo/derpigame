@@ -6,11 +6,17 @@ reaches for a global. In-memory now; a Redis-backed implementation can satisfy
 the same surface later without touching callers.
 """
 
+from collections.abc import Callable
+
 from app.domain.room import Room
 
 
 class RoomRegistry:
-    def __init__(self):
+    """Live rooms by name. ``new_room`` builds one, so the composition root can
+    bake in the configured defaults without the registry knowing what they are."""
+
+    def __init__(self, new_room: Callable[[str], Room] = Room):
+        self._new_room = new_room
         self._rooms: dict[str, Room] = {}
 
     def get(self, name: str) -> Room | None:
@@ -25,7 +31,7 @@ class RoomRegistry:
         """
         if name in self._rooms:
             return None
-        room = Room(name)
+        room = self._new_room(name)
         self._rooms[name] = room
         return room
 

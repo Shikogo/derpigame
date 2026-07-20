@@ -5,11 +5,12 @@ import json
 
 import pytest
 
+from app.config import LimitsSettings
 from app.domain.room import Room
 from app.domain.user import User
 from app.service.emitter import EventEmitter
 from app.service.errors import NotYourTurn
-from app.service.game_service import MAX_QUERY_LOOKUPS, GameService
+from app.service.game_service import GameService
 from app.service.image_source import (
     Image,
     ImageSource,
@@ -742,7 +743,7 @@ async def test_query_alias_lookups_are_capped_per_round():
     room = make_room("alice", query=[f"tag{i}" for i in range(20)])
     await service.start_game(room, first_index=0)
 
-    assert len(resolver.calls) == MAX_QUERY_LOOKUPS
+    assert len(resolver.calls) == LimitsSettings().max_query_lookups
     service.shutdown()
 
 

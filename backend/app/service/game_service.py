@@ -7,6 +7,7 @@ resulting events to the emitter, and drives the turn timer. Because guesses and
 the timer both land here on a single event loop, turn advancement can't race.
 """
 
+from app.config import LimitsSettings, RoomDefaults
 from app.domain.events import GameOver, TurnStarted
 from app.domain.room import Room
 from app.domain.tag_taxonomy import TagTaxonomy
@@ -16,13 +17,6 @@ from app.service.image_source import Image, ImageSource, ImageSourceError, Searc
 from app.service.serialization import serialize_events, serialize_player
 from app.service.tag_resolver import NullTagResolver, TagResolver
 from app.service.turn_timer import TurnTimer
-
-DEFAULT_TURN_SECONDS = 60.0
-
-# Alias lookups spent per round start. A room's query is resolved once and then
-# cached, so this only bounds the first round — and bounds what an oversized
-# query can cost the shared rate limit.
-MAX_QUERY_LOOKUPS = 8
 
 # Query syntax that can't be a single tag: booleans, wildcards, fuzzy matches.
 _OPERATOR_CHARS = set('|&()*~"')
@@ -61,13 +55,17 @@ class GameService:
         emitter: EventEmitter,
         *,
         tag_resolver: TagResolver | None = None,
-        turn_seconds: float = DEFAULT_TURN_SECONDS,
+        turn_seconds: float | None = None,
+        max_query_lookups: int | None = None,
         game_options: dict | None = None,
     ):
         self._images = image_source
         self._resolver = tag_resolver or NullTagResolver()
         self._emitter = emitter
-        self._turn_seconds = turn_seconds
+        self._turn_seconds = RoomDefaults().turn_seconds if turn_seconds is None else turn_seconds
+        self._max_query_lookups = (
+            LimitsSettings().max_query_lookups if max_query_lookups is None else max_query_lookups
+        )
         self._game_options = dict(game_options or {})
         self._timers: dict[str, TurnTimer] = {}
         self._current_image: dict[str, Image] = {}  # image on display, per room
@@ -141,14 +139,14 @@ class GameService:
 
         A term already on the image needs no lookup — the source stores canonical
         tags only, so it's canonical by definition. That leaves only the terms
-        that could be aliases, capped at ``MAX_QUERY_LOOKUPS``. Resolution is
+        that could be aliases, capped at ``max_query_lookups``. Resolution is
         deliberately serial: the resolver stops hitting the network once it owes
         the source a back-off, so a serial pass self-limits after a failure where
         a concurrent one would empty the whole budget into it. Anything left
         literal just means a freebie goes unrecognized.
         """
         known = {tag.lower() for tag in tags}
-        budget = MAX_QUERY_LOOKUPS
+        budget = self._max_query_lookups
         resolved = []
         for term in query:
             if term.lower() not in known and budget and _is_plain_tag(term):

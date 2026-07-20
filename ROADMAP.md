@@ -4,15 +4,8 @@ What's left to build. The core game — domain, service, transport, and the Vue
 frontend — is complete and playable end-to-end; see [`README.md`](README.md) for
 the architecture and how to run it.
 
-Rough order: config and persistence unblock everything else, and accounts must
-land before stats so stats key off a real user ID rather than a session UUID.
-
-## Config
-
-Hardcoded values still live in code: `SECRET_KEY`, the default query, timer
-duration, elimination threshold. Move them into a centralized Pydantic `Settings`
-object in `app/config/`, injected rather than imported. `SECRET_KEY` in
-particular must come from the environment before anything ships publicly.
+Rough order: persistence unblocks the rest, and accounts must land before stats
+so stats key off a real user ID rather than a session UUID.
 
 ## Persistence
 
@@ -69,7 +62,7 @@ Target: $0/month.
 |---|---|---|
 | Frontend | GitHub Pages | Set Vite `base` and the router base to match. Hash mode avoids needing the `404.html` SPA-redirect trick. Deploy via Actions on push to main. |
 | Backend | Render free tier | The remaining permanent free option with WebSocket support (Fly.io and Railway dropped theirs). Spins down when idle — first request after a lull takes ~30–60s. |
-| CORS | Backend config | Pages and Render are different origins; allow the Pages domain for the WebSocket handshake too. |
+| CORS | `DERPIGAME_SERVER__CORS_ORIGINS` | Pages and Render are different origins; allow the Pages domain for the WebSocket handshake too. It defaults to `["*"]`, so this must be narrowed before shipping. |
 
 If cold starts get annoying, Render's paid tier removes spin-down at ~$7/month
 with no architecture change — the single-instance, in-memory design works on both.

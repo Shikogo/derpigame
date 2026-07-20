@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.domain.room import DEFAULT_MIN_SCORE, DEFAULT_MIN_TAG_COUNT, Room
+from app.domain.room import Room
 from app.domain.user import User
 
 
@@ -61,11 +61,11 @@ def test_start_game_excludes_room_query_from_buckets():
     assert game.tag_buckets["tags"].tags == ["solo"]
 
 
-def test_search_settings_default_to_a_playable_pool():
-    """New rooms filter junk and barely-tagged images; rating is uncapped."""
+def test_search_settings_default_to_off():
+    """The domain holds no house policy — config.toml supplies the real defaults."""
     room = Room("lobby")
-    assert room.min_tag_count == DEFAULT_MIN_TAG_COUNT
-    assert room.min_score == DEFAULT_MIN_SCORE
+    assert room.min_tag_count is None
+    assert room.min_score is None
     assert room.rating_caps == {}
 
 
