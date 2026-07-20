@@ -1,11 +1,13 @@
 <script setup lang="ts">
 /**
  * End-of-round screen for both a finished game and an aborted one. Either way it
- * reveals the image attribution (artist + source/derpibooru links) and the tag
- * recap; a finished game also shows winners and standings.
+ * reveals the image — still pan/zoomable, so the tags you missed are worth a
+ * second look — plus its attribution and the tag recap; a finished game also
+ * shows winners and standings.
  */
 import { computed } from 'vue'
 
+import ImageViewer from '@/components/ImageViewer.vue'
 import RoundSummary from '@/components/RoundSummary.vue'
 import { useGameStore } from '@/stores/game'
 import { useSessionStore } from '@/stores/session'
@@ -34,12 +36,10 @@ const heading = computed(() => {
       {{ heading }}
     </h2>
 
-    <div v-if="image" class="overflow-hidden rounded-lg border border-border">
-      <img
-        :src="image.full_url"
-        alt="The revealed image"
-        class="max-h-[50vh] w-full bg-black/80 object-contain"
-      />
+    <!-- Fixed height: the viewer frame needs a definite one to measure against,
+         and the standings below it still have to fit on screen. -->
+    <div v-if="image" class="h-[50vh] overflow-hidden rounded-lg border border-border">
+      <ImageViewer :src="image.full_url" alt="The revealed image" />
     </div>
 
     <div v-if="reveal" class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
