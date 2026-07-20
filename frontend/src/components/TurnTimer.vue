@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
- * Cosmetic per-turn countdown. Its duration comes from the server
- * (`state.turnSeconds`), so it matches the backend's real turn limit, but with
- * no per-turn deadline it may still drift — it never drives game logic.
+ * Cosmetic per-turn countdown. The ring's span is the server's turn limit
+ * (`state.turnSeconds`) and the count starts at `state.turnRemaining`, which is
+ * a full turn normally and the server's leftover on a rejoin. It still drifts
+ * between ticks — it never drives game logic.
  */
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
@@ -13,10 +14,11 @@ const duration = computed(() => game.state.turnSeconds)
 
 // Fractional seconds left, sampled from real elapsed time each frame so the ring
 // depletes smoothly. The label rounds up to whole seconds.
-const remaining = ref(duration.value)
+const remaining = ref(game.state.turnRemaining)
 const label = computed(() => Math.max(0, Math.ceil(remaining.value)))
 
 let start = 0
+let startRemaining = remaining.value
 let frame: number | undefined
 
 // Ring geometry: the arc depletes as the turn runs out (offset 0 = full ring).
@@ -27,14 +29,15 @@ const dashOffset = computed(() =>
 )
 
 function tick(now: number): void {
-  remaining.value = Math.max(0, duration.value - (now - start) / 1000)
+  remaining.value = Math.max(0, startRemaining - (now - start) / 1000)
   if (remaining.value > 0) frame = requestAnimationFrame(tick)
 }
 
 function restart(): void {
   if (frame !== undefined) cancelAnimationFrame(frame)
   start = performance.now()
-  remaining.value = duration.value
+  startRemaining = game.state.turnRemaining
+  remaining.value = startRemaining
   frame = requestAnimationFrame(tick)
 }
 

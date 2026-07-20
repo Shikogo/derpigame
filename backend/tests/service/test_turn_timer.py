@@ -26,6 +26,27 @@ async def test_cancel_prevents_firing():
     assert fired == []
 
 
+async def test_remaining_counts_down_while_armed():
+    timer = TurnTimer()
+    assert timer.remaining is None  # nothing armed yet
+    timer.arm(10.0, lambda: _append([], "x"))
+    first = timer.remaining
+    assert 9.0 < first <= 10.0
+    await asyncio.sleep(0.02)
+    assert timer.remaining < first
+    timer.cancel()
+    assert timer.remaining is None
+
+
+async def test_rearm_refills_remaining():
+    timer = TurnTimer()
+    timer.arm(1.0, lambda: _append([], "x"))
+    await asyncio.sleep(0.02)
+    timer.arm(10.0, lambda: _append([], "y"))
+    assert timer.remaining > 9.0
+    timer.cancel()
+
+
 async def test_rearm_supersedes_the_previous_timer():
     fired: list[str] = []
     timer = TurnTimer()

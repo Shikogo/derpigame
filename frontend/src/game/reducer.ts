@@ -56,6 +56,8 @@ export interface GameState {
   goalTagCount: number
   goalRemaining: number
   turnSeconds: number
+  /** Seconds left when this turn was picked up — a full turn, or less on a rejoin. */
+  turnRemaining: number
   /** Remaining count per bonus bucket, keyed by opaque bucket key. */
   bonusCounts: Record<BucketKey, number>
   /** Players seen so far this round, keyed by uuid (latest score snapshot). */
@@ -81,6 +83,7 @@ export function initialGameState(): GameState {
     goalTagCount: 0,
     goalRemaining: 0,
     turnSeconds: DEFAULT_TURN_SECONDS,
+    turnRemaining: DEFAULT_TURN_SECONDS,
     bonusCounts: {},
     players: {},
     eliminated: [],
@@ -113,6 +116,7 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
         goalTagCount: event.tag_count,
         goalRemaining: event.tag_count,
         turnSeconds: event.turn_seconds,
+        turnRemaining: event.turn_seconds,
         bonusCounts: { ...event.bonus_counts },
         players,
         ...withFeed(prev, ...freebies(event.freebie_tags)),
@@ -122,7 +126,14 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
     case 'turn_started': {
       const players = { ...prev.players }
       recordPlayer(players, event.player)
-      return { ...prev, activePlayerUuid: event.player.uuid, turnSeq: prev.turnSeq + 1, players }
+      return {
+        ...prev,
+        activePlayerUuid: event.player.uuid,
+        turnSeq: prev.turnSeq + 1,
+        // Back to a full clock, clearing any partial value a snapshot left behind.
+        turnRemaining: prev.turnSeconds,
+        players,
+      }
     }
 
     case 'correct_guess': {
@@ -237,13 +248,20 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
       }
 
     case 'game_snapshot': {
-      // A (re)join into a live round: rebuild the game view from scratch. The
-      // feed starts at the round's freebies — past guesses aren't replayed.
+      // A (re)join into a live round: rebuild the game view from scratch, then
+      // replay the round's guesses so the feed matches what a client that never
+      // left is showing. Only feed/feedSeq are kept from the replay — the
+      // snapshot's own fields are applied last, so its authoritative counts and
+      // scores win over the stale ones those historical events carry.
       const players: Record<string, Player> = {}
       for (const p of event.players) recordPlayer(players, p)
       const base = initialGameState()
+      const replayed = reduceAll(
+        { ...base, ...withFeed(base, ...freebies(event.freebie_tags)) },
+        event.feed,
+      )
       return {
-        ...base,
+        ...replayed,
         status: 'active',
         image: {
           id: event.image.id,
@@ -251,13 +269,16 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
           full_url: event.image.full_url,
         },
         activePlayerUuid: event.active_player.uuid,
+        // Always a new turn from the clock's point of view, so it restarts at
+        // turn_remaining even when the snapshot lands on turnSeq 0.
+        turnSeq: prev.turnSeq + 1,
         goalTagCount: event.tag_count,
         goalRemaining: event.goal_remaining,
         turnSeconds: event.turn_seconds,
+        turnRemaining: event.turn_remaining,
         bonusCounts: { ...event.bonus_counts },
         players,
         eliminated: [...event.eliminated],
-        ...withFeed(base, ...freebies(event.freebie_tags)),
       }
     }
 

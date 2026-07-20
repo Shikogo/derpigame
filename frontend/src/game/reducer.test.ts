@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { type GameState, initialGameState, reduce, reduceAll } from './reducer'
-import type { GameEvent, Player } from '@/types/wire'
+import type { GameEvent, GameSnapshot, Player } from '@/types/wire'
 
 const alice: Player = { uuid: 'a', name: 'Alice', score: 0, wrong_guesses: 0 }
 const bob: Player = { uuid: 'b', name: 'Bob', score: 0, wrong_guesses: 0 }
@@ -26,6 +26,25 @@ function openedGame(freebieTags: string[] = []): GameState {
     { type: 'turn_started', player: alice },
   ]
   return reduceAll(initialGameState(), events)
+}
+
+/** A minimal live-round snapshot; override just the fields under test. */
+function snapshot(over: Partial<GameSnapshot>): GameSnapshot {
+  return {
+    type: 'game_snapshot',
+    image: { id: '7', thumb_url: 't', full_url: 'f' },
+    players: [alice, bob],
+    active_player: bob,
+    freebie_tags: [],
+    tag_count: 3,
+    goal_remaining: 3,
+    bonus_counts: {},
+    eliminated: [],
+    turn_seconds: 30,
+    turn_remaining: 30,
+    feed: [],
+    ...over,
+  }
 }
 
 describe('reduce', () => {
@@ -236,6 +255,8 @@ describe('reduce', () => {
       bonus_counts: { artists: 2 },
       eliminated: ['c'],
       turn_seconds: 20,
+      turn_remaining: 12,
+      feed: [],
     })
     expect(s.status).toBe('active')
     expect(s.feed).toEqual([
@@ -250,6 +271,73 @@ describe('reduce', () => {
     expect(s.bonusCounts).toEqual({ artists: 2 })
     expect(s.players.a?.score).toBe(2)
     expect(s.eliminated).toEqual(['c'])
+  })
+
+  it('game_snapshot resumes the clock mid-turn instead of restarting it', () => {
+    const prev = openedGame()
+    const s = reduce(prev, snapshot({ turn_seconds: 20, turn_remaining: 12 }))
+    expect(s.turnSeconds).toBe(20)
+    expect(s.turnRemaining).toBe(12)
+    // A bumped turnSeq is what makes the clock component pick the value up.
+    expect(s.turnSeq).toBe(prev.turnSeq + 1)
+  })
+
+  it('game_snapshot replays the round guesses after the freebies', () => {
+    const s = reduce(initialGameState(), {
+      ...snapshot({}),
+      freebie_tags: ['safe'],
+      feed: [
+        {
+          type: 'correct_guess',
+          player: player(alice, { score: 1 }),
+          guess: 'mare',
+          tag_type: 'tags',
+          remaining: 2,
+        },
+        {
+          type: 'wrong_guess',
+          player: player(bob, { wrong_guesses: 1 }),
+          guess: 'nope',
+          wrong_count: 1,
+        },
+        { type: 'near_miss', player: bob, guess: 'twilite', closeness: 0.8 },
+        { type: 'timeout', player: bob, wrong_count: 2 },
+        { type: 'guess_rejected', guess: 'mare', reason: 'already_guessed' },
+        { type: 'player_eliminated', player: bob },
+      ],
+    })
+    expect(s.feed).toEqual([
+      { seq: 1, kind: 'freebie', guess: 'safe' },
+      { seq: 2, kind: 'correct', player: 'Alice', guess: 'mare' },
+      { seq: 3, kind: 'wrong', player: 'Bob', guess: 'nope' },
+      { seq: 4, kind: 'near_miss', player: 'Bob', guess: 'twilite', closeness: 0.8 },
+      { seq: 5, kind: 'timeout', player: 'Bob' },
+      { seq: 6, kind: 'rejected', guess: 'mare', reason: 'already_guessed' },
+      { seq: 7, kind: 'eliminated', player: 'Bob' },
+    ])
+  })
+
+  it("game_snapshot's own counts win over the stale ones in the replayed feed", () => {
+    const s = reduce(initialGameState(), {
+      ...snapshot({ goal_remaining: 1, bonus_counts: { artists: 2 } }),
+      players: [player(alice, { score: 5 })],
+      eliminated: [],
+      // Historical events carrying long-superseded scores and counts.
+      feed: [
+        {
+          type: 'correct_guess',
+          player: player(alice, { score: 1 }),
+          guess: 'mare',
+          tag_type: 'tags',
+          remaining: 9,
+        },
+        { type: 'player_eliminated', player: bob },
+      ],
+    })
+    expect(s.goalRemaining).toBe(1)
+    expect(s.bonusCounts).toEqual({ artists: 2 })
+    expect(s.players.a?.score).toBe(5)
+    expect(s.eliminated).toEqual([])
   })
 
   it('no_image and image_error set their status', () => {

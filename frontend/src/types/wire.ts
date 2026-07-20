@@ -206,7 +206,15 @@ export interface GameSnapshot {
   /** uuids of players already eliminated this round. */
   eliminated: string[]
   turn_seconds: number
+  /** Seconds left on the active turn, so a rejoining clock resumes mid-turn. */
+  turn_remaining: number
+  /** The round's guesses so far, in order, to rebuild the feed. */
+  feed: FeedEvent[]
 }
+
+/** The events that produce a guess-feed row, and so are replayed on a rejoin. */
+export type FeedEvent =
+  CorrectGuess | WrongGuess | NearMiss | Timeout | GuessRejected | PlayerEliminated
 
 export type GameEvent =
   | GameStarted

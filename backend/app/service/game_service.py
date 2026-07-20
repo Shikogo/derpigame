@@ -27,6 +27,20 @@ MAX_QUERY_LOOKUPS = 8
 # Query syntax that can't be a single tag: booleans, wildcards, fuzzy matches.
 _OPERATOR_CHARS = set('|&()*~"')
 
+# Payload types that show up in the client's guess feed. These are retained per
+# round so a (re)joining client can replay the feed instead of starting blank;
+# everything else in the stream is derivable from the snapshot's counts.
+_FEED_TYPES = frozenset(
+    {
+        "correct_guess",
+        "wrong_guess",
+        "near_miss",
+        "timeout",
+        "guess_rejected",
+        "player_eliminated",
+    }
+)
+
 
 def _is_plain_tag(term: str) -> bool:
     """Whether a query term could be one tag, and so is worth an alias lookup.
@@ -58,6 +72,7 @@ class GameService:
         self._timers: dict[str, TurnTimer] = {}
         self._current_image: dict[str, Image] = {}  # image on display, per room
         self._history: dict[str, list[dict]] = {}  # finished rounds, per room
+        self._feed: dict[str, list[dict]] = {}  # current round's feed, per room
         self._starting: set[str] = set()  # rooms with an in-flight start
 
     async def start_game(
@@ -92,6 +107,7 @@ class GameService:
             query = await self._canonical_query(room.query, image.tags)
             game = room.start_game(image.tags, first_index=first_index, query=query, **options)
             self._current_image[room.name] = image
+            self._feed[room.name] = []  # a new round starts from an empty feed
             await self._deliver(room, game.start(), lead=[_image_started_payload(image)])
         finally:
             self._starting.discard(room.name)
@@ -161,6 +177,7 @@ class GameService:
         room.end_game()
         room.clear_ready()  # aborting returns everyone to an unready lobby
         payloads: list[dict] = [{"type": "game_aborted"}]
+        self._feed.pop(room.name, None)
         image = self._current_image.pop(room.name, None)
         if image is not None:
             payloads.append(_image_revealed_payload(image))
@@ -188,6 +205,7 @@ class GameService:
         for payload in payloads:
             if payload["type"] == "game_started":
                 payload["turn_seconds"] = self.turn_seconds_for(room)
+        self._record_feed(room.name, payloads)
         game_over = next((e for e in events if isinstance(e, GameOver)), None)
         if game_over is not None:
             image = self._current_image.pop(room.name, None)
@@ -216,6 +234,13 @@ class GameService:
             timer = self._timers.setdefault(room.name, TurnTimer())
             timer.arm(self.turn_seconds_for(room), lambda: self.handle_timeout(room))
 
+    def _record_feed(self, room_name: str, payloads: list[dict]) -> None:
+        """Keep the round's feed-worthy payloads for later replay into a snapshot."""
+        feed = self._feed.get(room_name)
+        if feed is None:
+            return
+        feed.extend(p for p in payloads if p["type"] in _FEED_TYPES)
+
     def _drop_timer(self, room_name: str) -> None:
         timer = self._timers.pop(room_name, None)
         if timer is not None:
@@ -238,8 +263,9 @@ class GameService:
         """An answer-safe view of the in-progress game for a (re)joining client.
 
         Carries the current image, roster with scores, whose turn it is, the
-        freebie tags, and remaining counts — never the unguessed goal tags.
-        ``None`` when no game is running, so a lobby join sends nothing.
+        freebie tags, remaining counts, the round's feed so far, and what's left
+        of the active turn — never the unguessed goal tags. ``None`` when no game
+        is running, so a lobby join sends nothing.
         """
         game = room.game
         image = self._current_image.get(room.name)
@@ -267,13 +293,22 @@ class GameService:
             },
             "eliminated": [p.uuid for p in game.eliminated_players],
             "turn_seconds": self.turn_seconds_for(room),
+            "turn_remaining": self._turn_remaining(room),
+            "feed": list(self._feed.get(room.name, ())),
         }
 
+    def _turn_remaining(self, room: Room) -> float:
+        """Seconds left on the active turn, so a rejoining clock resumes mid-turn."""
+        timer = self._timers.get(room.name)
+        remaining = timer.remaining if timer is not None else None
+        return remaining if remaining is not None else self.turn_seconds_for(room)
+
     def cancel_room(self, room_name: str) -> None:
-        """Release a room's turn timer, image, and history when it's torn down."""
+        """Release a room's turn timer, image, feed, and history when it's torn down."""
         self._drop_timer(room_name)
         self._current_image.pop(room_name, None)
         self._history.pop(room_name, None)
+        self._feed.pop(room_name, None)
 
     def shutdown(self) -> None:
         """Cancel every pending turn timer (app shutdown, or test cleanup)."""
@@ -282,6 +317,7 @@ class GameService:
         self._timers.clear()
         self._current_image.clear()
         self._history.clear()
+        self._feed.clear()
         self._starting.clear()
 
 

@@ -19,18 +19,28 @@ class TurnTimer:
     def __init__(self):
         self._task: asyncio.Task | None = None
         self._generation = 0
+        self._deadline: float | None = None
 
     def arm(self, delay: float, callback: Callable[[], Awaitable[None]]) -> None:
         """Fire ``callback`` after ``delay`` seconds, cancelling any prior timer."""
         self._cancel_task()
         self._generation += 1
         generation = self._generation
+        self._deadline = asyncio.get_running_loop().time() + delay
         self._task = asyncio.create_task(self._run(delay, callback, generation))
+
+    @property
+    def remaining(self) -> float | None:
+        """Seconds left on the armed turn, or ``None`` when no timer is pending."""
+        if self._deadline is None:
+            return None
+        return max(0.0, self._deadline - asyncio.get_running_loop().time())
 
     def cancel(self) -> None:
         """Stop the pending timer; a fire already in flight is invalidated too."""
         self._cancel_task()
         self._generation += 1
+        self._deadline = None
 
     def _cancel_task(self) -> None:
         if self._task is not None and not self._task.done():

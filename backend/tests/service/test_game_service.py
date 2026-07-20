@@ -634,6 +634,50 @@ async def test_game_snapshot_describes_the_live_round_without_leaking_answers():
     service.shutdown()
 
 
+async def test_game_snapshot_carries_the_rounds_feed_for_replay():
+    service = make_service(["solo", "twilight"], RecordingEmitter())
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+
+    await service.submit_guess(room, "alice", "solo")  # correct, turn passes to bob
+    await service.submit_guess(room, "bob", "nope")  # wrong
+
+    feed = service.game_snapshot(room)["feed"]
+    assert [entry["type"] for entry in feed] == ["correct_guess", "wrong_guess"]
+    assert [entry["guess"] for entry in feed] == ["solo", "nope"]
+    # turn_started/game_started aren't feed rows — the snapshot's own fields cover them
+    assert not {"game_started", "turn_started"} & {entry["type"] for entry in feed}
+    service.shutdown()
+
+
+async def test_a_new_round_starts_from_an_empty_feed():
+    service = make_service(["solo", "twilight"], RecordingEmitter())
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+    await service.submit_guess(room, "alice", "nope")
+
+    await service.stop_game(room)
+    ready_up(room)
+    await service.start_game(room, first_index=0)
+
+    assert service.game_snapshot(room)["feed"] == []
+    service.shutdown()
+
+
+async def test_game_snapshot_reports_what_is_left_of_the_active_turn():
+    service = make_service(["solo", "twilight"], RecordingEmitter(), turn_seconds=45.0)
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+
+    await asyncio.sleep(0.05)
+
+    snap = service.game_snapshot(room)
+    # a rejoin mid-turn resumes the clock rather than restarting it at 45
+    assert 0 < snap["turn_remaining"] < 45.0
+    assert snap["turn_seconds"] == 45.0
+    service.shutdown()
+
+
 async def test_game_snapshot_tracks_progress_but_keeps_the_original_total():
     service = make_service(["solo", "twilight"], RecordingEmitter())
     room = make_room("alice", "bob")
