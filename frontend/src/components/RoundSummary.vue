@@ -7,7 +7,7 @@
 import { computed } from 'vue'
 
 import { foundTags, missedGroups, suggestedTags } from '@/game/roundSummary'
-import { categoryColor, categoryPillStyle } from '@/lib/tagColor'
+import { bucketColor, bucketPillStyle } from '@/lib/tagColor'
 import { tagSearchUrl } from '@/lib/tagLink'
 import { useGameStore } from '@/stores/game'
 
@@ -17,6 +17,7 @@ const found = computed(() => foundTags(game.state))
 const missed = computed(() => missedGroups(game.state))
 const missedCount = computed(() => missed.value.reduce((n, g) => n + g.tags.length, 0))
 const suggested = computed(() => suggestedTags(game.state))
+const bucketKeys = computed(() => Object.keys(game.state.bonusCounts))
 </script>
 
 <template>
@@ -53,7 +54,7 @@ const suggested = computed(() => suggestedTags(game.state))
       >
         <span
           class="font-mono text-xs uppercase sm:w-16 sm:shrink-0 sm:text-right"
-          :style="{ color: categoryColor(group.bucket) }"
+          :style="{ color: bucketColor(group.bucket, bucketKeys) }"
         >
           {{ group.bucket }}
         </span>
@@ -65,7 +66,7 @@ const suggested = computed(() => suggestedTags(game.state))
             target="_blank"
             rel="noopener noreferrer"
             class="pill hover:underline"
-            :style="categoryPillStyle(group.bucket)"
+            :style="bucketPillStyle(group.bucket, bucketKeys)"
           >
             {{ tag }}
           </a>

@@ -2,7 +2,7 @@
 /** Goal-bucket progress bar plus a chip per remaining bonus bucket. */
 import { computed } from 'vue'
 
-import { categoryPillStyle } from '@/lib/tagColor'
+import { bucketPillStyle } from '@/lib/tagColor'
 import { useGameStore } from '@/stores/game'
 
 const game = useGameStore()
@@ -14,6 +14,7 @@ const pct = computed(() =>
 // Bucket keys are opaque (source-defined taxonomy) — render them as-is. Only
 // buckets this image actually had are shown; one the players cleared keeps its
 // "0 left" chip, since that's earned rather than empty.
+const bucketKeys = computed(() => Object.keys(game.state.bonusCounts))
 const bonuses = computed(() =>
   Object.entries(game.state.bonusCounts).filter(([key]) => game.state.bonusTotals[key] > 0),
 )
@@ -38,7 +39,7 @@ const bonuses = computed(() =>
         v-for="[bucket, n] in bonuses"
         :key="bucket"
         class="pill"
-        :style="categoryPillStyle(bucket)"
+        :style="bucketPillStyle(bucket, bucketKeys)"
       >
         {{ bucket }}: {{ n }} left
       </span>
