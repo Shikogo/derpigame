@@ -1,11 +1,12 @@
 <script setup lang="ts">
 /**
  * End-of-round screen for both a finished game and an aborted one. Either way it
- * reveals the image attribution (artist + source/derpibooru links); a finished
- * game also shows winners, standings, and the tags nobody got.
+ * reveals the image attribution (artist + source/derpibooru links) and the tag
+ * recap; a finished game also shows winners and standings.
  */
 import { computed } from 'vue'
 
+import RoundSummary from '@/components/RoundSummary.vue'
 import { useGameStore } from '@/stores/game'
 import { useSessionStore } from '@/stores/session'
 
@@ -82,11 +83,9 @@ const heading = computed(() => {
           <span class="font-mono font-semibold tabular-nums">{{ p.score }}</span>
         </li>
       </ol>
-      <p v-if="over.unguessed_tags.length" class="text-sm">
-        <span class="font-semibold text-wrong">Missed:</span>
-        <span class="text-ink-muted"> {{ over.unguessed_tags.join(', ') }}</span>
-      </p>
     </template>
+
+    <RoundSummary />
 
     <button
       class="self-start rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-on-accent"

@@ -100,13 +100,18 @@ def test_game_over_serializes_winners_and_standings():
     alice = make_player("alice", score=3)
     bob = make_player("bob", score=1)
     payload = serialize_event(
-        GameOver(win=True, winners=[alice], standings=[alice, bob], unguessed_tags=[])
+        GameOver(
+            win=True,
+            winners=[alice],
+            standings=[alice, bob],
+            unguessed={"tags": ["rare"], "ocs": ["oc:bar"]},
+        )
     )
     assert payload["type"] == "game_over"
     assert payload["win"] is True
     assert [p["name"] for p in payload["winners"]] == ["alice"]
     assert [p["name"] for p in payload["standings"]] == ["alice", "bob"]
-    assert payload["unguessed_tags"] == []
+    assert payload["unguessed"] == {"tags": ["rare"], "ocs": ["oc:bar"]}
 
 
 def test_unregistered_event_raises():

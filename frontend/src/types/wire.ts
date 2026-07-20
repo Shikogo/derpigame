@@ -153,8 +153,8 @@ export interface GameOver {
   win: boolean
   winners: Player[]
   standings: Player[]
-  /** Unguessed goal-bucket tags (not bonus buckets). */
-  unguessed_tags: string[]
+  /** Tags nobody got, keyed by bucket — goal bucket first, empty ones omitted. */
+  unguessed: Record<BucketKey, string[]>
 }
 
 // Service-composed payloads (plain dicts, not domain events).
@@ -170,6 +170,8 @@ export interface ImageError {
 
 export interface GameAborted {
   type: 'game_aborted'
+  /** Same shape as `GameOver.unguessed` — a stopped round reveals its tags too. */
+  unguessed: Record<BucketKey, string[]>
 }
 
 /** The picture to display — deliberately without any answer-revealing tags. */

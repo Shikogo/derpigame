@@ -12,7 +12,7 @@ beforeEach(() => {
 
 // One entry of every feed kind, keyed by seq so we can locate each badge.
 const FEED: FeedEntry[] = [
-  { seq: 1, kind: 'correct', player: 'alice', guess: 'mare' },
+  { seq: 1, kind: 'correct', player: 'alice', guess: 'mare', tagType: 'tags' },
   { seq: 2, kind: 'wrong', player: 'bob', guess: 'stallion' },
   { seq: 4, kind: 'near_miss', player: 'carol', guess: 'applejck', closeness: 94 },
   { seq: 5, kind: 'timeout', player: 'carol' },

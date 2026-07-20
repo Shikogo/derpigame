@@ -80,4 +80,5 @@ class GameOver(GameEvent):
     win: bool
     winners: list[Player]
     standings: list[Player]
-    unguessed_tags: list[str] = field(default_factory=list)
+    # bucket key -> tags nobody got, goal bucket first; empty buckets omitted
+    unguessed: dict[str, list[str]] = field(default_factory=dict)

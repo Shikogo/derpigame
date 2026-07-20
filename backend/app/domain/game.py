@@ -84,6 +84,15 @@ class Game:
         return self.tag_buckets[self.taxonomy.goal_bucket]
 
     @property
+    def unguessed(self) -> dict[str, list[str]]:
+        """Tags nobody got, goal bucket first; empty buckets omitted.
+
+        Buckets only ever hold what's left, so this is the answer key for a
+        round that's ending — never expose it while one is still running.
+        """
+        return {key: list(b.tags) for key, b in self.tag_buckets.items() if b.tags}
+
+    @property
     def active_player(self) -> Player:
         return self.players[self._active_index]
 
@@ -247,5 +256,5 @@ class Game:
             win=win,
             winners=winners,
             standings=standings,
-            unguessed_tags=list(self._goal_bucket.tags),
+            unguessed=self.unguessed,
         )

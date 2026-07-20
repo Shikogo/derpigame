@@ -110,7 +110,7 @@ def _(event: GameOver) -> dict:
         "win": event.win,
         "winners": [serialize_player(p) for p in event.winners],
         "standings": [serialize_player(p) for p in event.standings],
-        "unguessed_tags": event.unguessed_tags,
+        "unguessed": event.unguessed,
     }
 
 

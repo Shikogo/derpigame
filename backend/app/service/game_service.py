@@ -174,9 +174,11 @@ class GameService:
         if not room.active:
             return
         self._drop_timer(room.name)
+        game = room.game  # read the answer key before end_game() discards it
+        unguessed = game.unguessed if game else {}
         room.end_game()
         room.clear_ready()  # aborting returns everyone to an unready lobby
-        payloads: list[dict] = [{"type": "game_aborted"}]
+        payloads: list[dict] = [{"type": "game_aborted", "unguessed": unguessed}]
         self._feed.pop(room.name, None)
         image = self._current_image.pop(room.name, None)
         if image is not None:

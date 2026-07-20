@@ -141,7 +141,9 @@ describe('reduce', () => {
     expect(s.goalRemaining).toBe(2)
     expect(s.bonusCounts).toEqual({ artists: 1 })
     expect(s.players.a?.score).toBe(1)
-    expect(s.feed).toEqual([{ seq: 1, kind: 'correct', player: 'Alice', guess: 'pony' }])
+    expect(s.feed).toEqual([
+      { seq: 1, kind: 'correct', player: 'Alice', guess: 'pony', tagType: 'tags' },
+    ])
   })
 
   it('a correct bonus guess updates only that bucket', () => {
@@ -200,11 +202,11 @@ describe('reduce', () => {
       win: false,
       winners: [],
       standings: [player(alice, { score: 2 }), bob],
-      unguessed_tags: ['rare'],
+      unguessed: { tags: ['rare'], ocs: ['oc:bar'] },
     })
     expect(s.status).toBe('over')
     expect(s.activePlayerUuid).toBeNull()
-    expect(s.over?.unguessed_tags).toEqual(['rare'])
+    expect(s.unguessed).toEqual({ tags: ['rare'], ocs: ['oc:bar'] })
     expect(s.players.a?.score).toBe(2) // standings backfill players
   })
 
@@ -214,7 +216,7 @@ describe('reduce', () => {
       win: true,
       winners: [alice],
       standings: [alice],
-      unguessed_tags: [],
+      unguessed: {},
     })
     s = reduce(s, {
       type: 'image_revealed',
@@ -231,7 +233,7 @@ describe('reduce', () => {
   })
 
   it('image_revealed attribution also surfaces on an aborted round', () => {
-    let s = reduce(openedGame(), { type: 'game_aborted' })
+    let s = reduce(openedGame(), { type: 'game_aborted', unguessed: {} })
     s = reduce(s, {
       type: 'image_revealed',
       artists: ['foo'],
@@ -241,6 +243,23 @@ describe('reduce', () => {
     expect(s.status).toBe('aborted')
     expect(s.reveal?.source_url).toBeNull()
     expect(s.reveal?.page_url).toBe('https://derpi/42')
+  })
+
+  it('game_aborted keeps the round recap: unguessed tags plus the existing feed', () => {
+    const played = reduce(openedGame(), {
+      type: 'correct_guess',
+      player: player(alice, { score: 1 }),
+      guess: 'pony',
+      tag_type: 'tags',
+      remaining: 2,
+    })
+    const s = reduce(played, {
+      type: 'game_aborted',
+      unguessed: { tags: ['rare'], artists: ['artist:foo'] },
+    })
+    expect(s.unguessed).toEqual({ tags: ['rare'], artists: ['artist:foo'] })
+    expect(s.feed).toHaveLength(1) // a stopped round still shows what was found
+    expect(s.over).toBeNull() // ...but has no result
   })
 
   it('game_snapshot rebuilds a live round for a (re)joining client', () => {
@@ -308,7 +327,7 @@ describe('reduce', () => {
     })
     expect(s.feed).toEqual([
       { seq: 1, kind: 'freebie', guess: 'safe' },
-      { seq: 2, kind: 'correct', player: 'Alice', guess: 'mare' },
+      { seq: 2, kind: 'correct', player: 'Alice', guess: 'mare', tagType: 'tags' },
       { seq: 3, kind: 'wrong', player: 'Bob', guess: 'nope' },
       { seq: 4, kind: 'near_miss', player: 'Bob', guess: 'twilite', closeness: 0.8 },
       { seq: 5, kind: 'timeout', player: 'Bob' },
@@ -354,7 +373,7 @@ describe('reduce', () => {
       win: true,
       winners: [alice],
       standings: [alice],
-      unguessed_tags: [],
+      unguessed: {},
     })
     const empty = reduce(finished, { type: 'no_image', query: ['x'] })
     expect(empty).toMatchObject({ image: null, over: null, reveal: null, feed: [], players: {} })

@@ -481,6 +481,20 @@ async def test_stop_game_reveals_attribution_with_the_abort():
     assert room.game is None  # back to the lobby
 
 
+async def test_stop_game_reveals_the_unguessed_tags_it_is_discarding():
+    emitter = RecordingEmitter()
+    service = GameService(StaticImageSource([rich_image()]), emitter)
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+    emitter.batches.clear()
+
+    await service.stop_game(room)
+
+    aborted = emitter.payloads[0]
+    assert aborted["type"] == "game_aborted"
+    assert aborted["unguessed"] == {"tags": ["solo"], "artists": ["artist:foo"]}
+
+
 async def test_cancel_room_drops_the_image_without_revealing():
     emitter = RecordingEmitter()
     service = make_service(["solo", "twilight"], emitter)

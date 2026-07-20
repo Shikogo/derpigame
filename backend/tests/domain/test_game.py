@@ -287,7 +287,7 @@ def test_all_players_eliminated_ends_game_as_loss():
     events = game.submit_guess("z")  # 3rd wrong, only player -> game over
     over = only(events, GameOver)
     assert over.win is False
-    assert over.unguessed_tags == ["solo"]
+    assert over.unguessed == {"tags": ["solo"]}
 
 
 def test_solo_loss_crowns_no_winner():
@@ -328,7 +328,7 @@ def test_win_when_all_regular_tags_guessed():
     events = game.submit_guess("solo")
     over = only(events, GameOver)
     assert over.win is True
-    assert over.unguessed_tags == []
+    assert over.unguessed == {}
 
 
 def test_win_ignores_remaining_artist_and_oc_tags():
@@ -338,6 +338,21 @@ def test_win_ignores_remaining_artist_and_oc_tags():
     assert over.win is True
     assert game.tag_buckets["artists"].tag_count == 1
     assert game.tag_buckets["ocs"].tag_count == 1
+
+
+def test_unguessed_reports_every_bucket_goal_first():
+    game = make_game(tags=["aaa", "bbb", "artist:foo", "oc:bar"], first_index=0)
+    game.submit_guess("aaa")  # alice takes one goal tag, turn -> bob
+    game.submit_guess("oc:bar")  # bob takes the only oc; "bbb" keeps it running
+    assert game.unguessed == {"tags": ["bbb"], "artists": ["artist:foo"]}
+    assert list(game.unguessed) == ["tags", "artists"]  # goal bucket leads
+
+
+def test_unguessed_carries_missed_bonus_tags_at_game_over():
+    # The goal bucket completing ends the round with bonus tags still unclaimed.
+    game = make_game(tags=["solo", "artist:foo", "oc:bar"], first_index=0)
+    over = only(game.submit_guess("solo"), GameOver)
+    assert over.unguessed == {"artists": ["artist:foo"], "ocs": ["oc:bar"]}
 
 
 def test_tie_detection_lists_all_top_scorers():

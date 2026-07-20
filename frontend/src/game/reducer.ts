@@ -29,7 +29,6 @@ export interface GameOverResult {
   win: boolean
   winners: Player[]
   standings: Player[]
-  unguessed_tags: string[]
 }
 
 /** One entry in the ordered guess feed; `seq` is a stable key for rendering. */
@@ -37,7 +36,7 @@ export type FeedEntry = FeedInput & { seq: number }
 
 type FeedInput =
   | { kind: 'freebie'; guess: string }
-  | { kind: 'correct'; player: string; guess: string }
+  | { kind: 'correct'; player: string; guess: string; tagType: BucketKey }
   | { kind: 'wrong'; player: string; guess: string }
   | { kind: 'near_miss'; player: string; guess: string; closeness: number }
   | { kind: 'timeout'; player: string }
@@ -66,6 +65,11 @@ export interface GameState {
   feed: FeedEntry[]
   feedSeq: number
   over: GameOverResult | null
+  /**
+   * The round's answer key, keyed by bucket — goal bucket first. Only ever
+   * populated once the round has ended (game over or aborted).
+   */
+  unguessed: Record<BucketKey, string[]>
   /** The query that came back empty, when `status === 'no_image'`. */
   noImageQuery: string[] | null
 }
@@ -90,6 +94,7 @@ export function initialGameState(): GameState {
     feed: [],
     feedSeq: 0,
     over: null,
+    unguessed: {},
     noImageQuery: null,
   }
 }
@@ -155,6 +160,7 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
           kind: 'correct',
           player: event.player.name,
           guess: event.guess,
+          tagType: event.tag_type,
         }),
       }
     }
@@ -225,17 +231,22 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
         status: 'over',
         activePlayerUuid: null,
         players,
+        unguessed: event.unguessed,
         over: {
           win: event.win,
           winners: event.winners,
           standings: event.standings,
-          unguessed_tags: event.unguessed_tags,
         },
       }
     }
 
     case 'game_aborted':
-      return { ...prev, status: 'aborted', activePlayerUuid: null }
+      return {
+        ...prev,
+        status: 'aborted',
+        activePlayerUuid: null,
+        unguessed: event.unguessed,
+      }
 
     case 'image_revealed':
       return {
