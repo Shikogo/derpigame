@@ -350,7 +350,24 @@ async def test_alias_guess_is_accepted_as_the_canonical_tag():
 
     correct = next(p for p in emitter.payloads if p["type"] == "correct_guess")
     assert correct["guess"] == "big macintosh"  # canonical shown, not the alias
+    # The alias survives the lookup, so the client can show bm → big macintosh.
+    assert correct["as_typed"] == "bm"
     assert resolver.calls == ["bm"]  # unrecognized, so it was resolved
+    service.shutdown()
+
+
+async def test_a_guess_needing_no_resolution_carries_no_as_typed():
+    emitter = RecordingEmitter()
+    service = make_service(["solo", "twilight"], emitter)
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+    emitter.batches.clear()
+
+    await service.submit_guess(room, "alice", "solo")
+
+    correct = next(p for p in emitter.payloads if p["type"] == "correct_guess")
+    # Omitted rather than null, so the common case adds nothing to the wire.
+    assert "as_typed" not in correct
     service.shutdown()
 
 
@@ -643,6 +660,8 @@ async def test_game_snapshot_describes_the_live_round_without_leaking_answers():
     assert snap["goal_remaining"] == 2
     assert snap["eliminated"] == []
     assert snap["turn_seconds"] == 45.0  # the snapshot carries the room's turn length
+    # A rejoining client needs the strike denominator as much as a fresh one.
+    assert snap["elimination_threshold"] == 3
     # the unguessed goal tags must never appear anywhere in the payload
     assert "twilight" not in json.dumps(snap)
     assert "solo" not in json.dumps(snap)

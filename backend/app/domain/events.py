@@ -29,6 +29,7 @@ class GameStarted(GameEvent):
     bonus_counts: dict[str, int]  # namespaced bucket key -> count, e.g. {"artists": 1}
     freebie_tags: list[str]  # the image's tags the query already gave away
     players: list[Player]  # full roster for the round; the rest of the room spectates
+    elimination_threshold: int  # wrong guesses that put a player out
 
 
 @dataclass
@@ -40,6 +41,10 @@ class TurnStarted(GameEvent):
 class GuessRejected(GameEvent):
     guess: str
     reason: RejectReason
+    # What the player typed, when it differed from the canonical ``guess`` — a
+    # bare name that resolved to a namespaced tag, or a booru alias. ``None``
+    # when the guess was already canonical, which is the common case.
+    as_typed: str | None = None
 
 
 @dataclass
@@ -48,6 +53,7 @@ class CorrectGuess(GameEvent):
     guess: str
     tag_type: str  # bucket key: "tags" | "artists" | "ocs"
     remaining: int
+    as_typed: str | None = None
 
 
 @dataclass
@@ -55,6 +61,7 @@ class WrongGuess(GameEvent):
     player: Player
     guess: str
     wrong_count: int
+    as_typed: str | None = None
 
 
 @dataclass
@@ -62,6 +69,7 @@ class NearMiss(GameEvent):
     player: Player
     guess: str
     closeness: int  # similarity %, high enough to earn a free retry
+    as_typed: str | None = None
 
 
 @dataclass

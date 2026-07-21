@@ -42,6 +42,7 @@ def test_game_started_reports_counts_and_first_player():
             bonus_counts={"artists": 1, "ocs": 0},
             freebie_tags=["cute"],
             players=[make_player("alice"), make_player("bob")],
+            elimination_threshold=3,
         )
     )
     assert payload["type"] == "game_started"
@@ -50,6 +51,7 @@ def test_game_started_reports_counts_and_first_player():
     assert payload["freebie_tags"] == ["cute"]
     assert payload["first_player"]["name"] == "alice"
     assert [p["name"] for p in payload["players"]] == ["alice", "bob"]
+    assert payload["elimination_threshold"] == 3  # the client's strike denominator
 
 
 def test_guess_rejected_uses_reason_value():

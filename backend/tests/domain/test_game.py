@@ -243,6 +243,45 @@ def test_the_prefixed_form_still_works():
     assert only(game.submit_guess("artist:foo"), CorrectGuess).guess == "artist:foo"
 
 
+def test_a_resolved_bare_name_reports_what_was_typed():
+    game = make_game(tags=["solo", "artist:foo"], first_index=0)
+    correct = only(game.submit_guess("foo"), CorrectGuess)
+    assert correct.as_typed == "foo"  # so the client can show foo → artist:foo
+
+
+def test_an_exact_guess_reports_no_translation():
+    game = make_game(tags=["solo", "artist:foo"], first_index=0)
+    assert only(game.submit_guess("solo"), CorrectGuess).as_typed is None
+
+
+def test_case_alone_is_not_a_translation():
+    game = make_game(tags=["solo", "artist:foo"], first_index=0)
+    assert only(game.submit_guess("ARTIST:FOO"), CorrectGuess).as_typed is None
+
+
+def test_as_typed_carries_the_callers_wording_through():
+    # The service resolves booru aliases before the game ever sees the guess, so
+    # the original has to be passed in to survive.
+    game = make_game(tags=["solo", "twilight sparkle"], first_index=0)
+    correct = only(game.submit_guess("twilight sparkle", as_typed="ts"), CorrectGuess)
+    assert correct.guess == "twilight sparkle"
+    assert correct.as_typed == "ts"
+
+
+def test_a_wrong_or_rejected_guess_reports_its_translation_too():
+    game = make_game(tags=["solo", "artist:foo"], first_index=0)
+    assert only(game.submit_guess("nope", as_typed="npe"), WrongGuess).as_typed == "npe"
+
+    game = make_game(tags=["solo", "artist:foo"], query=["safe"], first_index=0)
+    rejected = only(game.submit_guess("safe", as_typed="rating:safe"), GuessRejected)
+    assert rejected.as_typed == "rating:safe"
+
+
+def test_start_reports_the_strike_limit():
+    game = make_game(tags=["solo"], elimination_threshold=5)
+    assert only(game.start(), GameStarted).elimination_threshold == 5
+
+
 def test_repeating_a_bare_name_is_rejected_as_already_guessed():
     game = make_game(tags=["solo", "artist:foo"], first_index=0)
     game.submit_guess("foo")

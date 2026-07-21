@@ -120,8 +120,10 @@ class GameService:
             return
         if game.active_player.uuid != user_uuid:
             raise NotYourTurn(game.active_player)
-        guess = await self._canonicalized(game, guess)
-        await self._deliver(room, game.submit_guess(guess))
+        # The raw guess is kept so the events can report what the player actually
+        # typed alongside the tag it resolved to.
+        canonical = await self._canonicalized(game, guess)
+        await self._deliver(room, game.submit_guess(canonical, as_typed=guess))
 
     async def _canonicalized(self, game, guess: str) -> str:
         """Map an unrecognized guess to its canonical tag; leave known ones alone.
@@ -293,6 +295,7 @@ class GameService:
             },
             "eliminated": [p.uuid for p in game.eliminated_players],
             "turn_seconds": self.turn_seconds_for(room),
+            "elimination_threshold": game.elimination_threshold,
             "turn_remaining": self._turn_remaining(room),
             "feed": list(self._feed.get(room.name, ())),
         }

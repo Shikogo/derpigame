@@ -31,6 +31,17 @@ def serialize_player(player: Player) -> dict:
     }
 
 
+def _with_typed(payload: dict, as_typed: str | None) -> dict:
+    """Add ``as_typed`` only when the guess was actually translated.
+
+    Omitted rather than sent as null, so the common case — a guess that needed
+    no resolving — doesn't put a dead field on every guess event.
+    """
+    if as_typed is not None:
+        payload["as_typed"] = as_typed
+    return payload
+
+
 @singledispatch
 def serialize_event(event) -> dict:
     raise TypeError(f"no serializer registered for {type(event).__name__}")
@@ -45,6 +56,7 @@ def _(event: GameStarted) -> dict:
         "tag_count": event.tag_count,
         "bonus_counts": event.bonus_counts,
         "freebie_tags": event.freebie_tags,
+        "elimination_threshold": event.elimination_threshold,
     }
 
 
@@ -55,38 +67,42 @@ def _(event: TurnStarted) -> dict:
 
 @serialize_event.register
 def _(event: GuessRejected) -> dict:
-    return {"type": "guess_rejected", "guess": event.guess, "reason": event.reason.value}
+    payload = {"type": "guess_rejected", "guess": event.guess, "reason": event.reason.value}
+    return _with_typed(payload, event.as_typed)
 
 
 @serialize_event.register
 def _(event: CorrectGuess) -> dict:
-    return {
+    payload = {
         "type": "correct_guess",
         "player": serialize_player(event.player),
         "guess": event.guess,
         "tag_type": event.tag_type,
         "remaining": event.remaining,
     }
+    return _with_typed(payload, event.as_typed)
 
 
 @serialize_event.register
 def _(event: WrongGuess) -> dict:
-    return {
+    payload = {
         "type": "wrong_guess",
         "player": serialize_player(event.player),
         "guess": event.guess,
         "wrong_count": event.wrong_count,
     }
+    return _with_typed(payload, event.as_typed)
 
 
 @serialize_event.register
 def _(event: NearMiss) -> dict:
-    return {
+    payload = {
         "type": "near_miss",
         "player": serialize_player(event.player),
         "guess": event.guess,
         "closeness": event.closeness,
     }
+    return _with_typed(payload, event.as_typed)
 
 
 @serialize_event.register

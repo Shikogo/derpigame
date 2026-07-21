@@ -28,6 +28,32 @@ describe('GuessFeed', () => {
     expect(wrapper.findAll('span')).toHaveLength(0)
   })
 
+  it('marks a translated guess and names the typed word on hover', () => {
+    const game = useGameStore()
+    game.state.feed = [
+      { seq: 1, kind: 'correct', player: 'alice', guess: 'mare', tagType: 'tags', remaining: 2 },
+      {
+        seq: 2,
+        kind: 'correct',
+        player: 'bob',
+        guess: 'twilight sparkle',
+        tagType: 'tags',
+        remaining: 1,
+        asTyped: 'ts',
+      },
+    ]
+
+    const wrapper = mount(GuessFeed)
+    const aliased = wrapper.findAll('span').find((b) => b.text().includes('twilight sparkle'))!
+    expect(aliased.attributes('title')).toBe('typed “ts”')
+    expect(aliased.classes()).toContain('decoration-dotted')
+
+    // An untranslated guess gets no marker and nothing to hover.
+    const plain = wrapper.findAll('span').find((b) => b.text() === 'alice: mare')!
+    expect(plain.attributes('title')).toBeUndefined()
+    expect(plain.classes()).not.toContain('decoration-dotted')
+  })
+
   it('renders a color-coded badge per event type, newest first', () => {
     const game = useGameStore()
     game.state.feed = FEED

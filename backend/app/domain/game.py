@@ -157,6 +157,7 @@ class Game:
                 },
                 freebie_tags=list(self.freebie_tags),
                 players=list(self.players),
+                elimination_threshold=self.elimination_threshold,
             ),
             TurnStarted(first),
         ]
@@ -178,7 +179,7 @@ class Game:
             return True
         return any(guess in bucket.tags for bucket in self.tag_buckets.values())
 
-    def submit_guess(self, guess: str) -> list[GameEvent]:
+    def submit_guess(self, guess: str, as_typed: str | None = None) -> list[GameEvent]:
         """Process the active player's guess and return what happened.
 
         Rejected guesses (already found, already tried and wrong, default query
@@ -190,21 +191,30 @@ class Game:
 
         A bare ``shikogo`` is resolved to ``artist:shikogo`` first, so the events
         report the canonical tag and the feed shows the prefix back.
+
+        ``as_typed`` is the player's own wording from before the caller's own
+        resolution step (the service's alias lookup). Captured here before this
+        method's resolution too, so one comparison covers both translations —
+        by that point ``guess`` is the canonical tag either way.
         """
         if self._finished:
             return []
+        typed = guess if as_typed is None else as_typed
         guess = self._resolve(guess.lower())
+        # Only a real translation is worth reporting; a difference in case alone
+        # is the player typing the same tag, not a different one.
+        typed = typed if typed.lower() != guess else None
 
         if guess in self.guessed_tags:
-            return [GuessRejected(guess, RejectReason.ALREADY_GUESSED)]
+            return [GuessRejected(guess, RejectReason.ALREADY_GUESSED, typed)]
         if guess in self.failed_guesses:
-            return [GuessRejected(guess, RejectReason.ALREADY_WRONG)]
+            return [GuessRejected(guess, RejectReason.ALREADY_WRONG, typed)]
         if guess in self.query:
-            return [GuessRejected(guess, RejectReason.DEFAULT_TAG)]
+            return [GuessRejected(guess, RejectReason.DEFAULT_TAG, typed)]
         if guess in self.taxonomy.rating_tags:
-            return [GuessRejected(guess, RejectReason.RATING_TAG)]
+            return [GuessRejected(guess, RejectReason.RATING_TAG, typed)]
         if guess in self.taxonomy.ignored_tags:
-            return [GuessRejected(guess, RejectReason.IGNORED_TAG)]
+            return [GuessRejected(guess, RejectReason.IGNORED_TAG, typed)]
 
         for kind, bucket in self.tag_buckets.items():
             if bucket.take(guess):
@@ -215,14 +225,15 @@ class Game:
                     guess=guess,
                     tag_type=kind,
                     remaining=bucket.tag_count,
+                    as_typed=typed,
                 )
                 return [correct, *self._progress()]
 
         similarity = self._similarity(guess)
         if similarity >= self.near_miss_threshold:
             closeness = round(similarity * 100)  # percent, for display
-            return [NearMiss(self.active_player, guess, closeness)]
-        return [self._wrong_guess(guess), *self._progress()]
+            return [NearMiss(self.active_player, guess, closeness, typed)]
+        return [self._wrong_guess(guess, typed), *self._progress()]
 
     def timeout(self) -> list[GameEvent]:
         """The active player ran out of time — counts as a wrong guess."""
@@ -232,11 +243,11 @@ class Game:
         player.wrong_guesses += 1
         return [Timeout(player, player.wrong_guesses), *self._progress()]
 
-    def _wrong_guess(self, guess: str) -> WrongGuess:
+    def _wrong_guess(self, guess: str, as_typed: str | None = None) -> WrongGuess:
         player = self.active_player
         player.wrong_guesses += 1
         self.failed_guesses.add(guess)
-        return WrongGuess(player, guess, player.wrong_guesses)
+        return WrongGuess(player, guess, player.wrong_guesses, as_typed)
 
     def _similarity(self, guess: str) -> float:
         """Best fuzzy match of ``guess`` against the relevant bucket, as a ratio.

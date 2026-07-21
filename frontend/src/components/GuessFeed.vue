@@ -41,14 +41,29 @@ function describe(e: FeedEntry): { tone: string; text: string } {
   }
 }
 
+/**
+ * The player's own wording, for a guess the server translated. Shown on hover
+ * rather than inline: the rail is the round's history and has to stay scannable,
+ * and the overlay card already spells the translation out as it happens.
+ */
+function typed(e: FeedEntry): string | undefined {
+  return 'asTyped' in e && e.asTyped ? `typed “${e.asTyped}”` : undefined
+}
+
 const items = computed(() =>
-  [...game.state.feed].reverse().map((e) => ({ seq: e.seq, ...describe(e) })),
+  [...game.state.feed].reverse().map((e) => ({ seq: e.seq, typed: typed(e), ...describe(e) })),
 )
 </script>
 
 <template>
   <TransitionGroup name="pop" tag="div" class="flex flex-wrap gap-1.5">
-    <span v-for="item in items" :key="item.seq" :class="[badge, item.tone]">{{ item.text }}</span>
+    <span
+      v-for="item in items"
+      :key="item.seq"
+      :class="[badge, item.tone, item.typed && 'underline decoration-dotted underline-offset-4']"
+      :title="item.typed"
+      >{{ item.text }}</span
+    >
     <p v-if="!items.length" key="empty" class="text-xs text-ink-faint">No guesses yet.</p>
   </TransitionGroup>
 </template>
