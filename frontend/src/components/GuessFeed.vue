@@ -60,7 +60,12 @@ const items = computed(() =>
     <span
       v-for="item in items"
       :key="item.seq"
-      :class="[badge, item.tone, item.typed && 'underline decoration-dotted underline-offset-4']"
+      :class="[
+        badge,
+        item.tone,
+        item.typed &&
+          'cursor-help underline decoration-current/30 decoration-dotted underline-offset-4',
+      ]"
       :title="item.typed"
       >{{ item.text }}</span
     >
