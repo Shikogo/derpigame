@@ -35,6 +35,7 @@ done
 # (frontend/.env); the backend reloads on code changes. No build, no tunnel.
 if [ "$dev" -eq 1 ]; then
   [ "$share" -eq 1 ] && { echo "--dev can't be combined with --share (two origins, no single tunnel)" >&2; exit 2; }
+  [ -f "$ROOT/frontend/.env" ] || { echo "frontend/.env missing — run 'cp frontend/.env.example frontend/.env' (sets VITE_BACKEND_URL so the dev socket finds the backend)" >&2; exit 1; }
 
   # Real backend by default; --offline swaps in dev_server (fixed image, no token).
   if [ "$offline" -eq 1 ]; then app="dev_server:app"; app_note="offline, fixed image"
