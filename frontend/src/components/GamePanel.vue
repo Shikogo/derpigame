@@ -12,7 +12,7 @@
  * in a `<Transition mode="out-in">` that then has no element to animate: the
  * leave never resolves and the panel replacing it never appears.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 import GuessOverlay from '@/components/GuessOverlay.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
@@ -25,6 +25,12 @@ const game = useGameStore()
 // Keying off status instead would swap this component's root mid-fade, which
 // pulls the element out from under the leave transition animating it.
 const live = computed(() => !!game.state.image)
+
+// The viewer fills the panel, but the picture inside it doesn't: on a tall
+// screen a fitted image leaves a wide letterbox band, and the overlay hangs in
+// empty black unless it's told where the picture starts.
+const viewer = ref<InstanceType<typeof ImageViewer> | null>(null)
+const pictureTop = computed(() => viewer.value?.contentTop ?? 0)
 </script>
 
 <template>
@@ -32,8 +38,8 @@ const live = computed(() => !!game.state.image)
     v-if="live"
     class="relative min-h-[50vh] overflow-hidden rounded-xl ring-1 ring-turn/20 shadow-[0_0_70px_-24px_rgba(79,157,255,0.6)] lg:h-[calc(100dvh_-_5.5rem)] lg:min-h-0"
   >
-    <ImageViewer :src="game.state.image!.full_url" alt="Guess the tags" />
-    <GuessOverlay />
+    <ImageViewer ref="viewer" :src="game.state.image!.full_url" alt="Guess the tags" />
+    <GuessOverlay :picture-top="pictureTop" />
   </section>
 
   <section v-else class="flex min-h-[45vh] flex-col items-center justify-center gap-2 text-center">

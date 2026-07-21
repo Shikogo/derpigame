@@ -20,6 +20,11 @@ const HOLD_BUSY_MS = 700 // catching up, so each card gets a glance not a dwell
 const GAP_MS = 180 // lets the leave transition finish before the next enters
 const MAX_QUEUE = 3 // a burst shows the most recent few, never a backlog
 
+// Height of the letterbox band above the picture — the room the card has to
+// clear it. 0 (the default, for a caller with no viewer to ask) puts the card
+// over the picture, which is also what a band too small to hold it degrades to.
+const props = withDefaults(defineProps<{ pictureTop?: number }>(), { pictureTop: 0 })
+
 const game = useGameStore()
 
 const queue = ref<OverlayCard[]>([])
@@ -109,11 +114,17 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <!-- Pinned to the top edge, not the middle: a booru image's subject sits dead
-       centre, and a card over it makes the picture unreadable exactly when
-       you're trying to read it. pointer-events-none throughout, so the picture
-       stays pannable underneath. -->
-  <div class="pointer-events-none absolute inset-x-0 top-0 z-10 grid justify-center p-3">
+  <!-- The card attaches to the top edge of the picture from the outside: this
+       div is the letterbox band, and `safe end` parks the card at its bottom,
+       just clear of the picture. A booru image's subject sits dead centre, so
+       covering any of it is a last resort — and `safe` is what makes it one,
+       flipping to start alignment when the band is too short to hold the card,
+       which overlaps the picture's top rather than overflowing off-frame.
+       pointer-events-none throughout, so the picture stays pannable. -->
+  <div
+    class="band pointer-events-none absolute inset-x-0 top-0 z-10 grid justify-center p-3 transition-[height] duration-200"
+    :style="{ height: `${props.pictureTop}px` }"
+  >
     <Transition name="card">
       <div
         v-if="current"
@@ -200,6 +211,12 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* No Tailwind utility for the `safe` keyword, and it's the whole mechanism:
+   `end` alone would overflow the card off the top of the frame. */
+.band {
+  align-content: safe end;
+}
+
 /* Enter and leave share the one grid cell, so a leaving card can't shove the
    next one off-centre and neither needs taking out of flow. */
 .card-enter-active,

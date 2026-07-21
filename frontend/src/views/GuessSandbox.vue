@@ -5,7 +5,7 @@
  * reducer, so the cards can be judged without a backend or a second player.
  * Not part of the game UI.
  */
-import { onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import GuessOverlay from '@/components/GuessOverlay.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
@@ -13,6 +13,10 @@ import { useGameStore } from '@/stores/game'
 import type { GameEvent, Player } from '@/types/wire'
 
 const game = useGameStore()
+
+// Wired like GamePanel, so the card lands on the picture here too.
+const viewer = ref<InstanceType<typeof ImageViewer> | null>(null)
+const pictureTop = computed(() => viewer.value?.contentTop ?? 0)
 
 const SHIKO: Player = { uuid: 'a', name: 'Shiko', score: 0, wrong_guesses: 0 }
 const ARI: Player = { uuid: 'b', name: 'Ari', score: 0, wrong_guesses: 0 }
@@ -200,8 +204,8 @@ onMounted(startRound)
     </p>
 
     <div class="relative h-[520px] w-full overflow-hidden rounded-xl border border-border">
-      <ImageViewer src="/viewer-test.svg" alt="Sandbox image" />
-      <GuessOverlay />
+      <ImageViewer ref="viewer" src="/viewer-test.svg" alt="Sandbox image" />
+      <GuessOverlay :picture-top="pictureTop" />
     </div>
 
     <div class="flex flex-wrap gap-2">

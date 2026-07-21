@@ -8,6 +8,7 @@ import {
   isFitted,
   isMaxZoomed,
   panBy,
+  pictureTop,
   zoomPercent,
   zoomToPoint,
   type View,
@@ -127,6 +128,19 @@ describe('zoomToPoint', () => {
     const image = { width: 100, height: 100 }
     const next = zoomToPoint({ scale: 1, tx: 0, ty: 0 }, 999, { x: 50, y: 50 }, frame, image)
     expect(next.scale).toBe(8)
+  })
+})
+
+describe('pictureTop', () => {
+  it('measures the letterbox band of a fitted image', () => {
+    const wide = fitView(frame, { width: 200, height: 100 }) // displayed 100×50
+    expect(pictureTop(wide)).toBe(25)
+    const tall = fitView(frame, { width: 50, height: 200 }) // fills the height, no band
+    expect(pictureTop(tall)).toBe(0)
+  })
+
+  it('reports no band once the picture runs off the top', () => {
+    expect(pictureTop({ scale: 2, tx: 0, ty: -50 })).toBe(0)
   })
 })
 

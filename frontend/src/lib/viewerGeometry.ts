@@ -108,6 +108,15 @@ export function zoomPercent(view: View, frame: Size, image: Size): number {
   return Math.round((view.scale / fitScale(frame, image)) * 100)
 }
 
+/**
+ * Top edge of the picture in frame space, i.e. the height of the letterbox band
+ * above it — how much room anything pinned to the picture has to sit in. Zero
+ * once the picture reaches or passes the frame's top edge.
+ */
+export function pictureTop(view: View): number {
+  return Math.max(view.ty, 0)
+}
+
 /** Fit-to-frame view: minimum scale, centered. */
 export function fitView(frame: Size, image: Size): View {
   return clampTranslate({ scale: fitScale(frame, image), tx: 0, ty: 0 }, frame, image)
