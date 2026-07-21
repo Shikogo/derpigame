@@ -12,9 +12,9 @@ beforeEach(() => {
 
 const FEED: FeedEntry[] = [
   { seq: 1, kind: 'freebie', guess: 'safe' },
-  { seq: 2, kind: 'correct', player: 'alice', guess: 'mare', tagType: 'tags' },
-  { seq: 3, kind: 'wrong', player: 'bob', guess: 'stallion' },
-  { seq: 4, kind: 'correct', player: 'bob', guess: 'oc:nyx', tagType: 'ocs' },
+  { seq: 2, kind: 'correct', player: 'alice', guess: 'mare', tagType: 'tags', remaining: 2 },
+  { seq: 3, kind: 'wrong', player: 'bob', guess: 'stallion', strike: 1 },
+  { seq: 4, kind: 'correct', player: 'bob', guess: 'oc:nyx', tagType: 'ocs', remaining: 0 },
 ]
 
 function mountWithRound() {

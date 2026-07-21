@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
 import { useGameStore } from '@/stores/game'
@@ -16,6 +16,7 @@ const openRound = (roster: string[]): GameEvent[] => [
     bonus_counts: {},
     freebie_tags: [],
     turn_seconds: 30,
+    elimination_threshold: 3,
   },
   { type: 'turn_started', player: p(roster[0]) },
 ]
@@ -41,5 +42,58 @@ describe('game store — isSpectating', () => {
   it('is false when no round is active', () => {
     const game = useGameStore()
     expect(game.isSpectating).toBe(false)
+  })
+})
+
+describe('game store — round outro', () => {
+  beforeEach(() => {
+    localStorage.setItem('derpigame:uuid', 'me')
+    setActivePinia(createPinia())
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => vi.useRealTimers())
+
+  const gameOver: GameEvent = {
+    type: 'game_over',
+    win: true,
+    winners: [p('me')],
+    standings: [p('me')],
+    unguessed: {},
+  }
+
+  it('holds a decided round in ending, so the last cards still get shown', () => {
+    const game = useGameStore()
+    game.applyEvents([...openRound(['me']), gameOver])
+    expect(game.state.status).toBe('ending')
+    // `ended` gates the results screen — still false, so the picture stays up.
+    expect(game.ended).toBe(false)
+  })
+
+  it('finishRound closes the outro on demand', () => {
+    const game = useGameStore()
+    game.applyEvents([...openRound(['me']), gameOver])
+    game.finishRound()
+    expect(game.state.status).toBe('over')
+    expect(game.ended).toBe(true)
+  })
+
+  it('closes the outro on its own if nothing else does', () => {
+    const game = useGameStore()
+    game.applyEvents([...openRound(['me']), gameOver])
+    // The overlay normally ends it, but it is only mounted with the game panel —
+    // behind the age gate it never is, so a round must still reach its results.
+    vi.advanceTimersByTime(3000)
+    expect(game.state.status).toBe('over')
+  })
+
+  it('does not leave the backstop armed across a reset', () => {
+    const game = useGameStore()
+    game.applyEvents([...openRound(['me']), gameOver])
+    game.reset()
+    vi.advanceTimersByTime(3000)
+    // A fresh round must not be closed by the previous round's timer.
+    game.applyEvents(openRound(['me']))
+    expect(game.state.status).toBe('active')
   })
 })

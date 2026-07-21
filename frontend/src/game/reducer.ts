@@ -9,7 +9,13 @@
 
 import type { BucketKey, GameEvent, Player, RejectReason } from '@/types/wire'
 
-export type GameStatus = 'idle' | 'active' | 'over' | 'aborted' | 'no_image' | 'image_error'
+/**
+ * `ending` is a round that is decided but still playing out: the server has sent
+ * `game_over`, and the client is holding the picture up long enough to show the
+ * guess that ended it before swapping in the results.
+ */
+export type GameStatus =
+  'idle' | 'active' | 'ending' | 'over' | 'aborted' | 'no_image' | 'image_error'
 
 /** The picture on display — no answer-revealing fields (see `image_started`). */
 export interface RoundImage {
@@ -36,11 +42,24 @@ export type FeedEntry = FeedInput & { seq: number }
 
 type FeedInput =
   | { kind: 'freebie'; guess: string }
-  | { kind: 'correct'; player: string; guess: string; tagType: BucketKey }
-  | { kind: 'wrong'; player: string; guess: string }
-  | { kind: 'near_miss'; player: string; guess: string; closeness: number }
-  | { kind: 'timeout'; player: string }
-  | { kind: 'rejected'; guess: string; reason: RejectReason }
+  | {
+      kind: 'correct'
+      player: string
+      guess: string
+      tagType: BucketKey
+      remaining: number
+      asTyped?: string
+    }
+  | { kind: 'wrong'; player: string; guess: string; strike: number; asTyped?: string }
+  | {
+      kind: 'near_miss'
+      player: string
+      guess: string
+      closeness: number
+      asTyped?: string
+    }
+  | { kind: 'timeout'; player: string; strike: number }
+  | { kind: 'rejected'; guess: string; reason: RejectReason; asTyped?: string }
   | { kind: 'eliminated'; player: string }
 
 export interface GameState {
@@ -57,6 +76,8 @@ export interface GameState {
   turnSeconds: number
   /** Seconds left when this turn was picked up — a full turn, or less on a rejoin. */
   turnRemaining: number
+  /** Wrong guesses that eliminate a player — the denominator for `strike`. */
+  strikeLimit: number
   /** Remaining count per bonus bucket, keyed by opaque bucket key. */
   bonusCounts: Record<BucketKey, number>
   /**
@@ -80,8 +101,9 @@ export interface GameState {
   noImageQuery: string[] | null
 }
 
-// Fallback until game_started / game_snapshot delivers the server's value.
+// Fallbacks until game_started / game_snapshot delivers the server's values.
 const DEFAULT_TURN_SECONDS = 60
+const DEFAULT_STRIKE_LIMIT = 3
 
 export function initialGameState(): GameState {
   return {
@@ -94,6 +116,7 @@ export function initialGameState(): GameState {
     goalRemaining: 0,
     turnSeconds: DEFAULT_TURN_SECONDS,
     turnRemaining: DEFAULT_TURN_SECONDS,
+    strikeLimit: DEFAULT_STRIKE_LIMIT,
     bonusCounts: {},
     bonusTotals: {},
     players: {},
@@ -129,6 +152,7 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
         goalRemaining: event.tag_count,
         turnSeconds: event.turn_seconds,
         turnRemaining: event.turn_seconds,
+        strikeLimit: event.elimination_threshold ?? DEFAULT_STRIKE_LIMIT,
         bonusCounts: { ...event.bonus_counts },
         bonusTotals: { ...event.bonus_counts },
         players,
@@ -169,6 +193,8 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
           player: event.player.name,
           guess: event.guess,
           tagType: event.tag_type,
+          remaining: event.remaining,
+          ...aliased(event),
         }),
       }
     }
@@ -183,6 +209,8 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
           kind: 'wrong',
           player: event.player.name,
           guess: event.guess,
+          strike: event.wrong_count,
+          ...aliased(event),
         }),
       }
     }
@@ -198,6 +226,7 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
           player: event.player.name,
           guess: event.guess,
           closeness: event.closeness,
+          ...aliased(event),
         }),
       }
     }
@@ -208,14 +237,23 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
       return {
         ...prev,
         players,
-        ...withFeed(prev, { kind: 'timeout', player: event.player.name }),
+        ...withFeed(prev, {
+          kind: 'timeout',
+          player: event.player.name,
+          strike: event.wrong_count,
+        }),
       }
     }
 
     case 'guess_rejected':
       return {
         ...prev,
-        ...withFeed(prev, { kind: 'rejected', guess: event.guess, reason: event.reason }),
+        ...withFeed(prev, {
+          kind: 'rejected',
+          guess: event.guess,
+          reason: event.reason,
+          ...aliased(event),
+        }),
       }
 
     case 'player_eliminated': {
@@ -236,7 +274,10 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
       for (const p of event.standings) recordPlayer(players, p)
       return {
         ...prev,
-        status: 'over',
+        // Not `over` yet — `concludeRound` makes that call once the last cards
+        // have been seen. Ending the round here would unmount the overlay in
+        // the same tick the deciding guess was queued into it.
+        status: 'ending',
         activePlayerUuid: null,
         players,
         unguessed: event.unguessed,
@@ -305,6 +346,7 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
         goalRemaining: event.goal_remaining,
         turnSeconds: event.turn_seconds,
         turnRemaining: event.turn_remaining,
+        strikeLimit: event.elimination_threshold ?? DEFAULT_STRIKE_LIMIT,
         bonusCounts: { ...event.bonus_counts },
         bonusTotals,
         players,
@@ -325,6 +367,14 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
   }
 }
 
+/**
+ * Close out a round that has finished playing its ending. A no-op unless the
+ * round is in `ending`, so a late or repeated call can't disturb a live game.
+ */
+export function concludeRound(prev: GameState): GameState {
+  return prev.status === 'ending' ? { ...prev, status: 'over' } : prev
+}
+
 /** Fold an ordered batch (the shape `game_events` arrives in) into the state. */
 export function reduceAll(prev: GameState, events: GameEvent[]): GameState {
   return events.reduce(reduce, prev)
@@ -342,6 +392,16 @@ function withFeed(prev: GameState, ...entries: FeedInput[]): Pick<GameState, 'fe
 /** The round's freebies as pre-filled feed entries. */
 function freebies(tags: string[]): FeedInput[] {
   return tags.map((guess) => ({ kind: 'freebie', guess }))
+}
+
+/**
+ * The player's own wording, as a spreadable fragment, when the server resolved
+ * their guess to a different tag. Empty when nothing was translated, so
+ * `asTyped` stays absent rather than echoing the canonical tag back.
+ */
+function aliased(event: { guess: string; as_typed?: string | null }): { asTyped?: string } {
+  const typed = event.as_typed
+  return typed && typed !== event.guess ? { asTyped: typed } : {}
 }
 
 // `event: never` makes this a compile-time exhaustiveness guard — a new event

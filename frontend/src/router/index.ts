@@ -20,5 +20,11 @@ export const router = createRouter({
       name: 'viewer-sandbox',
       component: () => import('@/views/ViewerSandbox.vue'),
     },
+    {
+      // Dev harness for judging the guess overlay without a backend.
+      path: '/sandbox/guess',
+      name: 'guess-sandbox',
+      component: () => import('@/views/GuessSandbox.vue'),
+    },
   ],
 })

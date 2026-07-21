@@ -19,6 +19,7 @@ function playedRound(): GameState {
       bonus_counts: { artists: 1, ocs: 1 },
       freebie_tags: ['safe'],
       turn_seconds: 30,
+      elimination_threshold: 3,
     },
     {
       type: 'correct_guess',

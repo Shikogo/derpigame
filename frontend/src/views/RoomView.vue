@@ -56,9 +56,16 @@ onMounted(async () => {
 })
 
 const showGameOver = computed(() => game.ended)
-const showGame = computed(() => !game.ended && (room.inProgress || game.state.status === 'active'))
+const showGame = computed(
+  () =>
+    !game.ended &&
+    (room.inProgress || game.state.status === 'active' || game.state.status === 'ending'),
+)
 // A live round with a picture — the point where the rail shows the turn controls.
-const live = computed(() => game.state.status === 'active' && !!game.state.image)
+// Held through `ending` too, so the rail doesn't collapse during the outro.
+const live = computed(
+  () => (game.state.status === 'active' || game.state.status === 'ending') && !!game.state.image,
+)
 // Block the picture (live round or the game-over reveal) behind a 18+ gate when
 // the room shows NSFW and this viewer hasn't attested yet.
 const needsAgeGate = computed(
@@ -148,10 +155,23 @@ async function backToLobby(): Promise<void> {
           <p v-if="notice" class="rounded-lg bg-wrong/10 px-3 py-2 text-sm text-wrong">
             {{ notice }}
           </p>
-          <AgeGate v-if="needsAgeGate" @confirm="session.acknowledgeNsfw()" @decline="leave" />
-          <GameOverPanel v-else-if="showGameOver" @back="backToLobby" />
-          <GamePanel v-else-if="showGame" />
-          <LobbyPanel v-else />
+          <!-- Cross-faded rather than swapped: a decided round holds the picture
+               through `ending` to play its last cards, and a hard cut straight
+               to the results undoes that beat.
+
+               Deliberately not `mode="out-in"`, which gates the incoming panel
+               on the outgoing one's transition finishing — if that never
+               resolves, nothing is left on screen at all. Overlapping them in a
+               single grid cell makes an empty panel area impossible, and reads
+               as a truer cross-fade besides. -->
+          <div class="grid min-w-0 flex-1">
+            <Transition name="panel">
+              <AgeGate v-if="needsAgeGate" @confirm="session.acknowledgeNsfw()" @decline="leave" />
+              <GameOverPanel v-else-if="showGameOver" @back="backToLobby" />
+              <GamePanel v-else-if="showGame" />
+              <LobbyPanel v-else />
+            </Transition>
+          </div>
         </div>
         <aside class="flex min-w-0 flex-col gap-4 lg:min-h-0 lg:overflow-hidden">
           <GameControls v-if="live && !needsAgeGate" />
@@ -161,3 +181,31 @@ async function backToLobby(): Promise<void> {
     </template>
   </main>
 </template>
+
+<style scoped>
+/* Both panels share the one grid cell, so the incoming one never waits on the
+   outgoing one and the area is never empty. */
+.panel-enter-active,
+.panel-leave-active {
+  grid-column: 1;
+  grid-row: 1;
+}
+.panel-enter-active {
+  transition:
+    opacity 0.28s ease-out,
+    transform 0.28s ease-out;
+}
+.panel-leave-active {
+  transition:
+    opacity 0.18s ease-in,
+    transform 0.18s ease-in;
+}
+.panel-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.panel-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+</style>

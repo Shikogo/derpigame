@@ -100,6 +100,7 @@ export interface GameStarted {
   /** The image's tags the query already gave away — free, so never scoreable. */
   freebie_tags: string[]
   turn_seconds: number
+  elimination_threshold: number
 }
 
 export interface TurnStarted {
@@ -111,6 +112,12 @@ export interface GuessRejected {
   type: 'guess_rejected'
   guess: string
   reason: RejectReason
+  /**
+   * What the player actually typed, when it differed from the canonical `guess`
+   * — a bare name that resolved to a namespaced tag, or a booru alias. Absent
+   * when the guess was already canonical, which is the common case.
+   */
+  as_typed?: string | null
 }
 
 export interface CorrectGuess {
@@ -120,6 +127,7 @@ export interface CorrectGuess {
   tag_type: BucketKey
   /** Tags left in the bucket this guess landed in. */
   remaining: number
+  as_typed?: string | null
 }
 
 export interface WrongGuess {
@@ -127,6 +135,7 @@ export interface WrongGuess {
   player: Player
   guess: string
   wrong_count: number
+  as_typed?: string | null
 }
 
 /** A guess close enough to be a free retry: no strike, the turn stays. */
@@ -135,6 +144,7 @@ export interface NearMiss {
   player: Player
   guess: string
   closeness: number
+  as_typed?: string | null
 }
 
 export interface Timeout {
@@ -208,6 +218,7 @@ export interface GameSnapshot {
   /** uuids of players already eliminated this round. */
   eliminated: string[]
   turn_seconds: number
+  elimination_threshold: number
   /** Seconds left on the active turn, so a rejoining clock resumes mid-turn. */
   turn_remaining: number
   /** The round's guesses so far, in order, to rebuild the feed. */

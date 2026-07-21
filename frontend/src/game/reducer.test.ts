@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { type GameState, initialGameState, reduce, reduceAll } from './reducer'
+import { type GameState, concludeRound, initialGameState, reduce, reduceAll } from './reducer'
 import type { GameEvent, GameSnapshot, Player } from '@/types/wire'
 
 const alice: Player = { uuid: 'a', name: 'Alice', score: 0, wrong_guesses: 0 }
@@ -22,6 +22,7 @@ function openedGame(freebieTags: string[] = []): GameState {
       bonus_counts: { artists: 1 },
       freebie_tags: freebieTags,
       turn_seconds: 30,
+      elimination_threshold: 3,
     },
     { type: 'turn_started', player: alice },
   ]
@@ -41,6 +42,7 @@ function snapshot(over: Partial<GameSnapshot>): GameSnapshot {
     bonus_counts: {},
     eliminated: [],
     turn_seconds: 30,
+    elimination_threshold: 3,
     turn_remaining: 30,
     feed: [],
     ...over,
@@ -96,7 +98,13 @@ describe('reduce', () => {
       guess: 'nope',
       wrong_count: 1,
     })
-    expect(guessed.feed.at(-1)).toEqual({ seq: 3, kind: 'wrong', player: 'Alice', guess: 'nope' })
+    expect(guessed.feed.at(-1)).toEqual({
+      seq: 3,
+      kind: 'wrong',
+      player: 'Alice',
+      guess: 'nope',
+      strike: 1,
+    })
   })
 
   it('game_started seeds the whole roster, not just the first player', () => {
@@ -110,6 +118,7 @@ describe('reduce', () => {
         bonus_counts: {},
         freebie_tags: [],
         turn_seconds: 30,
+        elimination_threshold: 3,
       },
       { type: 'turn_started', player: alice },
     ])
@@ -142,7 +151,7 @@ describe('reduce', () => {
     expect(s.bonusCounts).toEqual({ artists: 1 })
     expect(s.players.a?.score).toBe(1)
     expect(s.feed).toEqual([
-      { seq: 1, kind: 'correct', player: 'Alice', guess: 'pony', tagType: 'tags' },
+      { seq: 1, kind: 'correct', player: 'Alice', guess: 'pony', tagType: 'tags', remaining: 2 },
     ])
   })
 
@@ -171,6 +180,7 @@ describe('reduce', () => {
         bonus_counts: { artists: 2, ocs: 0 },
         freebie_tags: [],
         turn_seconds: 30,
+        elimination_threshold: 3,
       },
     ])
     expect(s.bonusTotals).toEqual({ artists: 2, ocs: 0 })
@@ -244,10 +254,30 @@ describe('reduce', () => {
       standings: [player(alice, { score: 2 }), bob],
       unguessed: { tags: ['rare'], ocs: ['oc:bar'] },
     })
-    expect(s.status).toBe('over')
+    // `ending`, not `over`: the round is decided but still has to play out its
+    // last cards before the results replace the picture.
+    expect(s.status).toBe('ending')
     expect(s.activePlayerUuid).toBeNull()
     expect(s.unguessed).toEqual({ tags: ['rare'], ocs: ['oc:bar'] })
     expect(s.players.a?.score).toBe(2) // standings backfill players
+    expect(concludeRound(s).status).toBe('over')
+  })
+
+  it('concludeRound only ever closes a round that is ending', () => {
+    const live = openedGame()
+    expect(concludeRound(live)).toBe(live) // untouched, not a fresh object
+
+    const ending = reduce(live, {
+      type: 'game_over',
+      win: true,
+      winners: [alice],
+      standings: [alice],
+      unguessed: {},
+    })
+    const done = concludeRound(ending)
+    expect(done.status).toBe('over')
+    expect(done.over?.win).toBe(true)
+    expect(concludeRound(done)).toBe(done) // idempotent once closed
   })
 
   it('image_revealed attribution surfaces on game_over', () => {
@@ -264,7 +294,7 @@ describe('reduce', () => {
       source_url: 'https://src',
       page_url: 'https://derpi/42',
     })
-    expect(s.status).toBe('over')
+    expect(s.status).toBe('ending')
     expect(s.reveal).toEqual({
       artists: ['foo'],
       source_url: 'https://src',
@@ -314,6 +344,7 @@ describe('reduce', () => {
       bonus_counts: { artists: 2 },
       eliminated: ['c'],
       turn_seconds: 20,
+      elimination_threshold: 3,
       turn_remaining: 12,
       feed: [],
     })
@@ -367,10 +398,10 @@ describe('reduce', () => {
     })
     expect(s.feed).toEqual([
       { seq: 1, kind: 'freebie', guess: 'safe' },
-      { seq: 2, kind: 'correct', player: 'Alice', guess: 'mare', tagType: 'tags' },
-      { seq: 3, kind: 'wrong', player: 'Bob', guess: 'nope' },
+      { seq: 2, kind: 'correct', player: 'Alice', guess: 'mare', tagType: 'tags', remaining: 2 },
+      { seq: 3, kind: 'wrong', player: 'Bob', guess: 'nope', strike: 1 },
       { seq: 4, kind: 'near_miss', player: 'Bob', guess: 'twilite', closeness: 0.8 },
-      { seq: 5, kind: 'timeout', player: 'Bob' },
+      { seq: 5, kind: 'timeout', player: 'Bob', strike: 2 },
       { seq: 6, kind: 'rejected', guess: 'mare', reason: 'already_guessed' },
       { seq: 7, kind: 'eliminated', player: 'Bob' },
     ])

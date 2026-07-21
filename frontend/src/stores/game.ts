@@ -7,20 +7,43 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { type GameState, initialGameState, reduceAll } from '@/game/reducer'
+import { type GameState, concludeRound, initialGameState, reduceAll } from '@/game/reducer'
 import { useSessionStore } from '@/stores/session'
 import type { GameEvent, Player } from '@/types/wire'
+
+/**
+ * Longest a decided round will wait on its outro before showing the results.
+ *
+ * The guess overlay normally ends `ending` as soon as it has shown the last
+ * cards, but it is only mounted while the game panel is — behind the age gate,
+ * say, it never is. This is the backstop that guarantees a round always reaches
+ * its results.
+ */
+const MAX_OUTRO_MS = 3000
 
 export const useGameStore = defineStore('game', () => {
   const state = ref<GameState>(initialGameState())
   const session = useSessionStore()
+  let outroTimer: ReturnType<typeof setTimeout> | undefined
 
   /** Fold an ordered `game_events` batch into the state (the store's one job). */
   function applyEvents(events: GameEvent[]): void {
+    const was = state.value.status
     state.value = reduceAll(state.value, events)
+    if (state.value.status === 'ending' && was !== 'ending') {
+      clearTimeout(outroTimer)
+      outroTimer = setTimeout(finishRound, MAX_OUTRO_MS)
+    }
+  }
+
+  /** End a decided round's outro and show the results. */
+  function finishRound(): void {
+    clearTimeout(outroTimer)
+    state.value = concludeRound(state.value)
   }
 
   function reset(): void {
+    clearTimeout(outroTimer)
     state.value = initialGameState()
   }
 
@@ -50,6 +73,7 @@ export const useGameStore = defineStore('game', () => {
   return {
     state,
     applyEvents,
+    finishRound,
     reset,
     activePlayer,
     isMyTurn,

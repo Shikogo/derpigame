@@ -36,6 +36,7 @@ function openRound(roster: string[]): GameEvent[] {
       bonus_counts: {},
       freebie_tags: [],
       turn_seconds: 30,
+      elimination_threshold: 3,
     },
     { type: 'turn_started', player: player(roster[0]) },
   ]
