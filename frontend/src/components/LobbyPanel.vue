@@ -73,7 +73,7 @@ async function copyInvite(): Promise<void> {
     >
       <div class="flex min-w-0 flex-col gap-0.5 text-sm">
         <span class="truncate">
-          <span class="text-ink-muted">Searching:</span>
+          <span class="text-ink-muted">Searching: </span>
           <span class="font-medium">{{ querySummary }}</span>
         </span>
         <span class="text-xs text-ink-faint">
