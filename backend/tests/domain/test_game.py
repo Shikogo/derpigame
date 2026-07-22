@@ -405,6 +405,18 @@ def test_three_wrong_guesses_eliminates_player():
     assert only(events, TurnStarted).player.name == "bob"
 
 
+def test_has_active_player_tracks_who_may_still_act():
+    game = make_game(tags=["solo", "twilight"], players=["alice", "bob"], first_index=0)
+    assert game.has_active_player("alice")
+    assert not game.has_active_player("stranger")  # never in the round
+
+    for guess in ("w1", "w2", "w3", "w4", "w5"):  # alice's 3rd wrong -> eliminated
+        game.submit_guess(guess)
+
+    assert not game.has_active_player("alice")  # eliminated: can't act anymore
+    assert game.has_active_player("bob")
+
+
 def test_elimination_reindexes_to_the_following_player():
     game = make_game(tags=["solo"], players=["a", "b", "c"], first_index=1)
     # distinct guesses each turn — repeats are no-ops and wouldn't accumulate

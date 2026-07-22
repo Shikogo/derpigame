@@ -289,8 +289,11 @@ class SocketHandlers:
         resolved = await self._resolve(sid)
         if resolved is None:
             return _err("not_in_room")
-        room, _user = resolved
-        await self._service.stop_game(room)
+        room, user = resolved
+        try:
+            await self._service.stop_game(room, user.uuid)
+        except GameActionError as exc:
+            return _err(str(exc))
         await self._broadcast_state(room)
         return _ok()
 

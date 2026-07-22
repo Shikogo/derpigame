@@ -9,7 +9,7 @@ from app.config import LimitsSettings
 from app.domain.room import Room
 from app.domain.user import User
 from app.service.emitter import EventEmitter
-from app.service.errors import NotYourTurn
+from app.service.errors import GameActionError, NotYourTurn
 from app.service.game_service import GameService
 from app.service.image_source import (
     Image,
@@ -330,9 +330,25 @@ async def test_stop_game_unreadies_everyone():
     room = make_room("alice", "bob")
     await service.start_game(room, first_index=0)
 
-    await service.stop_game(room)
+    await service.stop_game(room, "alice")
 
     assert room.ready_users() == []
+
+
+async def test_stop_game_refuses_anyone_who_is_not_a_current_player():
+    # A spectator or an eliminated player can't kill the round for everyone left.
+    emitter = RecordingEmitter()
+    service = make_service(["solo", "twilight"], emitter)
+    room = make_room("alice", "bob")
+    await service.start_game(room, first_index=0)
+    emitter.batches.clear()
+
+    with pytest.raises(GameActionError):
+        await service.stop_game(room, "stranger")
+
+    assert room.game is not None  # the round is still running
+    assert emitter.batches == []  # nothing broadcast
+    service.shutdown()
 
 
 # --- alias resolution --------------------------------------------------------
@@ -492,7 +508,7 @@ async def test_stop_game_reveals_attribution_with_the_abort():
     await service.start_game(room, first_index=0)
     emitter.batches.clear()
 
-    await service.stop_game(room)
+    await service.stop_game(room, "alice")
 
     assert emitter.types() == ["game_aborted", "image_revealed"]
     assert emitter.payloads[-1]["artists"] == ["foo"]
@@ -506,7 +522,7 @@ async def test_stop_game_reveals_the_unguessed_tags_it_is_discarding():
     await service.start_game(room, first_index=0)
     emitter.batches.clear()
 
-    await service.stop_game(room)
+    await service.stop_game(room, "alice")
 
     aborted = emitter.payloads[0]
     assert aborted["type"] == "game_aborted"
@@ -569,7 +585,7 @@ async def test_aborted_round_is_recorded_with_the_link_but_no_result():
     room = make_room("alice", "bob")
     await service.start_game(room, first_index=0)
 
-    await service.stop_game(room)
+    await service.stop_game(room, "alice")
 
     (record,) = service.room_history(room.name)
     assert record["aborted"] is True
@@ -588,7 +604,7 @@ async def test_history_accumulates_across_rounds():
     await service.submit_guess(room, "alice", "solo")
     ready_up(room)  # the finished round un-readied everyone
     await service.start_game(room, first_index=0)
-    await service.stop_game(room)
+    await service.stop_game(room, "alice")
 
     history = service.room_history(room.name)
     assert [r["aborted"] for r in history] == [False, True]
@@ -690,7 +706,7 @@ async def test_a_new_round_starts_from_an_empty_feed():
     await service.start_game(room, first_index=0)
     await service.submit_guess(room, "alice", "nope")
 
-    await service.stop_game(room)
+    await service.stop_game(room, "alice")
     ready_up(room)
     await service.start_game(room, first_index=0)
 

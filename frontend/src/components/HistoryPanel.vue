@@ -81,7 +81,7 @@ function onBackdrop(event: MouseEvent): void {
 
           <div class="min-w-0 flex-1">
             <p class="truncate">
-              <span v-if="r.aborted" class="text-ink-faint">Stopped</span>
+              <span v-if="r.aborted" class="text-ink-faint">Aborted</span>
               <span
                 v-else-if="r.winners.length"
                 :class="youWon(r) ? 'text-correct' : 'text-ink-muted'"

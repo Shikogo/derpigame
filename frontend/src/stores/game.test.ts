@@ -45,6 +45,33 @@ describe('game store — isSpectating', () => {
   })
 })
 
+describe('game store — canAbort', () => {
+  beforeEach(() => {
+    localStorage.setItem('derpigame:uuid', 'me') // deterministic session identity
+    setActivePinia(createPinia())
+  })
+
+  it('is true for a current, non-eliminated player', () => {
+    const game = useGameStore()
+    game.applyEvents(openRound(['me', 'other']))
+    expect(game.canAbort).toBe(true)
+  })
+
+  it('is false once I am eliminated (no rage-quitting)', () => {
+    const game = useGameStore()
+    game.applyEvents(openRound(['me', 'other']))
+    game.applyEvents([{ type: 'player_eliminated', player: p('me') }])
+    expect(game.canAbort).toBe(false)
+  })
+
+  it('is false while spectating and when no round is active', () => {
+    const game = useGameStore()
+    expect(game.canAbort).toBe(false) // no round
+    game.applyEvents(openRound(['other'])) // live round, I'm not in it
+    expect(game.canAbort).toBe(false)
+  })
+})
+
 describe('game store — round outro', () => {
   beforeEach(() => {
     localStorage.setItem('derpigame:uuid', 'me')

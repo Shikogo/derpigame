@@ -24,7 +24,7 @@ const image = computed(() => game.state.image)
 const iWon = computed(() => over.value?.winners.some((w) => w.uuid === session.uuid) ?? false)
 
 const heading = computed(() => {
-  if (aborted.value) return 'Round stopped'
+  if (aborted.value) return 'Round aborted'
   if (iWon.value) return 'You won! 🎉'
   return over.value?.win ? 'Round over' : 'Nobody got them all'
 })

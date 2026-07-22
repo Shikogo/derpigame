@@ -132,6 +132,14 @@ class Game:
     def is_over(self) -> bool:
         return self._finished
 
+    def has_active_player(self, uuid: str) -> bool:
+        """Whether ``uuid`` is a current, non-eliminated player.
+
+        Eliminated players are moved out of ``self.players``, and spectators were
+        never in it, so this is the "may still act in the round" test.
+        """
+        return any(player.uuid == uuid for player in self.players)
+
     def start(self) -> list[GameEvent]:
         """Announce the opening: tag counts and whose turn it is.
 

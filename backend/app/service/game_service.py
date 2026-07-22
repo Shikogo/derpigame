@@ -12,7 +12,7 @@ from app.domain.events import GameOver, TurnStarted
 from app.domain.room import Room
 from app.domain.tag_taxonomy import TagTaxonomy
 from app.service.emitter import EventEmitter
-from app.service.errors import NotYourTurn
+from app.service.errors import GameActionError, NotYourTurn
 from app.service.image_source import Image, ImageSource, ImageSourceError, SearchOptions
 from app.service.serialization import serialize_events, serialize_player
 from app.service.tag_resolver import NullTagResolver, TagResolver
@@ -164,17 +164,20 @@ class GameService:
             return
         await self._deliver(room, game.timeout())
 
-    async def stop_game(self, room: Room) -> None:
+    async def stop_game(self, room: Room, caller_uuid: str) -> None:
         """Abort the in-progress game and return the room to the lobby.
 
-        An aborted round still reveals the image (licensing + so a dropped image
-        can still be tracked down), unlike an emptied room, which has no one left
-        to reveal to.
+        Only a current, non-eliminated player may abort — no rage-quitting the
+        round out from under everyone still in it. An aborted round still reveals
+        the image (licensing + so a dropped image can still be tracked down),
+        unlike an emptied room, which has no one left to reveal to.
         """
         if not room.active:
             return
-        self._drop_timer(room.name)
         game = room.game  # read the answer key before end_game() discards it
+        if game is not None and not game.has_active_player(caller_uuid):
+            raise GameActionError("not_a_player")
+        self._drop_timer(room.name)
         unguessed = game.unguessed if game else {}
         room.end_game()
         room.clear_ready()  # aborting returns everyone to an unready lobby
