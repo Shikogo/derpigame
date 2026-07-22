@@ -15,6 +15,7 @@ import ChatPanel from '@/components/ChatPanel.vue'
 import GameControls from '@/components/GameControls.vue'
 import GameOverPanel from '@/components/GameOverPanel.vue'
 import GamePanel from '@/components/GamePanel.vue'
+import IconLeave from '@/components/icons/IconLeave.vue'
 import LobbyPanel from '@/components/LobbyPanel.vue'
 import { errorLabel } from '@/lib/errors'
 import { useGameStore } from '@/stores/game'
@@ -145,8 +146,13 @@ async function backToLobby(): Promise<void> {
             {{ room.connected ? 'connected' : 'offline' }}
           </span>
         </div>
-        <button class="text-sm text-ink-faint underline hover:text-wrong" @click="leave">
-          Leave
+        <button
+          class="grid h-8 w-8 place-items-center rounded-lg text-ink-faint transition-colors hover:bg-raised hover:text-wrong"
+          title="Leave"
+          aria-label="Leave"
+          @click="leave"
+        >
+          <IconLeave class="h-[1.15rem] w-[1.15rem]" />
         </button>
       </header>
 

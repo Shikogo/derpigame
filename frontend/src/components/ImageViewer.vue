@@ -15,6 +15,9 @@
  */
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
+import IconFit from '@/components/icons/IconFit.vue'
+import IconZoomIn from '@/components/icons/IconZoomIn.vue'
+import IconZoomOut from '@/components/icons/IconZoomOut.vue'
 import {
   ZOOM_STEP,
   clampScale,
@@ -328,10 +331,7 @@ defineExpose({ view, reset, contentTop })
         aria-label="Zoom out"
         @click="zoomBy(1 / ZOOM_STEP)"
       >
-        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="10.5" cy="10.5" r="6.5" />
-          <path d="M15.5 15.5 21 21M7.5 10.5h6" stroke-linecap="round" />
-        </svg>
+        <IconZoomOut class="h-4 w-4" />
       </button>
       <button
         type="button"
@@ -341,10 +341,7 @@ defineExpose({ view, reset, contentTop })
         aria-label="Zoom in"
         @click="zoomBy(ZOOM_STEP)"
       >
-        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="10.5" cy="10.5" r="6.5" />
-          <path d="M15.5 15.5 21 21M7.5 10.5h6M10.5 7.5v6" stroke-linecap="round" />
-        </svg>
+        <IconZoomIn class="h-4 w-4" />
       </button>
       <button
         type="button"
@@ -354,18 +351,7 @@ defineExpose({ view, reset, contentTop })
         aria-label="Reset to fit"
         @click="reset"
       >
-        <svg
-          class="h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-          <path d="M3 3v5h5" />
-        </svg>
+        <IconFit class="h-4 w-4" />
       </button>
     </div>
   </div>
