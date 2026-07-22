@@ -10,10 +10,11 @@ picks the taxonomy that matches whichever image source it pulled from.
   points, but not required to win). Insertion order is display order.
 - ``goal_bucket`` holds the plain, un-namespaced tags — the ones that must all
   be guessed to win.
-- ``rating_tags``, ``ignored_tags`` and ``ignored_prefixes`` are dropped: never
-  guessable, never shown. ``ignored_tags`` covers plain tags that can't be
-  derived from the image (source-link housekeeping, say) so they mustn't gate a
-  win.
+- ``rating_tags`` and ``ignored_tags`` are dropped: never guessable, never shown.
+  ``ignored_tags`` are glob patterns (``fnmatch``) for tags that can't be derived
+  from the image (source-link housekeeping, ``…in the comments`` memes) so they
+  mustn't gate a win. A pattern catches a whole family at once — a plain string
+  matches exactly, ``spoiler:*`` a namespace, ``*comments*`` a substring.
 
 The constants below carry only what's *structural* about a source — its
 namespaces and rating vocabulary, facts you can't change by preferring
@@ -23,14 +24,14 @@ here on its own therefore ignores nothing.
 """
 
 from dataclasses import dataclass
+from fnmatch import fnmatchcase
 
 
 @dataclass(frozen=True)
 class TagTaxonomy:
     namespaces: dict[str, str]  # bucket key -> prefix, e.g. {"artists": "artist:"}
     rating_tags: frozenset[str] = frozenset()
-    ignored_tags: frozenset[str] = frozenset()
-    ignored_prefixes: tuple[str, ...] = ()
+    ignored_tags: tuple[str, ...] = ()  # glob patterns: "commission", "spoiler:*", "*comments*"
     goal_bucket: str = "tags"
 
     def bucket_for(self, tag: str) -> str:
@@ -48,13 +49,13 @@ class TagTaxonomy:
         """``tag`` without its namespace prefix; unchanged if it has none."""
         return tag[len(self.prefix_of(self.bucket_for(tag))) :]
 
+    def is_ignored(self, tag: str) -> bool:
+        """Whether a tag matches one of the ignored glob patterns."""
+        return any(fnmatchcase(tag, pattern) for pattern in self.ignored_tags)
+
     def is_droppable(self, tag: str) -> bool:
-        """Whether a tag is a rating, ignored outright, or under an ignored prefix."""
-        return (
-            tag in self.rating_tags
-            or tag in self.ignored_tags
-            or tag.startswith(self.ignored_prefixes)
-        )
+        """Whether a tag is a rating or matches an ignored pattern."""
+        return tag in self.rating_tags or self.is_ignored(tag)
 
 
 DERPIBOORU_TAXONOMY = TagTaxonomy(

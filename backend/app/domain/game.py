@@ -90,12 +90,7 @@ class Game:
         refused, so neither can lose the collision to an artist who happens to
         share the name. Between two namespaces the first in taxonomy order wins.
         """
-        taken = (
-            set(self._goal_bucket.tags)
-            | set(self.query)
-            | self.taxonomy.rating_tags
-            | self.taxonomy.ignored_tags
-        )
+        taken = set(self._goal_bucket.tags) | set(self.query) | self.taxonomy.rating_tags
         goal = self.taxonomy.goal_bucket
         index: dict[str, str] = {}
         for key, bucket in self.tag_buckets.items():
@@ -103,7 +98,7 @@ class Game:
                 continue
             for tag in bucket.tags:
                 bare = self.taxonomy.bare(tag)
-                if bare not in taken:
+                if bare not in taken and not self.taxonomy.is_ignored(bare):
                     index.setdefault(bare, tag)
         return index
 
@@ -175,7 +170,7 @@ class Game:
             return True
         if guess in self.query:
             return True
-        if guess in self.taxonomy.rating_tags or guess in self.taxonomy.ignored_tags:
+        if guess in self.taxonomy.rating_tags or self.taxonomy.is_ignored(guess):
             return True
         return any(guess in bucket.tags for bucket in self.tag_buckets.values())
 
@@ -213,7 +208,7 @@ class Game:
             return [GuessRejected(guess, RejectReason.DEFAULT_TAG, typed)]
         if guess in self.taxonomy.rating_tags:
             return [GuessRejected(guess, RejectReason.RATING_TAG, typed)]
-        if guess in self.taxonomy.ignored_tags:
+        if self.taxonomy.is_ignored(guess):
             return [GuessRejected(guess, RejectReason.IGNORED_TAG, typed)]
 
         for kind, bucket in self.tag_buckets.items():

@@ -57,13 +57,14 @@ def test_the_constant_drops_ratings_but_curates_nothing_on_its_own():
     assert not DERPIBOORU_TAXONOMY.is_droppable("spoiler:the-ending")
 
 
-def test_curation_makes_tags_and_whole_namespaces_droppable():
+def test_glob_curation_drops_tags_namespaces_and_families():
     curated = replace(
         DERPIBOORU_TAXONOMY,
-        ignored_tags=frozenset({"source needed"}),
-        ignored_prefixes=("spoiler:", "editor:"),
+        ignored_tags=("source needed", "spoiler:*", "editor:*", "*comments*"),
     )
-    assert curated.is_droppable("source needed")
-    assert curated.is_droppable("spoiler:the-ending")
+    assert curated.is_droppable("source needed")  # exact
+    assert curated.is_droppable("spoiler:the-ending")  # prefix / namespace
     assert curated.is_droppable("editor:someone")
-    assert not curated.is_droppable("solo")
+    assert curated.is_droppable("adventure in the comments")  # substring family
+    assert not curated.is_droppable("solo")  # a real, guessable tag
+    assert not curated.is_droppable("commentary")  # a substring "comment" must not match

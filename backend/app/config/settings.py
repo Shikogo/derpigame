@@ -56,16 +56,11 @@ class TaxonomySettings(_Section):
     booru, not preferences, and live with the taxonomy in the domain.
     """
 
-    ignored_tags: frozenset[str] = frozenset()
-    ignored_prefixes: tuple[str, ...] = ()
+    ignored_tags: tuple[str, ...] = ()  # glob patterns, e.g. "spoiler:*", "*in the comments"
 
     def apply_to(self, base: TagTaxonomy) -> TagTaxonomy:
         """The taxonomy ``base`` with this file's curation swapped in."""
-        return replace(
-            base,
-            ignored_tags=self.ignored_tags,
-            ignored_prefixes=self.ignored_prefixes,
-        )
+        return replace(base, ignored_tags=self.ignored_tags)
 
 
 class RoomDefaults(_Section):

@@ -29,8 +29,7 @@ from app.domain.user import User
 # the taxonomy constant — so a test that exercises dropping them brings its own.
 CURATED_TAXONOMY = replace(
     DERPIBOORU_TAXONOMY,
-    ignored_tags=frozenset({"source needed", "dead source"}),
-    ignored_prefixes=("spoiler:",),
+    ignored_tags=("source needed", "dead source", "spoiler:*"),
 )
 
 

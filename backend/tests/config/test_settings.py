@@ -28,7 +28,7 @@ def test_a_missing_file_falls_back_to_defaults(tmp_path):
 
     assert settings.game.elimination_threshold == 3
     assert settings.limits.max_query_terms == 24
-    assert settings.taxonomy.ignored_tags == frozenset()
+    assert settings.taxonomy.ignored_tags == ()
 
 
 def test_file_values_win_over_defaults(tmp_path):
@@ -107,25 +107,25 @@ def test_an_inverted_failure_backoff_range_is_rejected():
 def test_configured_curation_replaces_rather_than_extends():
     # The file is the whole truth: deleting a line there must make that tag
     # guessable again, which a union would quietly prevent.
-    base = replace(DERPIBOORU_TAXONOMY, ignored_tags=frozenset({"from-the-constant"}))
+    base = replace(DERPIBOORU_TAXONOMY, ignored_tags=("from-the-constant",))
 
-    curated = TaxonomySettings(ignored_tags={"from-config"}).apply_to(base)
+    curated = TaxonomySettings(ignored_tags=("from-config",)).apply_to(base)
 
-    assert curated.ignored_tags == frozenset({"from-config"})
+    assert curated.ignored_tags == ("from-config",)
     assert not curated.is_droppable("from-the-constant")
     assert curated.is_droppable("from-config")
 
 
 def test_curation_leaves_the_structural_parts_of_a_taxonomy_alone():
-    curated = TaxonomySettings(ignored_tags={"x"}).apply_to(DERPIBOORU_TAXONOMY)
+    curated = TaxonomySettings(ignored_tags=("x",)).apply_to(DERPIBOORU_TAXONOMY)
 
     assert curated.namespaces == DERPIBOORU_TAXONOMY.namespaces
     assert curated.rating_tags == DERPIBOORU_TAXONOMY.rating_tags
     assert curated.goal_bucket == DERPIBOORU_TAXONOMY.goal_bucket
 
 
-def test_configured_prefixes_drop_a_whole_namespace(tmp_path):
-    path = write_config(tmp_path, '[taxonomy]\nignored_prefixes = ["spoiler:"]\n')
+def test_a_glob_pattern_drops_a_whole_namespace(tmp_path):
+    path = write_config(tmp_path, '[taxonomy]\nignored_tags = ["spoiler:*"]\n')
 
     curated = load_settings(path).taxonomy.apply_to(DERPIBOORU_TAXONOMY)
 
@@ -143,6 +143,7 @@ def test_the_shipped_config_file_is_valid_and_carries_the_curation():
     curated = settings.taxonomy.apply_to(DERPIBOORU_TAXONOMY)
 
     assert curated.is_droppable("source needed")  # housekeeping, not on the image
+    assert curated.is_droppable("battle in the comments")  # a glob-matched family
     assert curated.is_droppable("spoiler:the-ending")  # a dropped namespace
     assert curated.is_droppable("commissioner:someone")  # a credit, not guessable
     assert curated.is_droppable("editor:someone")

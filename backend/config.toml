@@ -22,8 +22,10 @@ cors_origins = ["*"]
 # than adding to them — this file is the whole truth, so deleting a line here
 # makes that tag guessable again.
 
-# Plain tags that can't be derived from looking at the image. They'd otherwise
-# sit in the goal bucket and block a win nobody could reach.
+# Tags that can't be derived from looking at the image — they'd otherwise sit in
+# the goal bucket and block a win nobody could reach. Entries are glob patterns
+# (fnmatch: * ? []), so one line catches a whole family. A plain string matches
+# exactly; "prefix:*" drops a whole namespace; "*text*" matches a substring.
 ignored_tags = [
   "commission",
   "dead source",
@@ -31,13 +33,11 @@ ignored_tags = [
   "source needed",
   "useless source link",
   "youtube link",
+  "*comments*",
+  "spoiler:*",
+  "commissioner:*",
+  "editor:*",
 ]
-
-# Whole namespaces to drop. Spoilers name plot points rather than describing the
-# picture; commissioners and editors are credits you can't read off the image.
-# None are guessable, and all would otherwise land in the goal bucket and block a
-# win nobody could reach.
-ignored_prefixes = ["spoiler:", "commissioner:", "editor:"]
 
 
 [room_defaults]
