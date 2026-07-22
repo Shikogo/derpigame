@@ -123,7 +123,7 @@ class GameService:
         # The raw guess is kept so the events can report what the player actually
         # typed alongside the tag it resolved to.
         canonical = await self._canonicalized(game, guess)
-        await self._deliver(room, game.submit_guess(canonical, as_typed=guess))
+        await self._deliver(room, game.submit_guess(user_uuid, canonical, as_typed=guess))
 
     async def _canonicalized(self, game, guess: str) -> str:
         """Map an unrecognized guess to its canonical tag; leave known ones alone.

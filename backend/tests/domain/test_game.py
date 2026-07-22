@@ -60,6 +60,16 @@ def only(events, event_type):
     return matches[0]
 
 
+def play(game: Game, guess: str, as_typed: str | None = None):
+    """Submit ``guess`` as whoever's turn it currently is.
+
+    ``submit_guess`` is keyed on player uuid, but these turn-order tests always
+    mean "the active player guesses", so this passes that uuid for them. Tests
+    that exercise the uuid keying itself call ``submit_guess`` directly.
+    """
+    return game.submit_guess(game.active_player.uuid, guess, as_typed=as_typed)
+
+
 # --- setup / bucketing -------------------------------------------------------
 
 
@@ -85,7 +95,7 @@ def test_credit_namespaces_do_not_gate_a_win():
     assert game.tag_buckets["fanfics"].tags == ["fanfic:the fic"]
     assert game.tag_buckets["series"].tags == ["series:the series"]
     assert only(game.start(), GameStarted).tag_count == 1
-    assert only(game.submit_guess("solo"), GameOver).win is True
+    assert only(play(game, "solo"), GameOver).win is True
 
 
 def test_query_and_rating_tags_are_excluded_from_buckets():
@@ -116,7 +126,7 @@ def test_ignored_tags_do_not_gate_a_win():
     assert game.tag_buckets["tags"].tags == ["solo"]
     events = game.start()
     assert only(events, GameStarted).tag_count == 1
-    assert only(game.submit_guess("solo"), GameOver).win is True
+    assert only(play(game, "solo"), GameOver).win is True
 
 
 def test_start_reports_counts_and_first_player():
@@ -141,7 +151,7 @@ def test_start_reports_counts_and_first_player():
 def test_start_is_idempotent():
     game = make_game(tags=["solo", "twilight"], first_index=0)
     assert game.start()  # first start announces the opening
-    assert game.submit_guess("solo")  # advance turn to bob
+    assert play(game, "solo")  # advance turn to bob
     assert game.start() == []  # a stray re-start is a no-op
     assert game.active_player.name == "bob"  # turn state untouched
 
@@ -151,10 +161,10 @@ def test_start_is_idempotent():
 
 def test_already_guessed_tag_is_noop_and_keeps_turn():
     game = make_game(tags=["solo", "twilight"], first_index=0)
-    game.submit_guess("solo")  # alice scores, turn passes to bob
+    play(game, "solo")  # alice scores, turn passes to bob
     assert game.active_player.name == "bob"
 
-    events = game.submit_guess("solo")  # bob re-guesses an already-found tag
+    events = play(game, "solo")  # bob re-guesses an already-found tag
     rejected = only(events, GuessRejected)
     assert rejected.reason is RejectReason.ALREADY_GUESSED
     assert not any(isinstance(e, TurnStarted) for e in events)
@@ -164,7 +174,7 @@ def test_already_guessed_tag_is_noop_and_keeps_turn():
 
 def test_default_query_tag_is_rejected_without_penalty():
     game = make_game(tags=["solo"], query=["cute"], first_index=0)
-    events = game.submit_guess("cute")
+    events = play(game, "cute")
     assert only(events, GuessRejected).reason is RejectReason.DEFAULT_TAG
     assert game.active_player.name == "alice"
     assert game.active_player.wrong_guesses == 0
@@ -172,14 +182,14 @@ def test_default_query_tag_is_rejected_without_penalty():
 
 def test_rating_tag_is_rejected_without_penalty():
     game = make_game(tags=["solo"], first_index=0)
-    events = game.submit_guess("safe")
+    events = play(game, "safe")
     assert only(events, GuessRejected).reason is RejectReason.RATING_TAG
     assert game.active_player.wrong_guesses == 0
 
 
 def test_ignored_tag_is_rejected_without_penalty():
     game = make_game(tags=["solo"], first_index=0, taxonomy=CURATED_TAXONOMY)
-    events = game.submit_guess("source needed")
+    events = play(game, "source needed")
     assert only(events, GuessRejected).reason is RejectReason.IGNORED_TAG
     assert game.active_player.name == "alice"  # keeps the turn
     assert game.active_player.wrong_guesses == 0
@@ -187,10 +197,10 @@ def test_ignored_tag_is_rejected_without_penalty():
 
 def test_repeated_wrong_guess_is_noop_without_extra_penalty():
     game = make_game(tags=["solo"], players=["alice", "bob"], first_index=0)
-    game.submit_guess("nope")  # alice's 1st wrong -> turn passes to bob
+    play(game, "nope")  # alice's 1st wrong -> turn passes to bob
     assert game.active_player.name == "bob"
 
-    events = game.submit_guess("nope")  # bob re-tries a known-wrong guess
+    events = play(game, "nope")  # bob re-tries a known-wrong guess
     assert only(events, GuessRejected).reason is RejectReason.ALREADY_WRONG
     assert not any(isinstance(e, TurnStarted) for e in events)
     assert game.active_player.name == "bob"  # keeps the turn
@@ -202,7 +212,7 @@ def test_repeated_wrong_guess_is_noop_without_extra_penalty():
 
 def test_correct_guess_scores_removes_tag_and_advances_turn():
     game = make_game(tags=["solo", "twilight"], first_index=0)
-    events = game.submit_guess("SOLO")  # case-insensitive
+    events = play(game, "SOLO")  # case-insensitive
 
     correct = only(events, CorrectGuess)
     assert correct.player.name == "alice"
@@ -215,7 +225,7 @@ def test_correct_guess_scores_removes_tag_and_advances_turn():
 
 def test_correct_artist_guess_reports_artist_bucket():
     game = make_game(tags=["solo", "artist:foo"], first_index=0)
-    events = game.submit_guess("artist:foo")
+    events = play(game, "artist:foo")
     assert only(events, CorrectGuess).tag_type == "artists"
 
 
@@ -224,7 +234,7 @@ def test_correct_artist_guess_reports_artist_bucket():
 
 def test_bare_name_scores_and_reports_the_canonical_tag():
     game = make_game(tags=["solo", "artist:foo"], first_index=0)
-    correct = only(game.submit_guess("foo"), CorrectGuess)
+    correct = only(play(game, "foo"), CorrectGuess)
     assert correct.guess == "artist:foo"  # echoed back with the prefix, to teach it
     assert correct.tag_type == "artists"
     assert game.players[0].score == 1
@@ -233,46 +243,46 @@ def test_bare_name_scores_and_reports_the_canonical_tag():
 
 def test_bare_name_works_for_every_namespace():
     game = make_game(tags=["solo", "oc:bar", "comic:the comic"], first_index=0)
-    assert only(game.submit_guess("bar"), CorrectGuess).tag_type == "ocs"
-    assert only(game.submit_guess("the comic"), CorrectGuess).tag_type == "comics"
+    assert only(play(game, "bar"), CorrectGuess).tag_type == "ocs"
+    assert only(play(game, "the comic"), CorrectGuess).tag_type == "comics"
 
 
 def test_the_prefixed_form_still_works():
     game = make_game(tags=["solo", "artist:foo"], first_index=0)
-    assert only(game.submit_guess("artist:foo"), CorrectGuess).guess == "artist:foo"
+    assert only(play(game, "artist:foo"), CorrectGuess).guess == "artist:foo"
 
 
 def test_a_resolved_bare_name_reports_what_was_typed():
     game = make_game(tags=["solo", "artist:foo"], first_index=0)
-    correct = only(game.submit_guess("foo"), CorrectGuess)
+    correct = only(play(game, "foo"), CorrectGuess)
     assert correct.as_typed == "foo"  # so the client can show foo → artist:foo
 
 
 def test_an_exact_guess_reports_no_translation():
     game = make_game(tags=["solo", "artist:foo"], first_index=0)
-    assert only(game.submit_guess("solo"), CorrectGuess).as_typed is None
+    assert only(play(game, "solo"), CorrectGuess).as_typed is None
 
 
 def test_case_alone_is_not_a_translation():
     game = make_game(tags=["solo", "artist:foo"], first_index=0)
-    assert only(game.submit_guess("ARTIST:FOO"), CorrectGuess).as_typed is None
+    assert only(play(game, "ARTIST:FOO"), CorrectGuess).as_typed is None
 
 
 def test_as_typed_carries_the_callers_wording_through():
     # The service resolves booru aliases before the game ever sees the guess, so
     # the original has to be passed in to survive.
     game = make_game(tags=["solo", "twilight sparkle"], first_index=0)
-    correct = only(game.submit_guess("twilight sparkle", as_typed="ts"), CorrectGuess)
+    correct = only(play(game, "twilight sparkle", as_typed="ts"), CorrectGuess)
     assert correct.guess == "twilight sparkle"
     assert correct.as_typed == "ts"
 
 
 def test_a_wrong_or_rejected_guess_reports_its_translation_too():
     game = make_game(tags=["solo", "artist:foo"], first_index=0)
-    assert only(game.submit_guess("nope", as_typed="npe"), WrongGuess).as_typed == "npe"
+    assert only(play(game, "nope", as_typed="npe"), WrongGuess).as_typed == "npe"
 
     game = make_game(tags=["solo", "artist:foo"], query=["safe"], first_index=0)
-    rejected = only(game.submit_guess("safe", as_typed="rating:safe"), GuessRejected)
+    rejected = only(play(game, "safe", as_typed="rating:safe"), GuessRejected)
     assert rejected.as_typed == "rating:safe"
 
 
@@ -283,19 +293,17 @@ def test_start_reports_the_strike_limit():
 
 def test_repeating_a_bare_name_is_rejected_as_already_guessed():
     game = make_game(tags=["solo", "artist:foo"], first_index=0)
-    game.submit_guess("foo")
+    play(game, "foo")
     # Both spellings resolve to the same tag, so neither is a fresh guess.
-    assert only(game.submit_guess("foo"), GuessRejected).reason is RejectReason.ALREADY_GUESSED
-    assert only(game.submit_guess("artist:foo"), GuessRejected).reason is (
-        RejectReason.ALREADY_GUESSED
-    )
+    assert only(play(game, "foo"), GuessRejected).reason is RejectReason.ALREADY_GUESSED
+    assert only(play(game, "artist:foo"), GuessRejected).reason is (RejectReason.ALREADY_GUESSED)
 
 
 def test_a_plain_tag_wins_a_collision_with_a_bare_name():
     # "foo" is both a goal tag and an artist's bare name. The goal tag gates the
     # win, so it has to be what a bare guess takes.
     game = make_game(tags=["foo", "artist:foo"], first_index=0)
-    correct = only(game.submit_guess("foo"), CorrectGuess)
+    correct = only(play(game, "foo"), CorrectGuess)
     assert correct.guess == "foo"
     assert correct.tag_type == "tags"
     assert game.tag_buckets["artists"].tags == ["artist:foo"]
@@ -304,19 +312,19 @@ def test_a_plain_tag_wins_a_collision_with_a_bare_name():
 def test_a_query_term_is_not_reachable_as_a_bare_name():
     # The query already named it, so it's a freebie — guessing it can't score.
     game = make_game(tags=["solo", "artist:foo"], query=["foo"], first_index=0)
-    assert only(game.submit_guess("foo"), GuessRejected).reason is RejectReason.DEFAULT_TAG
+    assert only(play(game, "foo"), GuessRejected).reason is RejectReason.DEFAULT_TAG
 
 
 def test_a_reserved_word_is_not_reachable_as_a_bare_name():
     # An artist named "safe" mustn't turn the rating tag into a scoring guess.
     game = make_game(tags=["solo", "artist:safe"], first_index=0)
-    assert only(game.submit_guess("safe"), GuessRejected).reason is RejectReason.RATING_TAG
+    assert only(play(game, "safe"), GuessRejected).reason is RejectReason.RATING_TAG
     assert game.tag_buckets["artists"].tags == ["artist:safe"]
 
 
 def test_bare_name_collision_between_namespaces_goes_to_the_first():
     game = make_game(tags=["solo", "artist:foo", "oc:foo"], first_index=0)
-    assert only(game.submit_guess("foo"), CorrectGuess).tag_type == "artists"
+    assert only(play(game, "foo"), CorrectGuess).tag_type == "artists"
 
 
 def test_recognizes_a_bare_name():
@@ -331,7 +339,7 @@ def test_a_bare_typo_does_not_near_miss_a_namespaced_bucket():
     # Fuzzy matching stays scoped to the bucket the guess's own prefix implies,
     # so arbitrary artist/OC names can't soak up near misses from plain guesses.
     game = make_game(tags=["solo", "artist:applejack"], first_index=0)
-    events = game.submit_guess("applejck")
+    events = play(game, "applejck")
     assert only(events, WrongGuess).guess == "applejck"
 
 
@@ -340,7 +348,7 @@ def test_a_bare_typo_does_not_near_miss_a_namespaced_bucket():
 
 def test_wrong_guess_increments_count_and_advances_turn():
     game = make_game(tags=["solo"], first_index=0)
-    events = game.submit_guess("nonsense")
+    events = play(game, "nonsense")
 
     wrong = only(events, WrongGuess)
     assert wrong.player.name == "alice"
@@ -351,7 +359,7 @@ def test_wrong_guess_increments_count_and_advances_turn():
 def test_moderate_typo_qualifies_as_a_near_miss():
     # ~0.88 similarity: below the old 0.9 bar but at/above the current 0.85 one.
     game = make_game(tags=["twilight"], first_index=0)
-    events = game.submit_guess("twiligth")
+    events = play(game, "twiligth")
 
     near = only(events, NearMiss)
     assert near.closeness >= 85
@@ -361,7 +369,7 @@ def test_moderate_typo_qualifies_as_a_near_miss():
 
 def test_near_miss_is_noop_and_keeps_turn():
     game = make_game(tags=["applejack"], first_index=0)
-    events = game.submit_guess("applejck")  # a typo, similarity >= 0.85
+    events = play(game, "applejck")  # a typo, similarity >= 0.85
 
     near = only(events, NearMiss)
     assert near.player.name == "alice"
@@ -374,16 +382,16 @@ def test_near_miss_is_noop_and_keeps_turn():
 
 def test_near_miss_lets_the_player_correct_the_typo():
     game = make_game(tags=["applejack"], first_index=0)
-    game.submit_guess("applejck")  # near miss, no penalty, still alice's turn
+    play(game, "applejck")  # near miss, no penalty, still alice's turn
 
-    events = game.submit_guess("applejack")  # fix the typo
+    events = play(game, "applejack")  # fix the typo
     assert only(events, CorrectGuess).player.name == "alice"
     assert game.players[0].score == 1
 
 
 def test_unrelated_guess_is_a_plain_wrong_guess():
     game = make_game(tags=["applejack"], first_index=0)
-    events = game.submit_guess("xyz")
+    events = play(game, "xyz")
     only(events, WrongGuess)  # a plain wrong guess, not a near miss
     assert not any(isinstance(e, NearMiss) for e in events)
 
@@ -393,11 +401,11 @@ def test_unrelated_guess_is_a_plain_wrong_guess():
 
 def test_three_wrong_guesses_eliminates_player():
     game = make_game(tags=["solo", "twilight"], players=["alice", "bob"], first_index=0)
-    game.submit_guess("wrong1")  # alice 1st wrong -> bob
-    game.submit_guess("wrong2")  # bob 1st wrong -> alice
-    game.submit_guess("wrong3")  # alice 2nd wrong -> bob
-    game.submit_guess("wrong4")  # bob 2nd wrong -> alice
-    events = game.submit_guess("wrong5")  # alice 3rd wrong -> eliminated
+    play(game, "wrong1")  # alice 1st wrong -> bob
+    play(game, "wrong2")  # bob 1st wrong -> alice
+    play(game, "wrong3")  # alice 2nd wrong -> bob
+    play(game, "wrong4")  # bob 2nd wrong -> alice
+    events = play(game, "wrong5")  # alice 3rd wrong -> eliminated
 
     eliminated = only(events, PlayerEliminated)
     assert eliminated.player.name == "alice"
@@ -411,44 +419,44 @@ def test_has_active_player_tracks_who_may_still_act():
     assert not game.has_active_player("stranger")  # never in the round
 
     for guess in ("w1", "w2", "w3", "w4", "w5"):  # alice's 3rd wrong -> eliminated
-        game.submit_guess(guess)
+        play(game, guess)
 
     assert not game.has_active_player("alice")  # eliminated: can't act anymore
     assert game.has_active_player("bob")
 
 
-def test_elimination_reindexes_to_the_following_player():
+def test_elimination_passes_turn_to_the_following_player():
     game = make_game(tags=["solo"], players=["a", "b", "c"], first_index=1)
     # distinct guesses each turn — repeats are no-ops and wouldn't accumulate
     for n in ("1", "2"):
-        game.submit_guess("b" + n)  # b
-        game.submit_guess("c" + n)  # c
-        game.submit_guess("a" + n)  # a
+        play(game, "b" + n)  # b
+        play(game, "c" + n)  # c
+        play(game, "a" + n)  # a
     # b now at 2 wrong guesses and it's b's turn again
     assert game.active_player.name == "b"
-    events = game.submit_guess("boom")  # b's 3rd wrong -> eliminated
+    events = play(game, "boom")  # b's 3rd wrong -> eliminated
     only(events, PlayerEliminated)
     assert [p.name for p in game.players] == ["a", "c"]
     assert only(events, TurnStarted).player.name == "c"
 
 
-def test_elimination_of_last_index_wraps_to_first():
+def test_elimination_of_the_last_player_wraps_turn_to_the_first():
     game = make_game(tags=["solo"], players=["a", "b", "c"], first_index=2)
     for n in ("1", "2"):
-        game.submit_guess("c" + n)  # c
-        game.submit_guess("a" + n)  # a
-        game.submit_guess("b" + n)  # b
+        play(game, "c" + n)  # c
+        play(game, "a" + n)  # a
+        play(game, "b" + n)  # b
     assert game.active_player.name == "c"
-    events = game.submit_guess("boom")  # c's 3rd wrong -> eliminated, wrap to a
+    events = play(game, "boom")  # c's 3rd wrong -> eliminated, wrap to a
     only(events, PlayerEliminated)
     assert only(events, TurnStarted).player.name == "a"
 
 
 def test_all_players_eliminated_ends_game_as_loss():
     game = make_game(tags=["solo"], players=["alice"], first_index=0)
-    game.submit_guess("x")
-    game.submit_guess("y")
-    events = game.submit_guess("z")  # 3rd wrong, only player -> game over
+    play(game, "x")
+    play(game, "y")
+    events = play(game, "z")  # 3rd wrong, only player -> game over
     over = only(events, GameOver)
     assert over.win is False
     assert over.unguessed == {"tags": ["solo"]}
@@ -456,9 +464,9 @@ def test_all_players_eliminated_ends_game_as_loss():
 
 def test_solo_loss_crowns_no_winner():
     game = make_game(tags=["solo"], players=["alice"], first_index=0)
-    game.submit_guess("x")
-    game.submit_guess("y")
-    events = game.submit_guess("z")  # eliminated with no one to out-score
+    play(game, "x")
+    play(game, "y")
+    events = play(game, "z")  # eliminated with no one to out-score
     assert only(events, GameOver).winners == []
 
 
@@ -467,9 +475,9 @@ def test_multiplayer_loss_crowns_top_scorer():
     game = make_game(
         tags=["aaa", "bbb"], players=["alice", "bob"], first_index=0, elimination_threshold=1
     )
-    game.submit_guess("aaa")  # alice scores 1, turn -> bob
-    game.submit_guess("miss")  # bob 1st wrong -> eliminated, turn -> alice
-    events = game.submit_guess("flop")  # alice 1st wrong -> eliminated, all gone
+    play(game, "aaa")  # alice scores 1, turn -> bob
+    play(game, "miss")  # bob 1st wrong -> eliminated, turn -> alice
+    events = play(game, "flop")  # alice 1st wrong -> eliminated, all gone
     over = only(events, GameOver)
     assert over.win is False
     assert [p.name for p in over.winners] == ["alice"]  # led when everyone fell
@@ -479,9 +487,31 @@ def test_scoreless_loss_crowns_no_winner():
     game = make_game(
         tags=["aaa", "bbb"], players=["alice", "bob"], first_index=0, elimination_threshold=1
     )
-    game.submit_guess("miss")  # alice 1st wrong -> eliminated, turn -> bob
-    events = game.submit_guess("flop")  # bob 1st wrong -> eliminated, nobody scored
+    play(game, "miss")  # alice 1st wrong -> eliminated, turn -> bob
+    events = play(game, "flop")  # bob 1st wrong -> eliminated, nobody scored
     assert only(events, GameOver).winners == []
+
+
+# --- a guess is credited to the player named by uuid -------------------------
+
+
+def test_a_guess_is_credited_to_the_uuid_that_made_it():
+    # submit_guess scores the uuid it is handed, not the active-player slot — bob
+    # is credited though the turn is alice's. Turn order still stands above the
+    # domain; the domain just no longer assumes the guesser is the active player,
+    # which is the groundwork for a future turn-less mode.
+    game = make_game(tags=["solo", "twilight"], players=["alice", "bob"], first_index=0)
+    correct = only(game.submit_guess("bob", "solo"), CorrectGuess)
+    assert correct.player.name == "bob"
+    assert game.players[1].score == 1  # bob scored
+    assert game.players[0].score == 0  # alice, whose turn it was, untouched
+
+
+def test_a_guess_from_a_non_player_is_ignored():
+    # A spectator, or an already-eliminated uuid, has no standing to guess.
+    game = make_game(tags=["solo"], players=["alice"], first_index=0)
+    assert game.submit_guess("stranger", "solo") == []
+    assert game.tag_buckets["tags"].tags == ["solo"]  # nothing taken or scored
 
 
 # --- winning & ties ----------------------------------------------------------
@@ -489,7 +519,7 @@ def test_scoreless_loss_crowns_no_winner():
 
 def test_win_when_all_regular_tags_guessed():
     game = make_game(tags=["solo"], first_index=0)
-    events = game.submit_guess("solo")
+    events = play(game, "solo")
     over = only(events, GameOver)
     assert over.win is True
     assert over.unguessed == {}
@@ -497,7 +527,7 @@ def test_win_when_all_regular_tags_guessed():
 
 def test_win_ignores_remaining_artist_and_oc_tags():
     game = make_game(tags=["solo", "artist:foo", "oc:bar"], first_index=0)
-    events = game.submit_guess("solo")  # last regular tag
+    events = play(game, "solo")  # last regular tag
     over = only(events, GameOver)
     assert over.win is True
     assert game.tag_buckets["artists"].tag_count == 1
@@ -506,8 +536,8 @@ def test_win_ignores_remaining_artist_and_oc_tags():
 
 def test_unguessed_reports_every_bucket_goal_first():
     game = make_game(tags=["aaa", "bbb", "artist:foo", "oc:bar"], first_index=0)
-    game.submit_guess("aaa")  # alice takes one goal tag, turn -> bob
-    game.submit_guess("oc:bar")  # bob takes the only oc; "bbb" keeps it running
+    play(game, "aaa")  # alice takes one goal tag, turn -> bob
+    play(game, "oc:bar")  # bob takes the only oc; "bbb" keeps it running
     assert game.unguessed == {"tags": ["bbb"], "artists": ["artist:foo"]}
     assert list(game.unguessed) == ["tags", "artists"]  # goal bucket leads
 
@@ -515,14 +545,14 @@ def test_unguessed_reports_every_bucket_goal_first():
 def test_unguessed_carries_missed_bonus_tags_at_game_over():
     # The goal bucket completing ends the round with bonus tags still unclaimed.
     game = make_game(tags=["solo", "artist:foo", "oc:bar"], first_index=0)
-    over = only(game.submit_guess("solo"), GameOver)
+    over = only(play(game, "solo"), GameOver)
     assert over.unguessed == {"artists": ["artist:foo"], "ocs": ["oc:bar"]}
 
 
 def test_tie_detection_lists_all_top_scorers():
     game = make_game(tags=["aaa", "bbb"], players=["alice", "bob"], first_index=0)
-    game.submit_guess("aaa")  # alice scores, turn -> bob
-    events = game.submit_guess("bbb")  # bob scores, last tag -> win
+    play(game, "aaa")  # alice scores, turn -> bob
+    events = play(game, "bbb")  # bob scores, last tag -> win
     over = only(events, GameOver)
     assert over.win is True
     assert {p.name for p in over.winners} == {"alice", "bob"}
@@ -530,9 +560,9 @@ def test_tie_detection_lists_all_top_scorers():
 
 def test_single_winner_ranked_first_in_standings():
     game = make_game(tags=["aaa", "bbb"], players=["alice", "bob"], first_index=0)
-    game.submit_guess("aaa")  # alice 1 point -> bob
-    game.submit_guess("wrong")  # bob wrong -> alice
-    events = game.submit_guess("bbb")  # alice 2nd point, last tag -> win
+    play(game, "aaa")  # alice 1 point -> bob
+    play(game, "wrong")  # bob wrong -> alice
+    events = play(game, "bbb")  # alice 2nd point, last tag -> win
     over = only(events, GameOver)
     assert [p.name for p in over.winners] == ["alice"]
     assert over.standings[0].name == "alice"
@@ -565,7 +595,7 @@ def test_timeout_can_eliminate():
 
 def test_elimination_threshold_is_configurable():
     game = make_game(tags=["solo"], players=["alice"], first_index=0, elimination_threshold=1)
-    events = game.submit_guess("wrong")  # 1 wrong is enough now
+    events = play(game, "wrong")  # 1 wrong is enough now
     only(events, PlayerEliminated)
     assert only(events, GameOver).win is False
 
@@ -587,7 +617,7 @@ def test_custom_taxonomy_buckets_by_its_own_namespaces():
     assert game.tag_buckets["characters"].tags == ["character:rex"]
     assert "ocs" not in game.tag_buckets  # derpibooru's namespace isn't present
     # its rating tag is dropped, and guessing it is rejected as a rating
-    assert only(game.submit_guess("explicit"), GuessRejected).reason is RejectReason.RATING_TAG
+    assert only(play(game, "explicit"), GuessRejected).reason is RejectReason.RATING_TAG
 
 
 def test_custom_taxonomy_reports_its_buckets_in_game_started():
@@ -605,7 +635,7 @@ def test_uppercase_query_and_tags_are_normalized():
     game = make_game(tags=["Solo", "TWILIGHT"], query=["Cute"], first_index=0)
     assert game.tag_buckets["tags"].tags == ["solo", "twilight"]
     # a mixed-case default tag is still rejected, not treated as guessable
-    assert only(game.submit_guess("CUTE"), GuessRejected).reason is RejectReason.DEFAULT_TAG
+    assert only(play(game, "CUTE"), GuessRejected).reason is RejectReason.DEFAULT_TAG
 
 
 def test_empty_player_list_is_rejected():
@@ -615,9 +645,9 @@ def test_empty_player_list_is_rejected():
 
 def test_game_is_marked_over_and_ignores_further_input():
     game = make_game(tags=["solo"], first_index=0)
-    game.submit_guess("solo")  # win
+    play(game, "solo")  # win
     assert game.is_over is True
-    assert game.submit_guess("anything") == []
+    assert play(game, "anything") == []
     assert game.timeout() == []
 
 
@@ -646,8 +676,8 @@ def test_recognizes_a_novel_guess_is_false():
 
 def test_recognizes_after_a_tag_is_guessed_or_failed():
     game = make_game(tags=["solo", "twilight"], first_index=0)
-    game.submit_guess("solo")  # found -> in guessed_tags
-    game.submit_guess("wrongo")  # missed -> in failed_guesses
+    play(game, "solo")  # found -> in guessed_tags
+    play(game, "wrongo")  # missed -> in failed_guesses
     assert game.recognizes("solo")  # already found, no lookup needed
     assert game.recognizes("wrongo")  # already known wrong, no lookup needed
 

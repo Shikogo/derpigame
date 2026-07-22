@@ -54,7 +54,8 @@ class Game:
         self._finished = False
         self.tag_buckets = self._bucket_tags([tag.lower() for tag in tags])
         self._bare_names = self._index_bare_names()
-        self._active_index = randrange(len(self.players)) if first_index is None else first_index
+        first = randrange(len(self.players)) if first_index is None else first_index
+        self._active = self.players[first]
         self.elimination_threshold = (
             self.ELIMINATION_THRESHOLD if elimination_threshold is None else elimination_threshold
         )
@@ -126,19 +127,23 @@ class Game:
 
     @property
     def active_player(self) -> Player:
-        return self.players[self._active_index]
+        return self._active
 
     @property
     def is_over(self) -> bool:
         return self._finished
 
-    def has_active_player(self, uuid: str) -> bool:
-        """Whether ``uuid`` is a current, non-eliminated player.
+    def _player(self, uuid: str) -> Player | None:
+        """The current, non-eliminated player with this ``uuid``, if any.
 
         Eliminated players are moved out of ``self.players``, and spectators were
-        never in it, so this is the "may still act in the round" test.
+        never in it, so this is the lookup for "may still act in the round".
         """
-        return any(player.uuid == uuid for player in self.players)
+        return next((player for player in self.players if player.uuid == uuid), None)
+
+    def has_active_player(self, uuid: str) -> bool:
+        """Whether ``uuid`` is a current, non-eliminated player."""
+        return self._player(uuid) is not None
 
     def start(self) -> list[GameEvent]:
         """Announce the opening: tag counts and whose turn it is.
@@ -182,15 +187,20 @@ class Game:
             return True
         return any(guess in bucket.tags for bucket in self.tag_buckets.values())
 
-    def submit_guess(self, guess: str, as_typed: str | None = None) -> list[GameEvent]:
-        """Process the active player's guess and return what happened.
+    def submit_guess(self, uuid: str, guess: str, as_typed: str | None = None) -> list[GameEvent]:
+        """Process a guess from player ``uuid`` and return what happened.
+
+        The guess is credited to the player named by ``uuid``, not the
+        active-player slot, so scoring and elimination hold up under a future
+        mode where guesses aren't turn-gated. A guess from someone who isn't a
+        current player (a spectator or an already-eliminated player) is ignored,
+        as is any guess once the game is over.
 
         Rejected guesses (already found, already tried and wrong, default query
         tags, rating tags, ignored tags) are no-ops: the player keeps their turn
         and takes no penalty. A very close near-miss (similarity >=
         NEAR_MISS_THRESHOLD) is treated the same — no penalty, retry allowed.
         Correct and fresh wrong guesses both end the turn and advance the game.
-        Guesses after the game is over are ignored.
 
         A bare ``shikogo`` is resolved to ``artist:shikogo`` first, so the events
         report the canonical tag and the feed shows the prefix back.
@@ -201,6 +211,9 @@ class Game:
         by that point ``guess`` is the canonical tag either way.
         """
         if self._finished:
+            return []
+        player = self._player(uuid)
+        if player is None:
             return []
         typed = guess if as_typed is None else as_typed
         guess = self._resolve(guess.lower())
@@ -221,33 +234,37 @@ class Game:
 
         for kind, bucket in self.tag_buckets.items():
             if bucket.take(guess):
-                self.active_player.score += 1
+                player.score += 1
                 self.guessed_tags.append(guess)
                 correct = CorrectGuess(
-                    player=self.active_player,
+                    player=player,
                     guess=guess,
                     tag_type=kind,
                     remaining=bucket.tag_count,
                     as_typed=typed,
                 )
-                return [correct, *self._progress()]
+                return [correct, *self._progress(player)]
 
         similarity = self._similarity(guess)
         if similarity >= self.near_miss_threshold:
             closeness = round(similarity * 100)  # percent, for display
-            return [NearMiss(self.active_player, guess, closeness, typed)]
-        return [self._wrong_guess(guess, typed), *self._progress()]
+            return [NearMiss(player, guess, closeness, typed)]
+        return [self._wrong_guess(player, guess, typed), *self._progress(player)]
 
     def timeout(self) -> list[GameEvent]:
-        """The active player ran out of time — counts as a wrong guess."""
+        """The active player ran out of time — counts as a wrong guess.
+
+        A timeout is definitionally the active turn expiring, so it's keyed on
+        the active player; the elimination it may trigger still runs by identity
+        through ``_progress``.
+        """
         if self._finished:
             return []
         player = self.active_player
         player.wrong_guesses += 1
-        return [Timeout(player, player.wrong_guesses), *self._progress()]
+        return [Timeout(player, player.wrong_guesses), *self._progress(player)]
 
-    def _wrong_guess(self, guess: str, as_typed: str | None = None) -> WrongGuess:
-        player = self.active_player
+    def _wrong_guess(self, player: Player, guess: str, as_typed: str | None = None) -> WrongGuess:
         player.wrong_guesses += 1
         self.failed_guesses.add(guess)
         return WrongGuess(player, guess, player.wrong_guesses, as_typed)
@@ -271,23 +288,39 @@ class Game:
 
         return best if best >= self.near_miss_threshold else 0.0
 
-    def _progress(self) -> list[GameEvent]:
-        """Advance the game after a turn-ending guess or timeout."""
-        if self.active_player.wrong_guesses >= self.elimination_threshold:
-            eliminated = self.players.pop(self._active_index)
-            self.eliminated_players.append(eliminated)
-            events: list[GameEvent] = [PlayerEliminated(eliminated)]
+    def _successor(self, actor: Player) -> Player:
+        """Whose turn comes after ``actor``'s, by position in the turn order.
+
+        Read before any elimination removes ``actor``, so the answer holds by
+        identity even as the roster shrinks. Wraps at the end; a lone player is
+        their own successor.
+        """
+        nxt = (self.players.index(actor) + 1) % len(self.players)
+        return self.players[nxt]
+
+    def _progress(self, actor: Player) -> list[GameEvent]:
+        """Advance the game after ``actor`` ends their turn.
+
+        Elimination and the hand-off follow ``actor``'s identity rather than a
+        turn index, so they survive a future mode where the guesser need not be
+        the active player. The successor is resolved up front, before an
+        elimination can remove ``actor`` from the roster.
+        """
+        successor = self._successor(actor)
+        if actor.wrong_guesses >= self.elimination_threshold:
+            self.players.remove(actor)
+            self.eliminated_players.append(actor)
+            events: list[GameEvent] = [PlayerEliminated(actor)]
             if not self.players:
                 return [*events, self._game_over(win=False)]
-            if self._active_index >= len(self.players):
-                self._active_index = 0
-            return [*events, TurnStarted(self.active_player)]
+            self._active = successor
+            return [*events, TurnStarted(self._active)]
 
         if self._goal_bucket.tag_count == 0:
             return [self._game_over(win=True)]
 
-        self._active_index = (self._active_index + 1) % len(self.players)
-        return [TurnStarted(self.active_player)]
+        self._active = successor
+        return [TurnStarted(self._active)]
 
     def _game_over(self, win: bool) -> GameOver:
         self._finished = True

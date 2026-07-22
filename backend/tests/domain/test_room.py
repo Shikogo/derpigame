@@ -85,7 +85,7 @@ def test_room_becomes_inactive_when_game_ends():
     room = Room("lobby")
     room.add_user(make_user("alice", ready=True))
     game = room.start_game(tags=["solo"], first_index=0)
-    game.submit_guess("solo")  # only regular tag -> win
+    game.submit_guess("alice", "solo")  # alice, the only player -> win
     assert game.is_over is True
     assert room.active is False  # finished game no longer counts as active
 
