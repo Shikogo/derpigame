@@ -23,10 +23,15 @@ const reveal = computed(() => game.state.reveal)
 const image = computed(() => game.state.image)
 const iWon = computed(() => over.value?.winners.some((w) => w.uuid === session.uuid) ?? false)
 
+// Winning is scoring the most points, not clearing every tag — that's a rare
+// bonus, celebrated separately below rather than framing the whole result.
+const winnerList = new Intl.ListFormat('en', { type: 'conjunction' })
+
 const heading = computed(() => {
   if (aborted.value) return 'Round aborted'
   if (iWon.value) return 'You won! 🎉'
-  return over.value?.win ? 'Round over' : 'Nobody got them all'
+  const names = over.value?.winners.map((w) => w.name) ?? []
+  return names.length ? `${winnerList.format(names)} won!` : 'Round over'
 })
 </script>
 
@@ -35,6 +40,10 @@ const heading = computed(() => {
     <h2 class="font-display text-3xl font-bold" :class="iWon ? 'text-correct' : 'text-turn'">
       {{ heading }}
     </h2>
+
+    <p v-if="over?.win" class="-mt-3 text-sm font-semibold text-correct">
+      🏆 Clean sweep — every goal tag guessed!
+    </p>
 
     <!-- Fixed height: the viewer frame needs a definite one to measure against,
          and the standings below it still have to fit on screen. -->
@@ -67,10 +76,8 @@ const heading = computed(() => {
     </div>
 
     <template v-if="over">
-      <p v-if="over.winners.length" class="text-sm">
-        <span class="font-semibold">Winner{{ over.winners.length > 1 ? 's' : '' }}:</span>
-        {{ over.winners.map((w) => w.name).join(', ') }}
-      </p>
+      <!-- The heading names the winner(s); the standings carry the full ranking,
+           so a separate winners line would just repeat what's already shown. -->
       <ol class="divide-y divide-border rounded-lg border border-border bg-surface text-sm">
         <li
           v-for="(p, i) in over.standings"
