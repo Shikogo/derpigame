@@ -84,4 +84,6 @@ max_query_terms = 24
 min_turn_seconds = 10.0
 max_turn_seconds = 300.0
 max_query_lookups = 8
+# A tab close/refresh clears fast; an unexpected network drop holds the seat longer.
+unload_grace_seconds = 5.0
 reconnect_grace_seconds = 30.0

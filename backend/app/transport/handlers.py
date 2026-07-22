@@ -73,6 +73,7 @@ class SocketHandlers:
         *,
         limits: LimitsSettings | None = None,
         reconnect_grace: float | None = None,
+        unload_grace: float | None = None,
     ):
         self._sio = sio
         self._registry = registry
@@ -83,13 +84,18 @@ class SocketHandlers:
         self._reconnect_grace = (
             self._limits.reconnect_grace_seconds if reconnect_grace is None else reconnect_grace
         )
+        self._unload_grace = (
+            self._limits.unload_grace_seconds if unload_grace is None else unload_grace
+        )
         self._owner: dict[str, str] = {}  # uuid -> the sid that currently holds it
         self._grace: dict[str, asyncio.Task] = {}  # uuid -> pending teardown
+        self._unloading: set[str] = set()  # page closed or refreshed
 
     def register(self) -> None:
         for event in (
             "connect",
             "disconnect",
+            "leaving",
             "create_room",
             "join_room",
             "set_ready",
@@ -107,6 +113,16 @@ class SocketHandlers:
     async def connect(self, sid, environ, auth=None):
         return None  # no auth yet (Phase 2); identity arrives with create/join
 
+    async def leaving(self, sid, data=None):
+        """The page signals it is unloading (tab close or refresh) while still
+        connected. Mark the identity so the disconnect that follows clears on the
+        short window — a refresh reclaims within it; a real close does not."""
+        session = await self._session(sid)
+        uuid = session.get("uuid")
+        if uuid and self._owner.get(uuid) == sid:
+            self._unloading.add(uuid)
+        return _ok()
+
     async def disconnect(self, sid, *args):
         session = await self._session(sid)
         room_name, uuid = session.get("room"), session.get("uuid")
@@ -114,7 +130,11 @@ class SocketHandlers:
             return
         if self._owner.get(uuid) != sid:
             return  # a newer socket already took over this identity; stale close
-        self._schedule_teardown(sid, room_name, uuid)
+        # A signalled page unload clears fast (a refresh reclaims within the
+        # window); an unsignalled drop is treated as a live client that will
+        # auto-reconnect, so its seat is held for the longer grace.
+        grace = self._unload_grace if uuid in self._unloading else self._reconnect_grace
+        self._schedule_teardown(sid, room_name, uuid, grace)
 
     def shutdown(self) -> None:
         """Cancel pending reconnect grace timers (app shutdown / test cleanup)."""
@@ -313,6 +333,7 @@ class SocketHandlers:
         await self._sio.enter_room(sid, room.name)
         self._owner[uuid] = sid
         self._cancel_grace(uuid)  # a reconnect cancels any pending teardown
+        self._unloading.discard(uuid)  # ...and clears a stale unload mark
         await self._broadcast_state(room)
         # Rejoin/late-join into a live round: hand this socket the game snapshot
         # so it renders the round in progress instead of a lobby-only view.
@@ -380,22 +401,23 @@ class SocketHandlers:
             self._service.cancel_room(room_name)
             self._registry.remove(room_name)
 
-    def _schedule_teardown(self, sid: str, room_name: str, uuid: str) -> None:
+    def _schedule_teardown(self, sid: str, room_name: str, uuid: str, grace: float) -> None:
         """After a disconnect, keep the room briefly so a reload can reclaim it."""
         self._cancel_grace(uuid)
-        self._grace[uuid] = asyncio.create_task(self._drop_after_grace(sid, room_name, uuid))
+        self._grace[uuid] = asyncio.create_task(self._drop_after_grace(sid, room_name, uuid, grace))
 
     def _cancel_grace(self, uuid: str) -> None:
         task = self._grace.pop(uuid, None)
         if task is not None:
             task.cancel()
 
-    async def _drop_after_grace(self, sid: str, room_name: str, uuid: str) -> None:
+    async def _drop_after_grace(self, sid: str, room_name: str, uuid: str, grace: float) -> None:
         try:
-            await asyncio.sleep(self._reconnect_grace)
+            await asyncio.sleep(grace)
         except asyncio.CancelledError:
             return  # reconnected within the window; keep the membership
         self._grace.pop(uuid, None)
+        self._unloading.discard(uuid)
         if self._owner.get(uuid) == sid:  # nobody reclaimed this identity
             self._owner.pop(uuid, None)
             await self._remove_member(room_name, uuid)

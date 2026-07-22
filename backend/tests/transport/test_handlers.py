@@ -66,7 +66,13 @@ def make():
     services = []
     handlers_made = []
 
-    def _make(tags=("solo", "twilight"), turn_seconds=30.0, reconnect_grace=30.0, rating_axes=()):
+    def _make(
+        tags=("solo", "twilight"),
+        turn_seconds=30.0,
+        reconnect_grace=30.0,
+        unload_grace=30.0,
+        rating_axes=(),
+    ):
         server = FakeServer()
         registry = RoomRegistry()
         image = Image(id="1", tags=list(tags), thumb_url="t", full_url="f")
@@ -75,7 +81,13 @@ def make():
             SocketIOEmitter(server),
             turn_seconds=turn_seconds,
         )
-        handlers = SocketHandlers(server, registry, service, reconnect_grace=reconnect_grace)
+        handlers = SocketHandlers(
+            server,
+            registry,
+            service,
+            reconnect_grace=reconnect_grace,
+            unload_grace=unload_grace,
+        )
         services.append(service)
         handlers_made.append(handlers)
         return handlers, server, registry, service
@@ -529,6 +541,37 @@ async def test_stale_disconnect_after_a_reconnect_is_ignored(make):
 
     assert registry.get(code) is not None
     assert "ua" in registry.get(code).users
+
+
+async def test_unload_signal_clears_fast_while_a_bare_drop_holds_the_seat(make):
+    # A signalled page unload (tab close/refresh) clears on the short window; a
+    # bare drop with no signal holds the seat for the longer reconnect grace.
+    handlers, _server, registry, _service = make(unload_grace=0.02, reconnect_grace=5.0)
+    code = await _create(handlers, "sa", "ua", "Alice")
+    await handlers.join_room("sb", {"room": code, "uuid": "ub", "name": "Bob"})
+
+    await handlers.leaving("sa")  # Alice's page signals it is unloading...
+    await handlers.disconnect("sa")  # ...then the socket closes
+    await handlers.disconnect("sb")  # Bob just drops — no signal
+    await asyncio.sleep(0.05)
+
+    room = registry.get(code)
+    assert room is not None and "ua" not in room.users  # unload cleared fast
+    assert "ub" in room.users  # bare drop still holds the seat
+
+
+async def test_a_reclaim_clears_the_unload_mark(make):
+    # A refresh signals unload then reconnects; the reclaim must clear the mark so
+    # a later ordinary drop still gets the full grace.
+    handlers, _server, registry, _service = make(unload_grace=0.02, reconnect_grace=5.0)
+    code = await _create(handlers, "sa", "ua", "Alice")
+
+    await handlers.leaving("sa")
+    await handlers.join_room("sa2", {"room": code, "uuid": "ua", "name": "Alice"})
+    await handlers.disconnect("sa2")  # a fresh, unsignalled drop
+    await asyncio.sleep(0.05)
+
+    assert registry.get(code) is not None  # held on the long grace, not cleared fast
 
 
 async def test_joining_a_live_round_gets_a_game_snapshot(make):

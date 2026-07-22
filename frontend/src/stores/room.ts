@@ -115,6 +115,25 @@ export const useRoomStore = defineStore('room', () => {
     }
   }
 
+  /**
+   * Re-attach to the current room after the socket reconnects. A dropped
+   * transport comes back with a fresh server session that has forgotten our
+   * membership, so we replay the join exactly as a page refresh would. If the
+   * room is gone (torn down while we were away), drop the stale snapshot so the
+   * view falls back to the join gate and surfaces the error.
+   */
+  async function rejoin(): Promise<void> {
+    const roomCode = code.value
+    const name = useSessionStore().name
+    if (!roomCode || !name) return
+    const ack = await joinRoom(roomCode, name)
+    if (!ack.ok) {
+      roomState.value = null
+      useGameStore().reset()
+      useChatStore().reset()
+    }
+  }
+
   async function leaveRoom(): Promise<Ack> {
     const ack = await request('leave_room')
     roomState.value = null
@@ -154,6 +173,7 @@ export const useRoomStore = defineStore('room', () => {
     startGame,
     stopGame,
     submitGuess,
+    rejoin,
     leaveRoom,
     setRoomState,
     setConnected,

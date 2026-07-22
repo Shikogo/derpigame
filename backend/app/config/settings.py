@@ -136,7 +136,11 @@ class LimitsSettings(_Section):
     # Alias lookups spent resolving a room's query on its first round; also
     # bounds what an oversized query can cost the shared rate limit.
     max_query_lookups: int = Field(default=8, ge=0)
-    # How long a drained room is kept so a reload or flaky connection can reclaim it.
+    # Grace before a disconnected member is dropped, split by cause. A clean page
+    # unload (tab close or refresh) is likely gone for good, so it clears fast —
+    # just long enough for a refresh to reconnect. An unexpected transport drop
+    # (network blip, sleep) holds the seat longer, since the client auto-reconnects.
+    unload_grace_seconds: float = Field(default=5.0, ge=0)
     reconnect_grace_seconds: float = Field(default=30.0, ge=0)
 
     @model_validator(mode="after")

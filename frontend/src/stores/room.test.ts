@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { emitAck } from '@/socket/client'
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
+import { useSessionStore } from '@/stores/session'
 import { roomState } from '@/test/factories'
 import type { GameEvent, Player, RoomState, RoomUser } from '@/types/wire'
 
@@ -114,6 +115,50 @@ describe('room store — start pending flag', () => {
 
     expect(second).toEqual({ ok: false, error: 'game_in_progress' })
     expect(emitAck).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('room store — rejoin on reconnect', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(emitAck).mockReset()
+  })
+
+  it('replays the join for the current room with the stored identity', async () => {
+    const room = useRoomStore()
+    const session = useSessionStore()
+    session.setName('alice')
+    room.setRoomState(roomState({ room: 'wxyz' }))
+    vi.mocked(emitAck).mockResolvedValue({ ok: true, room_state: roomState({ room: 'wxyz' }) })
+
+    await room.rejoin()
+
+    expect(emitAck).toHaveBeenCalledWith('join_room', {
+      room: 'wxyz',
+      name: 'alice',
+      uuid: session.uuid,
+    })
+  })
+
+  it('does nothing when not in a room', async () => {
+    const room = useRoomStore()
+    useSessionStore().setName('alice')
+
+    await room.rejoin()
+
+    expect(emitAck).not.toHaveBeenCalled()
+  })
+
+  it('drops the stale snapshot when the room is gone', async () => {
+    const room = useRoomStore()
+    useSessionStore().setName('alice')
+    room.setRoomState(roomState({ room: 'wxyz' }))
+    vi.mocked(emitAck).mockResolvedValue({ ok: false, error: 'room_not_found' })
+
+    await room.rejoin()
+
+    expect(room.code).toBeNull()
+    expect(room.error).toBe('room_not_found')
   })
 })
 
