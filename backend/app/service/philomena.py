@@ -27,7 +27,7 @@ from collections import OrderedDict
 import httpx
 
 from app.config import PhilomenaSourceSettings
-from app.domain.rating import PHILOMENA_AXES, RatingAxis
+from app.domain.rating import DERPIBOORU_AXES, RatingAxis
 from app.service.image_source import Image, ImageSource, ImageSourceError, SearchOptions
 from app.service.tag_resolver import TagResolver
 
@@ -56,17 +56,22 @@ _SLUG_ESCAPES = [
 class PhilomenaClient(ImageSource, TagResolver):
     @property
     def rating_axes(self) -> tuple[RatingAxis, ...]:
-        return PHILOMENA_AXES
+        return self._rating_axes
 
     def __init__(
         self,
         *,
         config: PhilomenaSourceSettings | None = None,
+        rating_axes: tuple[RatingAxis, ...] = DERPIBOORU_AXES,
         client: httpx.AsyncClient | None = None,
         clock=time.monotonic,
         sleep=asyncio.sleep,
     ):
         self._config = config or PhilomenaSourceSettings()
+        # A booru's rating vocabulary is a fact of the instance, not the engine:
+        # Furbooru's darkness axis lacks Derpibooru's semi-grimdark. Injected so
+        # the composition root pairs each host with the right scales.
+        self._rating_axes = rating_axes
         self._base_url = self._config.base_url.rstrip("/")
         self._search_url = f"{self._base_url}{_SEARCH_PATH}"
         self._tags_url = f"{self._base_url}{_TAGS_PATH}"

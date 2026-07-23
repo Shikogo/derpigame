@@ -58,19 +58,14 @@ class TagTaxonomy:
         return tag in self.rating_tags or self.is_ignored(tag)
 
 
-# Shared by every Philomena instance: the rating tags and namespace scheme are a
-# fact of the engine, not of a particular booru.
-PHILOMENA_RATING_TAGS = frozenset(
-    {
-        "explicit",
-        "grimdark",
-        "grotesque",
-        "questionable",
-        "safe",
-        "semi-grimdark",
-        "suggestive",
-    }
+# The rating tags a Philomena booru drops from play. The names are shared, except
+# Furbooru has no "semi-grimdark" (there it aliases to an invalid tag), so its set
+# is one shorter. The namespace scheme is the same on both.
+_SHARED_RATING_TAGS = frozenset(
+    {"explicit", "grimdark", "grotesque", "questionable", "safe", "suggestive"}
 )
+DERPIBOORU_RATING_TAGS = _SHARED_RATING_TAGS | {"semi-grimdark"}
+FURBOORU_RATING_TAGS = _SHARED_RATING_TAGS
 
 _PHILOMENA_NAMESPACES = {
     "artists": "artist:",
@@ -82,12 +77,12 @@ _PHILOMENA_NAMESPACES = {
 
 DERPIBOORU_TAXONOMY = TagTaxonomy(
     namespaces=dict(_PHILOMENA_NAMESPACES),
-    rating_tags=PHILOMENA_RATING_TAGS,
+    rating_tags=DERPIBOORU_RATING_TAGS,
 )
 
-# Furbooru is Philomena too, so it shares the scheme; the differences that matter
-# (its own housekeeping tags to ignore) are curation and come from config.
+# Furbooru is Philomena too, so it shares the namespace scheme; its rating set
+# differs (no semi-grimdark) and its housekeeping tags to ignore are curation.
 FURBOORU_TAXONOMY = TagTaxonomy(
     namespaces=dict(_PHILOMENA_NAMESPACES),
-    rating_tags=PHILOMENA_RATING_TAGS,
+    rating_tags=FURBOORU_RATING_TAGS,
 )

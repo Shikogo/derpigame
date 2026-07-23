@@ -7,7 +7,7 @@ import logging
 import pytest
 
 from app.config import LimitsSettings
-from app.domain.rating import PHILOMENA_AXES
+from app.domain.rating import DERPIBOORU_AXES
 from app.domain.room import Room
 from app.domain.tag_taxonomy import DERPIBOORU_TAXONOMY, FURBOORU_TAXONOMY
 from app.domain.user import User
@@ -823,7 +823,7 @@ async def test_game_snapshot_is_none_without_a_running_game():
 def two_source_service(emitter: EventEmitter, **resolvers) -> GameService:
     """A service wired with two distinct sources, one image and taxonomy each."""
     derpi = StaticImageSource(
-        [Image(id="d", tags=["solo"], thumb_url="", full_url="")], rating_axes=PHILOMENA_AXES
+        [Image(id="d", tags=["solo"], thumb_url="", full_url="")], rating_axes=DERPIBOORU_AXES
     )
     furry = StaticImageSource(
         [Image(id="f", tags=["solo"], thumb_url="", full_url="")], rating_axes=()

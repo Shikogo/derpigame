@@ -21,6 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import Settings, load_settings
+from app.domain.rating import DERPIBOORU_AXES, FURBOORU_AXES
 from app.domain.room import Room
 from app.domain.tag_taxonomy import DERPIBOORU_TAXONOMY, FURBOORU_TAXONOMY
 from app.logging_config import configure_logging
@@ -107,6 +108,13 @@ _BASE_TAXONOMIES = {
     "furbooru": FURBOORU_TAXONOMY,
 }
 
+# Each source's rating scales, for cap validation and the lobby UI. Furbooru's
+# darkness axis differs from Derpibooru's (no semi-grimdark).
+_BASE_AXES = {
+    "derpibooru": DERPIBOORU_AXES,
+    "furbooru": FURBOORU_AXES,
+}
+
 
 def _build_sources(
     settings: Settings,
@@ -134,7 +142,7 @@ def _build_sources(
         }
     bundles: dict[str, SourceBundle] = {}
     for key, config in settings.sources.all().items():
-        booru = PhilomenaClient(config=config, client=client)
+        booru = PhilomenaClient(config=config, rating_axes=_BASE_AXES[key], client=client)
         curation = getattr(settings.taxonomy, key)
         bundles[key] = SourceBundle(
             image_source=booru,

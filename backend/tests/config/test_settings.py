@@ -189,3 +189,5 @@ def test_the_shipped_config_file_is_valid_and_carries_the_curation():
     assert curated.is_droppable("editor:someone")
     assert not curated.is_droppable("solo")  # a real, guessable tag
     assert settings.room_defaults.min_tag_count > 0
+    # Safe-by-default: the shipped file caps a new room at safe on both axes.
+    assert settings.room_defaults.rating_caps == {"rating": "safe", "darkness": "none"}
