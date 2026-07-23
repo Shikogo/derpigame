@@ -37,7 +37,7 @@ globalThis.ResizeObserver = class {
 const ME: Player = { uuid: 'me', name: 'ME', score: 0, wrong_guesses: 0 }
 
 const openRound: GameEvent[] = [
-  { type: 'image_started', id: '1', thumb_url: 't', full_url: 'f' },
+  { type: 'image_started', id: '1', thumb_url: 't', full_url: 'f', source: 'derpibooru' },
   {
     type: 'game_started',
     first_player: ME,

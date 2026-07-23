@@ -14,6 +14,11 @@ export function roomState(over: Partial<RoomState> = {}): RoomState {
     room: 'r',
     query: [],
     nsfw: false,
+    source: 'derpibooru',
+    sources: [
+      { key: 'derpibooru', label: 'Derpibooru' },
+      { key: 'furbooru', label: 'Furbooru' },
+    ],
     min_tag_count: 15,
     min_score: 10,
     rating_caps: {},

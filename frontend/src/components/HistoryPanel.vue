@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Between-rounds recap: a list of past rounds from the room snapshot. Each
- * card surfaces links to its derpibooru page and original source on hover.
+ * card surfaces links to its booru page and original source on hover.
  */
 import { computed, ref } from 'vue'
 
@@ -15,6 +15,17 @@ const session = useSessionStore()
 
 // Newest round first; the snapshot stores them oldest-first.
 const rounds = computed(() => [...room.history].reverse())
+
+// The booru-link label per round comes from the round's own source, not the
+// room's current one — an old round keeps naming the booru it was played on.
+// Reuse the server's picker labels; fall back to the capitalized key.
+const sourceLabels = computed(() => new Map(room.sources.map((s) => [s.key, s.label])))
+function sourceLabel(round: RoundRecord): string {
+  return (
+    sourceLabels.value.get(round.source) ??
+    round.source.charAt(0).toUpperCase() + round.source.slice(1)
+  )
+}
 
 // A round reads as a "win" (green) only when *you* were among the winners.
 function youWon(round: RoundRecord): boolean {
@@ -33,7 +44,7 @@ function isHidden(round: RoundRecord): boolean {
 function openGate(): void {
   gate.value?.showModal()
 }
-// While hidden, the derpibooru/source links open the 18+ gate instead of
+// While hidden, the booru/source links open the 18+ gate instead of
 // navigating straight to the content.
 function onLinkClick(event: MouseEvent, hidden: boolean): void {
   if (!hidden) return
@@ -106,7 +117,7 @@ function onBackdrop(event: MouseEvent): void {
               class="rounded bg-raised px-2 py-1 text-xs font-medium text-turn hover:bg-turn/10"
               @click="onLinkClick($event, isHidden(r))"
             >
-              Derpibooru
+              {{ sourceLabel(r) }}
             </a>
             <a
               v-if="r.source_url"

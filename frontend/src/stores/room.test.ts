@@ -29,7 +29,7 @@ function snapshot(inProgress: boolean, users: RoomUser[]): RoomState {
 
 function openRound(roster: string[]): GameEvent[] {
   return [
-    { type: 'image_started', id: '1', thumb_url: 't', full_url: 'f' },
+    { type: 'image_started', id: '1', thumb_url: 't', full_url: 'f', source: 'derpibooru' },
     {
       type: 'game_started',
       first_player: player(roster[0]),

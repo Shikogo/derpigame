@@ -65,6 +65,7 @@ type FeedInput =
 export interface GameState {
   status: GameStatus
   image: RoundImage | null
+  source: string | null
   reveal: Attribution | null
   /** uuid of the player whose turn it is, or null when no game is running. */
   activePlayerUuid: string | null
@@ -109,6 +110,7 @@ export function initialGameState(): GameState {
   return {
     status: 'idle',
     image: null,
+    source: null,
     reveal: null,
     activePlayerUuid: null,
     turnSeq: 0,
@@ -137,6 +139,7 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
         ...initialGameState(),
         status: 'active',
         image: { id: event.id, thumb_url: event.thumb_url, full_url: event.full_url },
+        source: event.source,
       }
 
     case 'game_started': {
@@ -338,6 +341,7 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
           thumb_url: event.image.thumb_url,
           full_url: event.image.full_url,
         },
+        source: event.source,
         activePlayerUuid: event.active_player.uuid,
         // Always a new turn from the clock's point of view, so it restarts at
         // turn_remaining even when the snapshot lands on turnSeq 0.

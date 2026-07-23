@@ -36,6 +36,7 @@ describe('RoomSettingsDialog', () => {
     const { wrapper } = await openWith({
       query: ['safe', 'pony'],
       nsfw: true,
+      source: 'furbooru',
       turn_seconds: 45,
       min_tag_count: 20,
       min_score: 50,
@@ -44,11 +45,32 @@ describe('RoomSettingsDialog', () => {
 
     expect(value(wrapper, 'query')).toBe('safe, pony')
     expect((wrapper.find('[name="nsfw"]').element as HTMLInputElement).checked).toBe(true)
+    expect(value(wrapper, 'source')).toBe('furbooru')
     expect(value(wrapper, 'turn_seconds')).toBe('45')
     expect(value(wrapper, 'min_tag_count')).toBe('20')
     expect(value(wrapper, 'min_score')).toBe('50')
     expect(value(wrapper, 'cap_rating')).toBe('questionable')
     expect(value(wrapper, 'cap_darkness')).toBe('') // uncapped axis
+  })
+
+  it('offers a source option per server-declared source and applies the pick', async () => {
+    const { wrapper, configure } = await openWith() // factory advertises two sources
+
+    const options = wrapper.find('[name="source"]').findAll('option')
+    expect(options.map((o) => o.attributes('value'))).toEqual(['derpibooru', 'furbooru'])
+
+    await wrapper.find('[name="source"]').setValue('furbooru')
+    await wrapper.find('form').trigger('submit')
+
+    expect(configure).toHaveBeenCalledWith(expect.objectContaining({ source: 'furbooru' }))
+  })
+
+  it('hides the source picker when there is only one source', async () => {
+    const { wrapper } = await openWith({
+      sources: [{ key: 'derpibooru', label: 'Derpibooru' }],
+    })
+
+    expect(wrapper.find('[name="source"]').exists()).toBe(false)
   })
 
   it('seeds a disabled bound as blank rather than as a number', async () => {
@@ -72,6 +94,7 @@ describe('RoomSettingsDialog', () => {
     expect(configure).toHaveBeenCalledWith({
       query: 'cute, mare',
       nsfw: true,
+      source: 'derpibooru',
       turn_seconds: 60,
       min_tag_count: 20,
       min_score: 50,
@@ -118,10 +141,12 @@ describe('RoomSettingsDialog', () => {
   })
 
   it('renders one select per server-declared axis, from its own levels', async () => {
-    // The vocabulary is the image source's, never a hardcoded list here.
+    // The vocabulary is the image source's, never a hardcoded list here. A lone
+    // source keeps its picker hidden, so the only select is the axis's.
     const { wrapper } = await openWith({
       rating_axes: [{ key: 'mood', label: 'Mood', levels: ['calm', 'tense'] }],
       rating_caps: {},
+      sources: [{ key: 'derpibooru', label: 'Derpibooru' }],
     })
 
     expect(wrapper.findAll('select')).toHaveLength(1)

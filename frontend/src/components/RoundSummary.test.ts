@@ -5,6 +5,8 @@ import { createPinia, setActivePinia } from 'pinia'
 import RoundSummary from '@/components/RoundSummary.vue'
 import type { FeedEntry } from '@/game/reducer'
 import { useGameStore } from '@/stores/game'
+import { useRoomStore } from '@/stores/room'
+import { roomState } from '@/test/factories'
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -17,10 +19,11 @@ const FEED: FeedEntry[] = [
   { seq: 4, kind: 'correct', player: 'bob', guess: 'oc:nyx', tagType: 'ocs', remaining: 0 },
 ]
 
-function mountWithRound() {
+function mountWithRound(source = 'derpibooru') {
   const game = useGameStore()
   game.state.feed = FEED
   game.state.unguessed = { tags: ['rarity'], artists: ['artist:foo'] }
+  game.state.source = source
   return mount(RoundSummary)
 }
 
@@ -69,6 +72,16 @@ describe('RoundSummary', () => {
       'https://derpibooru.org/search?q=rarity',
       'https://derpibooru.org/search?q=artist%3Afoo',
     ])
+  })
+
+  it('keeps the round’s source when the room has since switched', () => {
+    // A host back in the lobby can switch source while others are still on this
+    // screen; the links belong to the booru the round was actually played on.
+    useRoomStore().setRoomState(roomState({ source: 'derpibooru' }))
+    const hosts = mountWithRound('furbooru')
+      .findAll('a')
+      .map((a) => new URL(a.attributes('href')!).host)
+    expect(new Set(hosts)).toEqual(new Set(['furbooru.org']))
   })
 
   it('opens tag links in a new tab without leaking the opener', () => {
