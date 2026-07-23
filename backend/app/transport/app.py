@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
 
+import httpx
 import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -47,10 +48,13 @@ def create_app(
     cors_origins = list(settings.server.cors_origins)
 
     sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=cors_origins)
-    # One client for both image search and alias lookups so they share the
-    # per-IP back-off. A test that injects its own image_source gets a no-op
-    # resolver instead, so overrides never reach the live network.
-    booru = DerpibooruClient(config=settings.derpibooru)
+    # One DerpibooruClient for both image search and alias lookups so they share
+    # the per-IP back-off, over one shared httpx client so every lookup reuses the
+    # connection pool instead of paying a fresh TLS handshake. A test that injects
+    # its own image_source gets a no-op resolver instead, so overrides never reach
+    # the live network.
+    booru_client = httpx.AsyncClient(timeout=settings.derpibooru.timeout)
+    booru = DerpibooruClient(config=settings.derpibooru, client=booru_client)
     service = GameService(
         image_source or booru,
         SocketIOEmitter(sio),
@@ -73,6 +77,7 @@ def create_app(
         yield
         service.shutdown()  # cancel every pending turn timer on shutdown
         handlers.shutdown()  # and any reconnect grace timers
+        await booru_client.aclose()  # release the shared HTTP connection pool
 
     api = FastAPI(lifespan=lifespan)
     api.add_middleware(

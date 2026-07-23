@@ -5,9 +5,26 @@ rather than the app itself — the room factory it hands the registry, and that 
 builds at all with an injected image source.
 """
 
+import httpx
+
 from app.config import load_settings
 from app.service.image_source import Image, StaticImageSource
 from app.transport.app import _new_room, create_app
+
+
+async def _run_lifespan(asgi_app):
+    """Drive an ASGI app through startup then shutdown, returning the events it sent."""
+    events = iter([{"type": "lifespan.startup"}, {"type": "lifespan.shutdown"}])
+    sent = []
+
+    async def receive():
+        return next(events)
+
+    async def send(message):
+        sent.append(message["type"])
+
+    await asgi_app({"type": "lifespan"}, receive, send)
+    return sent
 
 
 def test_a_new_room_starts_with_the_configured_defaults():
@@ -53,3 +70,21 @@ def test_create_app_builds_with_an_injected_image_source():
     app = create_app(image_source=StaticImageSource([image]))
 
     assert app is not None
+
+
+async def test_lifespan_closes_the_shared_booru_http_client(monkeypatch):
+    # The client is built once in create_app and reused for every lookup, so the
+    # shutdown hook must release its connection pool.
+    closed = {"count": 0}
+
+    class SpyClient(httpx.AsyncClient):
+        async def aclose(self):
+            closed["count"] += 1
+            await super().aclose()
+
+    monkeypatch.setattr(httpx, "AsyncClient", SpyClient)
+
+    sent = await _run_lifespan(create_app())
+
+    assert "lifespan.shutdown.complete" in sent
+    assert closed["count"] == 1  # the one shared client, closed on shutdown
