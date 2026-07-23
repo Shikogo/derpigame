@@ -11,7 +11,7 @@ import asyncio
 import pytest
 
 from app.config import LimitsSettings
-from app.domain.rating import PHILOMENA_AXES
+from app.domain.rating import DERPIBOORU_AXES
 from app.service.game_service import GameService
 from app.service.image_source import Image, StaticImageSource
 from app.service.sources import SourceBundle
@@ -273,7 +273,7 @@ async def test_configured_turn_seconds_flows_into_game_started(make):
 
 
 async def test_configure_room_sets_the_search_bounds_and_broadcasts_them(make):
-    handlers, server, registry, _service = make(rating_axes=PHILOMENA_AXES)
+    handlers, server, registry, _service = make(rating_axes=DERPIBOORU_AXES)
     code = await _create(handlers, "sa", "ua", "Alice")
 
     ack = await handlers.configure_room(
@@ -323,7 +323,7 @@ async def test_configure_room_floors_a_negative_tag_count(make):
 
 async def test_configure_room_drops_caps_the_source_does_not_recognize(make):
     """An unknown axis or level means no cap, never a silently wrong one."""
-    handlers, _server, registry, _service = make(rating_axes=PHILOMENA_AXES)
+    handlers, _server, registry, _service = make(rating_axes=DERPIBOORU_AXES)
     code = await _create(handlers, "sa", "ua", "Alice")
 
     await handlers.configure_room(
@@ -334,7 +334,7 @@ async def test_configure_room_drops_caps_the_source_does_not_recognize(make):
 
 
 async def test_room_state_advertises_the_source_rating_axes(make):
-    handlers, server, _registry, _service = make(rating_axes=PHILOMENA_AXES)
+    handlers, server, _registry, _service = make(rating_axes=DERPIBOORU_AXES)
     await _create(handlers, "sa", "ua", "Alice")
 
     await handlers.configure_room("sa", {"nsfw": True})
@@ -349,7 +349,7 @@ def _two_sources():
     image = Image(id="1", tags=["solo"], thumb_url="t", full_url="f")
     return {
         "derpibooru": SourceBundle(
-            StaticImageSource([image], rating_axes=PHILOMENA_AXES), NullTagResolver()
+            StaticImageSource([image], rating_axes=DERPIBOORU_AXES), NullTagResolver()
         ),
         "furbooru": SourceBundle(StaticImageSource([image], rating_axes=()), NullTagResolver()),
     }

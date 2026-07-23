@@ -65,9 +65,15 @@ source = "derpibooru"
 # be done from here — set 0 to make the bound effectively inert instead.
 min_tag_count = 15
 min_score = 10
-# rating_caps maps an axis key to the highest level allowed, both from the image
-# source's vocabulary — e.g. rating = "suggestive", darkness = "none".
+# rating_caps: the highest level allowed per axis, from the source's own
+# vocabulary. Safe-by-default — a new room shows no suggestive or dark content on
+# either booru. This is the cap that keeps it clean, not the SFW filter alone:
+# Furbooru's "suggestive" is racier than Derpibooru's and its SFW filter still
+# serves it. A host raises these in the settings panel; note an NSFW room also
+# needs the cap lifted, since the cap gates content regardless of the filter.
 [room_defaults.rating_caps]
+rating = "safe"
+darkness = "none"
 
 
 [game]

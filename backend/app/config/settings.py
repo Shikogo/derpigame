@@ -246,7 +246,6 @@ class Settings(BaseSettings):
                 f"configured source {sorted(self.sources.all())}"
             )
         return self
-        return self
 
     @classmethod
     def settings_customise_sources(

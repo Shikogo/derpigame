@@ -49,28 +49,39 @@ class RatingAxis:
         return tuple(tag for step in above for tag in step.tags)
 
 
-# Philomena's two scales, shared by every instance (Derpibooru, Furbooru, …).
-# "none" introduces no tags: capping there excludes every darkness tag, while the
-# top level of either axis excludes nothing.
-PHILOMENA_AXES = (
-    RatingAxis(
-        key="rating",
-        label="Rating",
-        levels=(
-            RatingLevel("safe", ("safe",)),
-            RatingLevel("suggestive", ("suggestive",)),
-            RatingLevel("questionable", ("questionable",)),
-            RatingLevel("explicit", ("explicit",)),
-        ),
+# The sexual-content scale is identical across Philomena boorus; the darkness one
+# is not — Furbooru has no "semi-grimdark" (there it aliases to an invalid tag),
+# so its darkness axis is a step shorter. "none" introduces no tags: capping there
+# excludes every darkness tag, while the top level of either axis excludes nothing.
+_RATING_AXIS = RatingAxis(
+    key="rating",
+    label="Rating",
+    levels=(
+        RatingLevel("safe", ("safe",)),
+        RatingLevel("suggestive", ("suggestive",)),
+        RatingLevel("questionable", ("questionable",)),
+        RatingLevel("explicit", ("explicit",)),
     ),
-    RatingAxis(
-        key="darkness",
-        label="Darkness",
-        levels=(
-            RatingLevel("none"),
-            RatingLevel("semi-grimdark", ("semi-grimdark",)),
-            RatingLevel("grimdark", ("grimdark",)),
-            RatingLevel("grotesque", ("grotesque",)),
-        ),
+)
+
+
+def _darkness(*above_none: RatingLevel) -> RatingAxis:
+    return RatingAxis(key="darkness", label="Darkness", levels=(RatingLevel("none"), *above_none))
+
+
+DERPIBOORU_AXES = (
+    _RATING_AXIS,
+    _darkness(
+        RatingLevel("semi-grimdark", ("semi-grimdark",)),
+        RatingLevel("grimdark", ("grimdark",)),
+        RatingLevel("grotesque", ("grotesque",)),
+    ),
+)
+
+FURBOORU_AXES = (
+    _RATING_AXIS,
+    _darkness(
+        RatingLevel("grimdark", ("grimdark",)),
+        RatingLevel("grotesque", ("grotesque",)),
     ),
 )

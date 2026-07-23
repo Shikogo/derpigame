@@ -70,11 +70,14 @@ def test_glob_curation_drops_tags_namespaces_and_families():
     assert not curated.is_droppable("commentary")  # a substring "comment" must not match
 
 
-def test_furbooru_shares_the_philomena_scheme():
-    # Furbooru is Philomena too, so it classifies by the same namespaces and
-    # rating vocabulary; only config curation differs (and lives elsewhere).
+def test_furbooru_shares_the_scheme_but_not_semi_grimdark():
+    # Furbooru is Philomena too, so it classifies by the same namespaces and drops
+    # the same rating tags — except semi-grimdark, which isn't a valid Furbooru
+    # rating (it aliases to an invalid tag there). Config curation lives elsewhere.
     assert FURBOORU_TAXONOMY.bucket_for("artist:kenket") == "artists"
     assert FURBOORU_TAXONOMY.bucket_for("oc:whitepaws") == "ocs"
     assert FURBOORU_TAXONOMY.bucket_for("fox") == "tags"
     assert FURBOORU_TAXONOMY.is_droppable("explicit")
-    assert FURBOORU_TAXONOMY.rating_tags == DERPIBOORU_TAXONOMY.rating_tags
+    assert FURBOORU_TAXONOMY.is_droppable("grimdark")
+    assert not FURBOORU_TAXONOMY.is_droppable("semi-grimdark")
+    assert DERPIBOORU_TAXONOMY.is_droppable("semi-grimdark")

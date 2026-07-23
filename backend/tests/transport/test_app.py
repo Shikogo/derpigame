@@ -37,7 +37,9 @@ def test_a_new_room_starts_with_the_configured_defaults():
             "turn_seconds": 45.0,
             "min_tag_count": 20,
             "min_score": 100,
-            "rating_caps": {"rating": "suggestive"},
+            # Both axes, so the result is the override alone — pydantic deep-merges
+            # nested dicts across sources, and the shipped config caps both.
+            "rating_caps": {"rating": "suggestive", "darkness": "grimdark"},
         }
     )
 
@@ -49,7 +51,7 @@ def test_a_new_room_starts_with_the_configured_defaults():
     assert room.turn_seconds == 45.0
     assert room.min_tag_count == 20
     assert room.min_score == 100
-    assert room.rating_caps == {"rating": "suggestive"}
+    assert room.rating_caps == {"rating": "suggestive", "darkness": "grimdark"}
 
 
 def test_room_defaults_are_not_shared_between_rooms():
