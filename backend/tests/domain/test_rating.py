@@ -1,6 +1,6 @@
 """RatingAxis: turning a room's cap into the tags it rules out."""
 
-from app.domain.rating import DERPIBOORU_AXES, RatingAxis, RatingLevel
+from app.domain.rating import PHILOMENA_AXES, RatingAxis, RatingLevel
 
 AXIS = RatingAxis(
     key="heat",
@@ -30,7 +30,7 @@ def test_an_unknown_cap_excludes_nothing_rather_than_guessing():
 
 
 def _axis(key: str) -> RatingAxis:
-    return next(a for a in DERPIBOORU_AXES if a.key == key)
+    return next(a for a in PHILOMENA_AXES if a.key == key)
 
 
 def test_capping_the_rating_axis_leaves_the_darkness_axis_alone():

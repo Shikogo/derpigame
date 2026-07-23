@@ -8,6 +8,7 @@ the timer both land here on a single event loop, turn advancement can't race.
 """
 
 import logging
+from collections.abc import Mapping
 
 from app.config import LimitsSettings, RoomDefaults
 from app.domain.events import GameOver, TurnStarted
@@ -17,6 +18,7 @@ from app.service.emitter import EventEmitter
 from app.service.errors import GameActionError, NotYourTurn
 from app.service.image_source import Image, ImageSource, ImageSourceError, SearchOptions
 from app.service.serialization import serialize_events, serialize_player
+from app.service.sources import SourceBundle
 from app.service.tag_resolver import NullTagResolver, TagResolver
 from app.service.turn_timer import TurnTimer
 
@@ -55,27 +57,51 @@ def _is_plain_tag(term: str) -> bool:
 class GameService:
     def __init__(
         self,
-        image_source: ImageSource,
-        emitter: EventEmitter,
+        image_source: ImageSource | None = None,
+        emitter: EventEmitter | None = None,
         *,
+        sources: Mapping[str, SourceBundle] | None = None,
+        default_source: str = "derpibooru",
         tag_resolver: TagResolver | None = None,
         turn_seconds: float | None = None,
         max_query_lookups: int | None = None,
         game_options: dict | None = None,
     ):
-        self._images = image_source
-        self._resolver = tag_resolver or NullTagResolver()
+        assert emitter is not None, "GameService needs an emitter"
         self._emitter = emitter
+        self._default_source = default_source
+        self._game_options = dict(game_options or {})
+        # Taxonomy is per-source now, carried on the bundle rather than shared —
+        # so lift it out of the common game options either way.
+        fallback_taxonomy = self._game_options.pop("taxonomy", None)
+        # A room selects a source by name; the bundle carries its provider,
+        # resolver, and taxonomy. The single-source form (image_source=...) wraps
+        # the one provider as the default bundle so existing callers and tests
+        # keep working.
+        if sources is not None:
+            self._sources: dict[str, SourceBundle] = dict(sources)
+        else:
+            self._sources = {
+                default_source: SourceBundle(
+                    image_source=image_source,
+                    tag_resolver=tag_resolver or NullTagResolver(),
+                    taxonomy=fallback_taxonomy,
+                )
+            }
         self._turn_seconds = RoomDefaults().turn_seconds if turn_seconds is None else turn_seconds
         self._max_query_lookups = (
             LimitsSettings().max_query_lookups if max_query_lookups is None else max_query_lookups
         )
-        self._game_options = dict(game_options or {})
         self._timers: dict[str, TurnTimer] = {}
         self._current_image: dict[str, Image] = {}  # image on display, per room
         self._history: dict[str, list[dict]] = {}  # finished rounds, per room
         self._feed: dict[str, list[dict]] = {}  # current round's feed, per room
         self._starting: set[str] = set()  # rooms with an in-flight start
+
+    def _bundle(self, room: Room) -> SourceBundle:
+        """The source bundle a room pulls from; a stale/unknown key degrades to
+        the default source rather than failing the round."""
+        return self._sources.get(room.source, self._sources[self._default_source])
 
     async def start_game(
         self,
@@ -91,9 +117,12 @@ class GameService:
         # once the game exists, so without this a second start slipping in during
         # the fetch would open a rival round. Set synchronously so the rival sees it.
         self._starting.add(room.name)
+        bundle = self._bundle(room)
         try:
             try:
-                image = await self._images.random_image(room.query, options=_search_options(room))
+                image = await bundle.image_source.random_image(
+                    room.query, options=_search_options(room)
+                )
             except ImageSourceError as exc:
                 logger.warning("Image fetch failed for room %r: %s", room.name, exc)
                 await self._emitter.emit(room.name, [{"type": "image_error"}])
@@ -106,14 +135,20 @@ class GameService:
                 return
 
             options = dict(self._game_options)
+            # The room's source decides how tags are classified; an explicit
+            # taxonomy= argument (tests) still wins over it.
+            if bundle.taxonomy is not None:
+                options["taxonomy"] = bundle.taxonomy
             if taxonomy is not None:
                 options["taxonomy"] = taxonomy
-            query = await self._canonical_query(room.query, image.tags)
+            query = await self._canonical_query(bundle.tag_resolver, room.query, image.tags)
             game = room.start_game(image.tags, first_index=first_index, query=query, **options)
             logger.info("Game started in room %r (%d players)", room.name, len(game.players))
             self._current_image[room.name] = image
             self._feed[room.name] = []  # a new round starts from an empty feed
-            await self._deliver(room, game.start(), lead=[_image_started_payload(image)])
+            await self._deliver(
+                room, game.start(), lead=[_image_started_payload(image, room.source)]
+            )
         finally:
             self._starting.discard(room.name)
 
@@ -129,10 +164,10 @@ class GameService:
             raise NotYourTurn(game.active_player)
         # The raw guess is kept so the events can report what the player actually
         # typed alongside the tag it resolved to.
-        canonical = await self._canonicalized(game, guess)
+        canonical = await self._canonicalized(self._bundle(room).tag_resolver, game, guess)
         await self._deliver(room, game.submit_guess(user_uuid, canonical, as_typed=guess))
 
-    async def _canonicalized(self, game, guess: str) -> str:
+    async def _canonicalized(self, resolver: TagResolver, game, guess: str) -> str:
         """Map an unrecognized guess to its canonical tag; leave known ones alone.
 
         A guess the game already recognizes needs no external help, so only novel
@@ -141,9 +176,11 @@ class GameService:
         """
         if game.recognizes(guess):
             return guess
-        return await self._resolver.canonicalize(guess)
+        return await resolver.canonicalize(guess)
 
-    async def _canonical_query(self, query: list[str], tags: list[str]) -> list[str]:
+    async def _canonical_query(
+        self, resolver: TagResolver, query: list[str], tags: list[str]
+    ) -> list[str]:
         """Resolve the query's plain tags so an aliased term still frees its tag.
 
         A term already on the image needs no lookup — the source stores canonical
@@ -160,7 +197,7 @@ class GameService:
         for term in query:
             if term.lower() not in known and budget and _is_plain_tag(term):
                 budget -= 1
-                term = await self._resolver.canonicalize(term)
+                term = await resolver.canonicalize(term)
             resolved.append(term)
         return resolved
 
@@ -197,17 +234,25 @@ class GameService:
             self._record_round(room, image, None)  # aborted: no result
         await self._emitter.emit(room.name, payloads)
 
-    @property
-    def rating_axes(self) -> list[dict]:
-        """The image source's rating scales, for validation and the lobby UI."""
+    def rating_axes_for(self, room: Room) -> list[dict]:
+        """A room's source rating scales, for cap validation and the lobby UI."""
         return [
             {
                 "key": axis.key,
                 "label": axis.label,
                 "levels": [step.name for step in axis.levels],
             }
-            for axis in self._images.rating_axes
+            for axis in self._bundle(room).image_source.rating_axes
         ]
+
+    @property
+    def available_sources(self) -> list[dict]:
+        """The image providers a room may pick, for the lobby picker."""
+        return [{"key": key, "label": key.capitalize()} for key in self._sources]
+
+    def knows_source(self, key: str) -> bool:
+        """Whether ``key`` names a configured source (rejects unknown selections)."""
+        return key in self._sources
 
     def turn_seconds_for(self, room: Room) -> float:
         """The room's turn length, falling back to the deployment default."""
@@ -264,7 +309,7 @@ class GameService:
 
     def _record_round(self, room: Room, image: Image, game_over: GameOver | None) -> None:
         """Append a finished round to the room's history (game over or abort)."""
-        record = _round_record(image, game_over, nsfw=room.nsfw)
+        record = _round_record(image, game_over, nsfw=room.nsfw, source=room.source)
         self._history.setdefault(room.name, []).append(record)
 
     def room_history(self, room_name: str) -> list[dict]:
@@ -299,6 +344,7 @@ class GameService:
                 "thumb_url": image.thumb_url,
                 "full_url": image.full_url,
             },
+            "source": room.source,
             "players": [serialize_player(p) for p in (*game.players, *game.eliminated_players)],
             "active_player": serialize_player(game.active_player),
             "freebie_tags": list(game.freebie_tags),
@@ -348,13 +394,18 @@ def _search_options(room: Room) -> SearchOptions:
     )
 
 
-def _image_started_payload(image: Image) -> dict:
-    """The picture to display — deliberately without any answer-revealing tags."""
+def _image_started_payload(image: Image, source: str) -> dict:
+    """The picture to display — deliberately without any answer-revealing tags.
+
+    ``source`` pins the round to the booru it came from, so the end-of-round tag
+    links stay correct even if the room switches source while the results are up.
+    """
     return {
         "type": "image_started",
         "id": image.id,
         "thumb_url": image.thumb_url,
         "full_url": image.full_url,
+        "source": source,
     }
 
 
@@ -375,19 +426,21 @@ def _image_revealed_payload(image: Image) -> dict:
     }
 
 
-def _round_record(image: Image, game_over: GameOver | None, *, nsfw: bool) -> dict:
+def _round_record(image: Image, game_over: GameOver | None, *, nsfw: bool, source: str) -> dict:
     """A finished round for the history: its link/attribution plus the result.
 
     ``game_over is None`` means the round was aborted — it has a link worth
     keeping but no winners or final standings. ``nsfw`` is the room's setting
     when the round was played, so its thumbnail stays gated even if the room is
-    later switched to SFW.
+    later switched to SFW. ``source`` is which booru it came from, so the
+    history's tag links point at the right site.
     """
     return {
         "page_url": image.page_url,
         "source_url": image.source_url,
         "thumb_url": image.thumb_url,
         "nsfw": nsfw,
+        "source": source,
         "artists": _artist_names(image),
         "win": game_over.win if game_over else False,
         "aborted": game_over is None,

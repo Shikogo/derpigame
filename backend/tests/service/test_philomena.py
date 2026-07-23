@@ -1,4 +1,4 @@
-"""DerpibooruClient: request shape, response mapping, alias resolution, back-off.
+"""PhilomenaClient: request shape, response mapping, alias resolution, back-off.
 
 No network: an ``httpx.MockTransport`` serves canned responses (and records the
 outgoing request), and an injected clock drives the cooldown gate so the
@@ -10,9 +10,9 @@ import logging
 import httpx
 import pytest
 
-from app.config import DerpibooruSettings
-from app.service.derpibooru import DerpibooruClient
+from app.config import PhilomenaSourceSettings
 from app.service.image_source import ImageSourceError, SearchOptions
+from app.service.philomena import PhilomenaClient
 
 ONE_IMAGE = {
     "images": [
@@ -66,7 +66,7 @@ def make_source(handler, clock=None, config=None, sleep=None):
         return handler(request)
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(recording))
-    source = DerpibooruClient(
+    source = PhilomenaClient(
         client=client, clock=clock or (lambda: 0.0), sleep=sleep or _no_sleep, config=config
     )
     return source, requests
@@ -95,6 +95,18 @@ async def test_maps_a_result_to_an_image():
     assert image.full_url.endswith("/2887940.png")
     assert image.page_url == "https://derpibooru.org/images/2887940"
     assert image.source_url == "https://twitter.com/Shikogo/status/1537152019433136128"
+
+
+async def test_base_url_drives_the_endpoints_and_page_url():
+    # The one client serves any Philomena instance; its host comes from config.
+    config = PhilomenaSourceSettings(base_url="https://furbooru.org")
+    source, requests = make_source(respond(json=ONE_IMAGE), config=config)
+
+    image = await source.random_image(["fox"], options=SearchOptions())
+
+    assert requests[0].url.host == "furbooru.org"
+    assert requests[0].url.path == "/api/v1/json/search/images"
+    assert image.page_url == "https://furbooru.org/images/2887940"
 
 
 async def test_no_matches_returns_none():
@@ -320,7 +332,7 @@ async def test_block_500_backs_off_fifteen_minutes():
 
 async def test_back_off_is_logged_at_a_severity_matching_the_cause(caplog):
     """A 501 challenge is a routine warning; a 500 IP block escalates to error."""
-    with caplog.at_level(logging.WARNING, logger="app.service.derpibooru"):
+    with caplog.at_level(logging.WARNING, logger="app.service.philomena"):
         challenge, _ = make_source(respond(status=501, content=b"<html></html>"), clock=Clock())
         with pytest.raises(ImageSourceError):
             await challenge.random_image(["x"], options=SearchOptions())
@@ -395,7 +407,7 @@ BIG_MAC_TAG = {
 
 
 def test_slug_decoding_reverses_derpibooru_escapes():
-    from app.service.derpibooru import _slug_to_name
+    from app.service.philomena import _slug_to_name
 
     assert _slug_to_name("big+mac") == "big mac"  # "+" is the space escape
     assert _slug_to_name("oc-colon-fluffle+puff") == "oc:fluffle puff"
@@ -450,14 +462,14 @@ async def test_alias_lookup_failure_logs_and_degrades_to_literal(caplog):
         raise httpx.ConnectError("down")
 
     source, _ = make_source(boom)
-    with caplog.at_level(logging.WARNING, logger="app.service.derpibooru"):
+    with caplog.at_level(logging.WARNING, logger="app.service.philomena"):
         assert await source.canonicalize("bm") == "bm"  # returns the literal, never raises
     assert any("using literal match" in m for m in caplog.messages)
 
 
 async def test_the_alias_cache_evicts_the_least_recently_used_entry():
     """The cache is bounded: past the cap the least-recently-used entry is dropped."""
-    config = DerpibooruSettings(alias_cache_max=2)
+    config = PhilomenaSourceSettings(alias_cache_max=2)
     source, requests = make_source(respond(json={"total": 0, "tags": []}), config=config)
 
     await source.canonicalize("a")
@@ -497,7 +509,7 @@ async def test_canonicalize_returns_input_on_transport_error():
 
 
 async def test_configured_credentials_and_identity_reach_the_request():
-    config = DerpibooruSettings(api_key="s3cret", user_agent="test-agent/9")
+    config = PhilomenaSourceSettings(api_key="s3cret", user_agent="test-agent/9")
     source, requests = make_source(respond(json=ONE_IMAGE), config=config)
 
     await source.random_image(["cute"], options=SearchOptions())
@@ -507,7 +519,7 @@ async def test_configured_credentials_and_identity_reach_the_request():
 
 
 async def test_configured_filter_ids_are_used_per_room_rating():
-    config = DerpibooruSettings(default_filter_id="111", nsfw_filter_id="222")
+    config = PhilomenaSourceSettings(default_filter_id="111", nsfw_filter_id="222")
     source, requests = make_source(respond(json=ONE_IMAGE), config=config)
 
     await source.random_image([], options=SearchOptions(nsfw=False))
@@ -521,7 +533,7 @@ async def test_configured_backoff_governs_the_cooldown():
     # The back-offs are API-compliance rules, so a config value that didn't reach
     # the gate would leave us hammering a source that asked for silence.
     clock = Clock()
-    config = DerpibooruSettings(challenge_backoff=42.0)
+    config = PhilomenaSourceSettings(challenge_backoff=42.0)
     source, requests = make_source(
         respond(status=501, content="<html/>"), clock=clock, config=config
     )

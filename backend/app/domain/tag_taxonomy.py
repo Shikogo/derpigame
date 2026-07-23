@@ -58,23 +58,36 @@ class TagTaxonomy:
         return tag in self.rating_tags or self.is_ignored(tag)
 
 
+# Shared by every Philomena instance: the rating tags and namespace scheme are a
+# fact of the engine, not of a particular booru.
+PHILOMENA_RATING_TAGS = frozenset(
+    {
+        "explicit",
+        "grimdark",
+        "grotesque",
+        "questionable",
+        "safe",
+        "semi-grimdark",
+        "suggestive",
+    }
+)
+
+_PHILOMENA_NAMESPACES = {
+    "artists": "artist:",
+    "ocs": "oc:",
+    "comics": "comic:",
+    "fanfics": "fanfic:",
+    "series": "series:",
+}
+
 DERPIBOORU_TAXONOMY = TagTaxonomy(
-    namespaces={
-        "artists": "artist:",
-        "ocs": "oc:",
-        "comics": "comic:",
-        "fanfics": "fanfic:",
-        "series": "series:",
-    },
-    rating_tags=frozenset(
-        {
-            "explicit",
-            "grimdark",
-            "grotesque",
-            "questionable",
-            "safe",
-            "semi-grimdark",
-            "suggestive",
-        }
-    ),
+    namespaces=dict(_PHILOMENA_NAMESPACES),
+    rating_tags=PHILOMENA_RATING_TAGS,
+)
+
+# Furbooru is Philomena too, so it shares the scheme; the differences that matter
+# (its own housekeeping tags to ignore) are curation and come from config.
+FURBOORU_TAXONOMY = TagTaxonomy(
+    namespaces=dict(_PHILOMENA_NAMESPACES),
+    rating_tags=PHILOMENA_RATING_TAGS,
 )

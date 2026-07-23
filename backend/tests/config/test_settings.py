@@ -9,7 +9,7 @@ from dataclasses import replace
 import pytest
 from pydantic import ValidationError
 
-from app.config import DEFAULT_CONFIG_FILE, Settings, TaxonomySettings, load_settings
+from app.config import DEFAULT_CONFIG_FILE, Settings, SourceCuration, load_settings
 from app.domain.tag_taxonomy import DERPIBOORU_TAXONOMY
 
 
@@ -28,7 +28,7 @@ def test_a_missing_file_falls_back_to_defaults(tmp_path):
 
     assert settings.game.elimination_threshold == 3
     assert settings.limits.max_query_terms == 24
-    assert settings.taxonomy.ignored_tags == ()
+    assert settings.taxonomy.derpibooru.ignored_tags == ()
 
 
 def test_file_values_win_over_defaults(tmp_path):
@@ -55,9 +55,9 @@ def test_explicit_overrides_win_over_the_environment(tmp_path, monkeypatch):
 
 def test_a_secret_can_come_from_the_environment_alone(monkeypatch):
     # The API key is deliberately absent from config.toml — it belongs in the env.
-    monkeypatch.setenv("DERPIGAME_DERPIBOORU__API_KEY", "s3cret")
+    monkeypatch.setenv("DERPIGAME_SOURCES__DERPIBOORU__API_KEY", "s3cret")
 
-    assert load_settings().derpibooru.api_key == "s3cret"
+    assert load_settings().sources.derpibooru.api_key == "s3cret"
 
 
 def test_log_level_defaults_to_info_and_normalizes_case(tmp_path, monkeypatch):
@@ -105,7 +105,22 @@ def test_an_out_of_range_near_miss_threshold_is_rejected():
 
 def test_an_inverted_failure_backoff_range_is_rejected():
     with pytest.raises(ValidationError, match="failure_backoff_max"):
-        load_settings(derpibooru={"failure_backoff_base": 30.0, "failure_backoff_max": 5.0})
+        load_settings(
+            sources={"derpibooru": {"failure_backoff_base": 30.0, "failure_backoff_max": 5.0}}
+        )
+
+
+def test_furbooru_ships_with_its_own_host_and_filters():
+    sources = load_settings().sources
+    assert sources.furbooru.base_url == "https://furbooru.org"
+    # 1 = system sfw filter; 12153 = custom rating-permissive filter blocking AI —
+    # the system 18+ filter (62) blocks none, so a custom filter carries it.
+    assert (sources.furbooru.default_filter_id, sources.furbooru.nsfw_filter_id) == ("1", "12153")
+
+
+def test_a_default_source_that_is_not_configured_is_rejected():
+    with pytest.raises(ValidationError, match="not a configured source"):
+        load_settings(room_defaults={"source": "e621"})
 
 
 def test_an_unknown_log_level_is_rejected():
@@ -121,7 +136,7 @@ def test_configured_curation_replaces_rather_than_extends():
     # guessable again, which a union would quietly prevent.
     base = replace(DERPIBOORU_TAXONOMY, ignored_tags=("from-the-constant",))
 
-    curated = TaxonomySettings(ignored_tags=("from-config",)).apply_to(base)
+    curated = SourceCuration(ignored_tags=("from-config",)).apply_to(base)
 
     assert curated.ignored_tags == ("from-config",)
     assert not curated.is_droppable("from-the-constant")
@@ -129,17 +144,30 @@ def test_configured_curation_replaces_rather_than_extends():
 
 
 def test_curation_leaves_the_structural_parts_of_a_taxonomy_alone():
-    curated = TaxonomySettings(ignored_tags=("x",)).apply_to(DERPIBOORU_TAXONOMY)
+    curated = SourceCuration(ignored_tags=("x",)).apply_to(DERPIBOORU_TAXONOMY)
 
     assert curated.namespaces == DERPIBOORU_TAXONOMY.namespaces
     assert curated.rating_tags == DERPIBOORU_TAXONOMY.rating_tags
     assert curated.goal_bucket == DERPIBOORU_TAXONOMY.goal_bucket
 
 
-def test_a_glob_pattern_drops_a_whole_namespace(tmp_path):
-    path = write_config(tmp_path, '[taxonomy]\nignored_tags = ["spoiler:*"]\n')
+def test_curation_is_per_source(tmp_path):
+    # Each booru curates its own housekeeping tags, independently.
+    path = write_config(
+        tmp_path,
+        '[taxonomy.derpibooru]\nignored_tags = ["derpi-only"]\n'
+        '[taxonomy.furbooru]\nignored_tags = ["furry-only"]\n',
+    )
+    taxonomy = load_settings(path).taxonomy
 
-    curated = load_settings(path).taxonomy.apply_to(DERPIBOORU_TAXONOMY)
+    assert taxonomy.derpibooru.apply_to(DERPIBOORU_TAXONOMY).is_droppable("derpi-only")
+    assert not taxonomy.derpibooru.apply_to(DERPIBOORU_TAXONOMY).is_droppable("furry-only")
+
+
+def test_a_glob_pattern_drops_a_whole_namespace(tmp_path):
+    path = write_config(tmp_path, '[taxonomy.derpibooru]\nignored_tags = ["spoiler:*"]\n')
+
+    curated = load_settings(path).taxonomy.derpibooru.apply_to(DERPIBOORU_TAXONOMY)
 
     assert curated.is_droppable("spoiler:the-ending")
     assert not curated.is_droppable("solo")
@@ -152,7 +180,7 @@ def test_the_shipped_config_file_is_valid_and_carries_the_curation():
     # Pins the real config.toml: it's the source of truth for the ignored-tag
     # list now, so a broken or emptied one should fail here rather than in play.
     settings = load_settings(DEFAULT_CONFIG_FILE)
-    curated = settings.taxonomy.apply_to(DERPIBOORU_TAXONOMY)
+    curated = settings.taxonomy.derpibooru.apply_to(DERPIBOORU_TAXONOMY)
 
     assert curated.is_droppable("source needed")  # housekeeping, not on the image
     assert curated.is_droppable("battle in the comments")  # a glob-matched family

@@ -7,7 +7,12 @@ from app.transport.snapshots import room_state
 
 def _room_with_users() -> Room:
     room = Room(
-        "happy-derpy-pony", nsfw=True, query=["cute", "pony"], min_tag_count=15, min_score=10
+        "happy-derpy-pony",
+        nsfw=True,
+        query=["cute", "pony"],
+        min_tag_count=15,
+        min_score=10,
+        source="furbooru",
     )
     alice = User("ua", "Alice")
     alice.ready = True
@@ -22,6 +27,7 @@ def test_snapshot_carries_config_and_roster():
     assert snap["room"] == "happy-derpy-pony"
     assert snap["query"] == ["cute", "pony"]
     assert snap["nsfw"] is True
+    assert snap["source"] == "furbooru"
     assert snap["min_tag_count"] == 15
     assert snap["min_score"] == 10
     assert snap["rating_caps"] == {}  # uncapped until a host says otherwise
