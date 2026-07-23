@@ -27,7 +27,7 @@ Requires **Python 3.12+**.
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # runtime deps + test/lint tooling
 ```
 
 ### Running the server
