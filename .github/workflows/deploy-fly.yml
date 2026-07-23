@@ -1,0 +1,33 @@
+name: Deploy backend to Fly
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-fly.yml'
+  workflow_dispatch:
+
+# One deploy at a time; never cancel an in-flight one — a half-applied release to
+# the single always-on machine is worse than waiting.
+concurrency:
+  group: deploy-fly
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # The token lives in this environment, not repo-wide. Gate it in repo settings
+    # to the main branch (and a required reviewer, if you want a manual approval
+    # before the single machine restarts and drops active rooms).
+    environment: fly
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      # --remote-only builds on Fly's builders, so the runner needs no Docker.
+      - run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
