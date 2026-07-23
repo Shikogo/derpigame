@@ -114,6 +114,11 @@ class DerpibooruSettings(_Section):
     # server-side clock skew comes from lowering the limit, not a separate knob.
     search_rate_limit: int = Field(default=20, ge=1)  # 20 requests per window...
     search_rate_window: float = Field(default=10.0, gt=0)  # ...of 10 seconds
+    # Bound on the process-wide alias cache: one entry accrues per novel string
+    # anyone ever resolves, so a size cap (LRU eviction) keeps a long-lived process
+    # from growing without limit. Deliberately not a TTL — a "no alias" answer is
+    # stable, and expiring it would re-open requests the spacing gate exists to avoid.
+    alias_cache_max: int = Field(default=10000, ge=1)
     # Back-off durations (seconds) per Derpibooru's API rules.
     challenge_backoff: float = Field(default=5.0, gt=0)  # 501 anti-bot: silence >=5s
     block_backoff: float = Field(default=900.0, gt=0)  # 500 IP block: >=15min

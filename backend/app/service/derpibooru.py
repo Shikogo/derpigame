@@ -18,6 +18,7 @@ aliases are cached process-wide, including every sibling alias the lookup reveal
 import asyncio
 import time
 import urllib.parse
+from collections import OrderedDict
 
 import httpx
 
@@ -65,7 +66,8 @@ class DerpibooruClient(ImageSource, TagResolver):
         self._sleep = sleep
         self._cooldown_until = 0.0
         self._failure_backoff = 0.0
-        self._alias_cache: dict[str, str] = {}  # guess/alias -> canonical, process-wide
+        # guess/alias -> canonical, process-wide, bounded LRU (evicts past the cap).
+        self._alias_cache: OrderedDict[str, str] = OrderedDict()
         # Request spacing: never send faster than window / limit, serialized so
         # concurrent bursts (several rooms configuring at once) can't both read a
         # stale slot. Only requests we actually send advance the cursor.
@@ -102,6 +104,7 @@ class DerpibooruClient(ImageSource, TagResolver):
         """
         key = tag.strip().lower()
         if key in self._alias_cache:
+            self._alias_cache.move_to_end(key)  # mark as recently used
             return self._alias_cache[key]
 
         params = {"q": f"aliases:{key}", "per_page": 1}
@@ -115,19 +118,26 @@ class DerpibooruClient(ImageSource, TagResolver):
 
         tags = payload.get("tags") or []
         if not tags:
-            self._alias_cache[key] = key  # no alias: cache the miss so we don't re-ask
+            self._remember(key, key)  # no alias: cache the miss so we don't re-ask
             return key
 
         canonical = (tags[0].get("name") or key).lower()
         self._cache_alias_family(tags[0], canonical)
-        self._alias_cache[key] = canonical  # the queried form maps too, always
+        self._remember(key, canonical)  # the queried form maps too, always
         return canonical
 
     def _cache_alias_family(self, tag: dict, canonical: str) -> None:
         """Cache the canonical tag and every sibling alias the lookup revealed."""
-        self._alias_cache[canonical] = canonical  # the canonical resolves to itself
+        self._remember(canonical, canonical)  # the canonical resolves to itself
         for alias in tag.get("aliases") or []:
-            self._alias_cache[_slug_to_name(alias)] = canonical
+            self._remember(_slug_to_name(alias), canonical)
+
+    def _remember(self, key: str, canonical: str) -> None:
+        """Cache one mapping as most-recently-used, evicting the LRU past the cap."""
+        self._alias_cache[key] = canonical
+        self._alias_cache.move_to_end(key)
+        while len(self._alias_cache) > self._config.alias_cache_max:
+            self._alias_cache.popitem(last=False)
 
     def _filter_terms(self, options: SearchOptions) -> list[str]:
         """The room's non-tag search terms; a setting that's off emits nothing."""

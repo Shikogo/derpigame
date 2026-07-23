@@ -427,6 +427,24 @@ async def test_canonicalize_negative_result_is_cached():
     assert len(requests) == 1  # a "no alias" answer is remembered too
 
 
+async def test_the_alias_cache_evicts_the_least_recently_used_entry():
+    """The cache is bounded: past the cap the least-recently-used entry is dropped."""
+    config = DerpibooruSettings(alias_cache_max=2)
+    source, requests = make_source(respond(json={"total": 0, "tags": []}), config=config)
+
+    await source.canonicalize("a")
+    await source.canonicalize("b")
+    await source.canonicalize("a")  # touch 'a', so 'b' becomes the least-recently-used
+    await source.canonicalize("c")  # over the cap of 2: evicts 'b', keeps 'a' and 'c'
+    assert len(requests) == 3
+
+    await source.canonicalize("a")  # the touch saved it from eviction: still cached
+    assert len(requests) == 3  # no new request
+
+    await source.canonicalize("b")  # evicted, so it must ask the network again
+    assert len(requests) == 4
+
+
 async def test_canonicalize_returns_input_during_a_cooldown():
     clock = Clock()
     source, requests = make_source(respond(status=500, content=b""), clock=clock)
