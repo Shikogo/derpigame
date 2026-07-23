@@ -23,6 +23,39 @@ for its namespaces and rating vocabulary.
 Specifics that will bite: e621 blocks generic User-Agents and requires a custom
 one, and anything beyond anonymous search needs username + API-key auth.
 
+## Rating via caps; filter for content only
+
+Rating is gated in two places at once: a room's `rating_caps` (soft, `-tag`
+exclusions) and the source filter (hard, server-side), with the NSFW toggle
+switching between a source's SFW and NSFW `filter_id`. The effective ceiling is
+the *min* of the two, which is opaque — a host can raise a cap and see nothing
+change because the filter still blocks it.
+
+The plan: make the filter a pure **content** policy (block AI, junk, and other
+never-wanted tags) and let `rating_caps` own rating outright — one
+rating-permissive base filter per source, no SFW/NSFW split. The NSFW toggle
+stays as the statement of intent, but instead of switching filters it clamps
+*which cap levels are selectable*, enforced server-side in the handler so it
+stays a real floor, not just a UI hint.
+
+Both sources already have a fitting base filter: Derpibooru's `232619` and a
+custom Furbooru filter `12153` (blocks AI/drama/politics, rating-permissive, and
+public so the anonymous client applies it). So no AI-exclusion mechanism is
+needed.
+
+Decisions to settle:
+
+- **SFW ceiling** — cap at `safe` on both (consistent with today's default) or
+  per-source? Does the toggle gate the darkness axis too, or only rating?
+- **Config** — collapse `default_filter_id`/`nsfw_filter_id` to one `filter_id`
+  per source; add the nsfw→ceiling mapping.
+- **Frontend** — the settings dialog re-filters the cap dropdowns by the NSFW
+  toggle live; a small wire addition so the server states the per-nsfw ceiling.
+
+Tradeoff to accept: with the filter no longer gating rating, an SFW room's safety
+rests entirely on the server-side cap clamp — more transparent, but one fewer
+hard backstop, so the clamp wants thorough tests.
+
 ## User accounts
 
 The hardest piece, and it reshapes other decisions. Needs a users table with
