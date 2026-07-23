@@ -78,4 +78,6 @@ use `npm run typecheck`, never `tsc --noEmit`.
   `docs:`, `chore:`, etc.). Scope optional, e.g. `feat(domain): add turn rotation`.
 - Commit finished work before starting something unrelated — especially before a
   formatter or codemod, which can't be unpicked per-hunk afterwards.
+- Work on a branch, then merge into `main` — don't commit directly to `main`
+  unless explicitly told to. Branch first (`git checkout -b`) before starting.
 - Only commit or push when asked.
