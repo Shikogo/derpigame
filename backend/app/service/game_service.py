@@ -7,6 +7,8 @@ resulting events to the emitter, and drives the turn timer. Because guesses and
 the timer both land here on a single event loop, turn advancement can't race.
 """
 
+import logging
+
 from app.config import LimitsSettings, RoomDefaults
 from app.domain.events import GameOver, TurnStarted
 from app.domain.room import Room
@@ -17,6 +19,8 @@ from app.service.image_source import Image, ImageSource, ImageSourceError, Searc
 from app.service.serialization import serialize_events, serialize_player
 from app.service.tag_resolver import NullTagResolver, TagResolver
 from app.service.turn_timer import TurnTimer
+
+logger = logging.getLogger(__name__)
 
 # Query syntax that can't be a single tag: booleans, wildcards, fuzzy matches.
 _OPERATOR_CHARS = set('|&()*~"')
@@ -90,10 +94,12 @@ class GameService:
         try:
             try:
                 image = await self._images.random_image(room.query, options=_search_options(room))
-            except ImageSourceError:
+            except ImageSourceError as exc:
+                logger.warning("Image fetch failed for room %r: %s", room.name, exc)
                 await self._emitter.emit(room.name, [{"type": "image_error"}])
                 return
             if image is None:
+                logger.info("No image for room %r matching query %s", room.name, room.query)
                 await self._emitter.emit(
                     room.name, [{"type": "no_image", "query": list(room.query)}]
                 )
@@ -104,6 +110,7 @@ class GameService:
                 options["taxonomy"] = taxonomy
             query = await self._canonical_query(room.query, image.tags)
             game = room.start_game(image.tags, first_index=first_index, query=query, **options)
+            logger.info("Game started in room %r (%d players)", room.name, len(game.players))
             self._current_image[room.name] = image
             self._feed[room.name] = []  # a new round starts from an empty feed
             await self._deliver(room, game.start(), lead=[_image_started_payload(image)])
@@ -177,6 +184,7 @@ class GameService:
         game = room.game  # read the answer key before end_game() discards it
         if game is not None and not game.has_active_player(caller_uuid):
             raise GameActionError("not_a_player")
+        logger.info("Game aborted in room %r by %s", room.name, caller_uuid)
         self._drop_timer(room.name)
         unguessed = game.unguessed if game else {}
         room.end_game()
@@ -221,6 +229,9 @@ class GameService:
         try:
             if payloads:
                 await self._emitter.emit(room.name, payloads)
+        except Exception:
+            logger.exception("Failed to emit game events for room %r", room.name)
+            raise
         finally:
             # Re-arm even if emit fails, so a broken emit can't strand a turn
             # with no timer to advance it.

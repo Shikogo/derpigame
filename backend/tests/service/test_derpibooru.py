@@ -5,6 +5,8 @@ outgoing request), and an injected clock drives the cooldown gate so the
 mandatory back-off behavior is testable deterministically.
 """
 
+import logging
+
 import httpx
 import pytest
 
@@ -316,6 +318,22 @@ async def test_block_500_backs_off_fifteen_minutes():
     assert len(requests) == 2
 
 
+async def test_back_off_is_logged_at_a_severity_matching_the_cause(caplog):
+    """A 501 challenge is a routine warning; a 500 IP block escalates to error."""
+    with caplog.at_level(logging.WARNING, logger="app.service.derpibooru"):
+        challenge, _ = make_source(respond(status=501, content=b"<html></html>"), clock=Clock())
+        with pytest.raises(ImageSourceError):
+            await challenge.random_image(["x"], options=SearchOptions())
+        block, _ = make_source(respond(status=500, content=b""), clock=Clock())
+        with pytest.raises(ImageSourceError):
+            await block.random_image(["x"], options=SearchOptions())
+
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    errors = [r.getMessage() for r in caplog.records if r.levelno == logging.ERROR]
+    assert any("challenge (501)" in m for m in warnings)
+    assert any("IP block (500)" in m for m in errors)
+
+
 async def test_success_clears_the_failure_backoff():
     clock = Clock()
     calls = {"n": 0}
@@ -425,6 +443,16 @@ async def test_canonicalize_negative_result_is_cached():
     await source.canonicalize("pony")
 
     assert len(requests) == 1  # a "no alias" answer is remembered too
+
+
+async def test_alias_lookup_failure_logs_and_degrades_to_literal(caplog):
+    def boom(_request):
+        raise httpx.ConnectError("down")
+
+    source, _ = make_source(boom)
+    with caplog.at_level(logging.WARNING, logger="app.service.derpibooru"):
+        assert await source.canonicalize("bm") == "bm"  # returns the literal, never raises
+    assert any("using literal match" in m for m in caplog.messages)
 
 
 async def test_the_alias_cache_evicts_the_least_recently_used_entry():

@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 
 import pytest
 
@@ -227,15 +228,17 @@ async def test_no_matching_image_emits_no_image():
     assert room.game is None
 
 
-async def test_image_source_failure_emits_image_error():
+async def test_image_source_failure_emits_image_error(caplog):
     emitter = RecordingEmitter()
     service = GameService(BrokenImageSource(), emitter)
     room = make_room("alice")
 
-    await service.start_game(room)
+    with caplog.at_level(logging.WARNING, logger="app.service.game_service"):
+        await service.start_game(room)
 
     assert emitter.types() == ["image_error"]
     assert room.game is None
+    assert any("Image fetch failed" in m for m in caplog.messages)  # not silently swallowed
 
 
 # --- guessing ----------------------------------------------------------------
@@ -433,7 +436,7 @@ async def test_handle_timeout_counts_as_wrong_and_advances():
     service.shutdown()
 
 
-async def test_timer_is_rearmed_even_when_emit_fails():
+async def test_timer_is_rearmed_even_when_emit_fails(caplog):
     class FailingEmitter(EventEmitter):
         async def emit(self, room_name, payloads):
             raise RuntimeError("socket died")
@@ -442,10 +445,16 @@ async def test_timer_is_rearmed_even_when_emit_fails():
     room = make_room("alice", "bob")
 
     # emit blows up, but the turn must still get a timer to advance it
-    with pytest.raises(RuntimeError):
+    with (
+        caplog.at_level(logging.ERROR, logger="app.service.game_service"),
+        pytest.raises(RuntimeError),
+    ):
         await service.start_game(room, first_index=0)
 
     assert "lobby" in service._timers
+    # the failure is recorded with a traceback, not silently swallowed by the finally
+    emit_errors = [r for r in caplog.records if "Failed to emit" in r.getMessage()]
+    assert emit_errors and emit_errors[0].exc_info is not None
     service.shutdown()
 
 

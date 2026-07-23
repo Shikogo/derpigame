@@ -87,3 +87,9 @@ max_query_lookups = 8
 # A tab close/refresh clears fast; an unexpected network drop holds the seat longer.
 unload_grace_seconds = 5.0
 reconnect_grace_seconds = 30.0
+
+
+[logging]
+# Server log verbosity: DEBUG, INFO, WARNING, ERROR, or CRITICAL. Override per
+# deployment with DERPIGAME_LOGGING__LEVEL=DEBUG.
+level = "INFO"

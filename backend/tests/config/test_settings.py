@@ -60,6 +60,13 @@ def test_a_secret_can_come_from_the_environment_alone(monkeypatch):
     assert load_settings().derpibooru.api_key == "s3cret"
 
 
+def test_log_level_defaults_to_info_and_normalizes_case(tmp_path, monkeypatch):
+    assert load_settings(tmp_path / "absent.toml").logging.level == "INFO"  # default
+
+    monkeypatch.setenv("DERPIGAME_LOGGING__LEVEL", "debug")
+    assert load_settings().logging.level == "DEBUG"  # accepted case-insensitively
+
+
 def test_a_custom_file_still_returns_a_settings(tmp_path):
     assert isinstance(load_settings(write_config(tmp_path, "")), Settings)
 
@@ -99,6 +106,11 @@ def test_an_out_of_range_near_miss_threshold_is_rejected():
 def test_an_inverted_failure_backoff_range_is_rejected():
     with pytest.raises(ValidationError, match="failure_backoff_max"):
         load_settings(derpibooru={"failure_backoff_base": 30.0, "failure_backoff_max": 5.0})
+
+
+def test_an_unknown_log_level_is_rejected():
+    with pytest.raises(ValidationError, match="unknown log level"):
+        load_settings(logging={"level": "chatty"})
 
 
 # --- taxonomy curation --------------------------------------------------------

@@ -9,6 +9,7 @@ Everything it builds is injectable, so tests can drive the pieces without a live
 server or a config file.
 """
 
+import logging
 from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
@@ -22,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import Settings, load_settings
 from app.domain.room import Room
 from app.domain.tag_taxonomy import DERPIBOORU_TAXONOMY
+from app.logging_config import configure_logging
 from app.service.derpibooru import DerpibooruClient
 from app.service.game_service import GameService
 from app.service.image_source import ImageSource
@@ -29,6 +31,8 @@ from app.service.tag_resolver import NullTagResolver, TagResolver
 from app.transport.emitter import SocketIOEmitter
 from app.transport.handlers import SocketHandlers
 from app.transport.registry import RoomRegistry
+
+logger = logging.getLogger(__name__)
 
 
 def create_app(
@@ -45,6 +49,8 @@ def create_app(
     frontend from the same origin.
     """
     settings = settings or load_settings()
+    configure_logging(settings.logging.level)
+    logger.info("derpigame starting (log level %s)", settings.logging.level)
     cors_origins = list(settings.server.cors_origins)
 
     sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=cors_origins)

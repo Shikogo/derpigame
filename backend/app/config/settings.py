@@ -18,10 +18,11 @@ Precedence, highest first: constructor arguments, environment, ``.env``,
 a typo in ``config.toml`` fails at startup instead of silently doing nothing.
 """
 
+import logging
 from dataclasses import replace
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -155,6 +156,20 @@ class LimitsSettings(_Section):
         return self
 
 
+class LoggingSettings(_Section):
+    """How much the server logs."""
+
+    level: str = "INFO"
+
+    @field_validator("level")
+    @classmethod
+    def _known_level(cls, value: str) -> str:
+        name = value.upper()
+        if name not in logging.getLevelNamesMapping():
+            raise ValueError(f"unknown log level {value!r}")
+        return name
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="DERPIGAME_",
@@ -172,6 +187,7 @@ class Settings(BaseSettings):
     game: GameRules = GameRules()
     derpibooru: DerpibooruSettings = DerpibooruSettings()
     limits: LimitsSettings = LimitsSettings()
+    logging: LoggingSettings = LoggingSettings()
 
     @model_validator(mode="after")
     def _check_default_turn_is_allowed(self):

@@ -14,6 +14,8 @@ select = [
     "C4",   # comprehensions
     "SIM",  # simplify
     "TID",  # tidy imports — carries the layering rule below
+    "LOG",  # flake8-logging — correct logger construction/use
+    "G",    # flake8-logging-format — lazy %-args, no f-strings in log calls
 ]
 
 # The domain layer is pure game rules: no framework, no I/O, and no reaching

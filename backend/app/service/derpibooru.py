@@ -16,6 +16,7 @@ aliases are cached process-wide, including every sibling alias the lookup reveal
 """
 
 import asyncio
+import logging
 import time
 import urllib.parse
 from collections import OrderedDict
@@ -26,6 +27,8 @@ from app.config import DerpibooruSettings
 from app.domain.rating import DERPIBOORU_AXES, RatingAxis
 from app.service.image_source import Image, ImageSource, ImageSourceError, SearchOptions
 from app.service.tag_resolver import TagResolver
+
+logger = logging.getLogger(__name__)
 
 _SEARCH_URL = "https://derpibooru.org/api/v1/json/search/images"
 _TAGS_URL = "https://derpibooru.org/api/v1/json/search/tags"
@@ -113,7 +116,8 @@ class DerpibooruClient(ImageSource, TagResolver):
         try:
             self._guard_cooldown()  # don't resolve while we owe the server a back-off
             payload = await self._get(_TAGS_URL, params)
-        except ImageSourceError:
+        except ImageSourceError as exc:
+            logger.warning("Alias lookup for %r failed (%s); using literal match", key, exc)
             return key  # degrade to literal matching; don't poison the cache
 
         tags = payload.get("tags") or []
@@ -176,28 +180,44 @@ class DerpibooruClient(ImageSource, TagResolver):
             response = await self._request(url, params, headers)
         except httpx.HTTPError as exc:  # transport error / timeout
             self._back_off_failure()
+            logger.warning(
+                "Derpibooru request failed (%s); backing off %.1fs", exc, self._failure_backoff
+            )
             raise ImageSourceError(str(exc)) from exc
 
         status = response.status_code
         if status == 501:  # anti-bot challenge (text/html body)
             self._cooldown(self._config.challenge_backoff)
+            logger.warning(
+                "Derpibooru anti-bot challenge (501); backing off %.0fs",
+                self._config.challenge_backoff,
+            )
             raise ImageSourceError(
                 f"Derpibooru anti-bot challenge (501); backing off "
                 f"{self._config.challenge_backoff:.0f}s"
             )
         if status == 500:  # IP blocked; sending again resets the timer
             self._cooldown(self._config.block_backoff)
+            logger.error(
+                "Derpibooru IP block (500); backing off %.0fmin", self._config.block_backoff / 60
+            )
             raise ImageSourceError(
                 f"Derpibooru block (500); backing off {self._config.block_backoff / 60:.0f}min"
             )
         if status >= 400:
             self._back_off_failure()
+            logger.warning(
+                "Derpibooru returned HTTP %d; backing off %.1fs", status, self._failure_backoff
+            )
             raise ImageSourceError(f"Derpibooru returned HTTP {status}")
 
         try:
             payload = response.json()
         except ValueError as exc:
             self._back_off_failure()
+            logger.warning(
+                "Derpibooru returned invalid JSON; backing off %.1fs", self._failure_backoff
+            )
             raise ImageSourceError("invalid JSON from Derpibooru") from exc
 
         self._failure_backoff = 0.0  # a good response clears the exponential back-off

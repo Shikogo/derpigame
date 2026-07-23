@@ -8,6 +8,7 @@ parse, dispatch, and translate — nothing more.
 """
 
 import asyncio
+import logging
 
 from app.config import LimitsSettings
 from app.domain.user import User
@@ -16,6 +17,8 @@ from app.service.game_service import GameService
 from app.transport.registry import RoomRegistry
 from app.transport.room_codes import new_code
 from app.transport.snapshots import room_state
+
+logger = logging.getLogger(__name__)
 
 _ALLOCATE_ATTEMPTS = 10  # fresh code draws before giving up (collisions are rare)
 
@@ -111,6 +114,7 @@ class SocketHandlers:
     # --- connection lifecycle -------------------------------------------------
 
     async def connect(self, sid, environ, auth=None):
+        logger.debug("socket connected: %s", sid)
         return None  # no auth yet (Phase 2); identity arrives with create/join
 
     async def leaving(self, sid, data=None):
@@ -126,6 +130,7 @@ class SocketHandlers:
     async def disconnect(self, sid, *args):
         session = await self._session(sid)
         room_name, uuid = session.get("room"), session.get("uuid")
+        logger.debug("socket disconnected: %s (room=%s)", sid, room_name)
         if not room_name or not uuid:
             return
         if self._owner.get(uuid) != sid:
@@ -154,6 +159,7 @@ class SocketHandlers:
         room = self._allocate_room()
         if room is None:
             return _err("room_unavailable")
+        logger.info("room %s created", room.name)
         if "nsfw" in data:
             room.nsfw = bool(data["nsfw"])
         if "query" in data:
@@ -334,6 +340,7 @@ class SocketHandlers:
 
         await self._sio.save_session(sid, {"uuid": uuid, "room": room.name, "name": name})
         await self._sio.enter_room(sid, room.name)
+        logger.info("%s joined room %s", name, room.name)
         self._owner[uuid] = sid
         self._cancel_grace(uuid)  # a reconnect cancels any pending teardown
         self._unloading.discard(uuid)  # ...and clears a stale unload mark
@@ -401,6 +408,7 @@ class SocketHandlers:
         if room.users:
             await self._broadcast_state(room)
         else:
+            logger.info("room %s torn down (empty)", room_name)
             self._service.cancel_room(room_name)
             self._registry.remove(room_name)
 
