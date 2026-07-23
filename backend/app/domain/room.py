@@ -28,11 +28,15 @@ class Room:
         min_tag_count: int | None = None,
         min_score: int | None = None,
         rating_caps: dict[str, str] | None = None,
+        source: str = "derpibooru",
     ):
         self.name = name
         self.nsfw = nsfw
         self.query: list[str] = list(query or [])
         self.turn_seconds = turn_seconds
+        # Which image provider this room pulls from; the service maps it to a
+        # source bundle. The room never interprets it beyond carrying the key.
+        self.source = source
         # Provider search knobs: the room carries them, the image source reads
         # them. None means off; rating_caps maps an axis key to a level, both
         # from the source's own vocabulary, which the room never interprets.

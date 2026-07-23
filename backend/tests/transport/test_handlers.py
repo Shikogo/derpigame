@@ -11,9 +11,11 @@ import asyncio
 import pytest
 
 from app.config import LimitsSettings
-from app.domain.rating import DERPIBOORU_AXES
+from app.domain.rating import PHILOMENA_AXES
 from app.service.game_service import GameService
 from app.service.image_source import Image, StaticImageSource
+from app.service.sources import SourceBundle
+from app.service.tag_resolver import NullTagResolver
 from app.transport.emitter import SocketIOEmitter
 from app.transport.handlers import SocketHandlers
 from app.transport.registry import RoomRegistry
@@ -72,15 +74,21 @@ def make():
         reconnect_grace=30.0,
         unload_grace=30.0,
         rating_axes=(),
+        sources=None,
     ):
         server = FakeServer()
         registry = RoomRegistry()
         image = Image(id="1", tags=list(tags), thumb_url="t", full_url="f")
-        service = GameService(
-            StaticImageSource([image], rating_axes=rating_axes),
-            SocketIOEmitter(server),
-            turn_seconds=turn_seconds,
-        )
+        if sources is not None:
+            service = GameService(
+                emitter=SocketIOEmitter(server), sources=sources, turn_seconds=turn_seconds
+            )
+        else:
+            service = GameService(
+                StaticImageSource([image], rating_axes=rating_axes),
+                SocketIOEmitter(server),
+                turn_seconds=turn_seconds,
+            )
         handlers = SocketHandlers(
             server,
             registry,
@@ -265,7 +273,7 @@ async def test_configured_turn_seconds_flows_into_game_started(make):
 
 
 async def test_configure_room_sets_the_search_bounds_and_broadcasts_them(make):
-    handlers, server, registry, _service = make(rating_axes=DERPIBOORU_AXES)
+    handlers, server, registry, _service = make(rating_axes=PHILOMENA_AXES)
     code = await _create(handlers, "sa", "ua", "Alice")
 
     ack = await handlers.configure_room(
@@ -315,7 +323,7 @@ async def test_configure_room_floors_a_negative_tag_count(make):
 
 async def test_configure_room_drops_caps_the_source_does_not_recognize(make):
     """An unknown axis or level means no cap, never a silently wrong one."""
-    handlers, _server, registry, _service = make(rating_axes=DERPIBOORU_AXES)
+    handlers, _server, registry, _service = make(rating_axes=PHILOMENA_AXES)
     code = await _create(handlers, "sa", "ua", "Alice")
 
     await handlers.configure_room(
@@ -326,7 +334,7 @@ async def test_configure_room_drops_caps_the_source_does_not_recognize(make):
 
 
 async def test_room_state_advertises_the_source_rating_axes(make):
-    handlers, server, _registry, _service = make(rating_axes=DERPIBOORU_AXES)
+    handlers, server, _registry, _service = make(rating_axes=PHILOMENA_AXES)
     await _create(handlers, "sa", "ua", "Alice")
 
     await handlers.configure_room("sa", {"nsfw": True})
@@ -334,6 +342,42 @@ async def test_room_state_advertises_the_source_rating_axes(make):
     axes = server.last_state()["rating_axes"]
     assert [a["key"] for a in axes] == ["rating", "darkness"]
     assert axes[1]["levels"] == ["none", "semi-grimdark", "grimdark", "grotesque"]
+
+
+def _two_sources():
+    """Two distinct sources: one with rating axes, one without."""
+    image = Image(id="1", tags=["solo"], thumb_url="t", full_url="f")
+    return {
+        "derpibooru": SourceBundle(
+            StaticImageSource([image], rating_axes=PHILOMENA_AXES), NullTagResolver()
+        ),
+        "furbooru": SourceBundle(StaticImageSource([image], rating_axes=()), NullTagResolver()),
+    }
+
+
+async def test_configure_room_switches_to_a_known_source_and_ignores_unknown(make):
+    handlers, server, registry, _service = make(sources=_two_sources())
+    code = await _create(handlers, "sa", "ua", "Alice")
+
+    await handlers.configure_room("sa", {"source": "furbooru"})
+    assert registry.get(code).source == "furbooru"
+    assert server.last_state()["source"] == "furbooru"
+    # The furbooru stand-in carries no rating axes, so the caps UI empties out.
+    assert server.last_state()["rating_axes"] == []
+
+    await handlers.configure_room("sa", {"source": "nonesuch"})
+    assert registry.get(code).source == "furbooru"  # unknown selection left the room alone
+
+
+async def test_room_state_advertises_the_available_sources(make):
+    handlers, server, _registry, _service = make(sources=_two_sources())
+    await _create(handlers, "sa", "ua", "Alice")
+
+    await handlers.configure_room("sa", {"nsfw": True})
+
+    sources = server.last_state()["sources"]
+    assert [s["key"] for s in sources] == ["derpibooru", "furbooru"]
+    assert [s["label"] for s in sources] == ["Derpibooru", "Furbooru"]
 
 
 async def test_configure_room_is_rejected_during_a_game(make):

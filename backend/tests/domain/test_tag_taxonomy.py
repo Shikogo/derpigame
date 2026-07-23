@@ -5,7 +5,7 @@ Pure value-object tests — no Game, no app context.
 
 from dataclasses import replace
 
-from app.domain.tag_taxonomy import DERPIBOORU_TAXONOMY, TagTaxonomy
+from app.domain.tag_taxonomy import DERPIBOORU_TAXONOMY, FURBOORU_TAXONOMY, TagTaxonomy
 
 
 def test_a_namespaced_tag_lands_in_its_own_bucket():
@@ -68,3 +68,13 @@ def test_glob_curation_drops_tags_namespaces_and_families():
     assert curated.is_droppable("adventure in the comments")  # substring family
     assert not curated.is_droppable("solo")  # a real, guessable tag
     assert not curated.is_droppable("commentary")  # a substring "comment" must not match
+
+
+def test_furbooru_shares_the_philomena_scheme():
+    # Furbooru is Philomena too, so it classifies by the same namespaces and
+    # rating vocabulary; only config curation differs (and lives elsewhere).
+    assert FURBOORU_TAXONOMY.bucket_for("artist:kenket") == "artists"
+    assert FURBOORU_TAXONOMY.bucket_for("oc:whitepaws") == "ocs"
+    assert FURBOORU_TAXONOMY.bucket_for("fox") == "tags"
+    assert FURBOORU_TAXONOMY.is_droppable("explicit")
+    assert FURBOORU_TAXONOMY.rating_tags == DERPIBOORU_TAXONOMY.rating_tags

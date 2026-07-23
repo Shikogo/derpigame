@@ -164,6 +164,8 @@ class SocketHandlers:
             room.nsfw = bool(data["nsfw"])
         if "query" in data:
             room.query = self._parse_query(data["query"])
+        if "source" in data and self._service.knows_source(str(data["source"])):
+            room.source = str(data["source"])
 
         return await self._join(sid, room, name, uuid)
 
@@ -215,6 +217,10 @@ class SocketHandlers:
             room.query = self._parse_query(data["query"])
         if "nsfw" in data:
             room.nsfw = bool(data["nsfw"])
+        # Source before rating_caps: caps are validated against the source's own
+        # rating axes, so the new source has to be in place first.
+        if "source" in data and self._service.knows_source(str(data["source"])):
+            room.source = str(data["source"])
         if "turn_seconds" in data:
             seconds = self._parse_turn_seconds(data["turn_seconds"])
             if seconds is not None:
@@ -224,7 +230,7 @@ class SocketHandlers:
         if "min_score" in data:
             room.min_score = _parse_optional_int(data["min_score"])
         if "rating_caps" in data:
-            room.rating_caps = self._parse_rating_caps(data["rating_caps"])
+            room.rating_caps = self._parse_rating_caps(room, data["rating_caps"])
         await self._broadcast_state(room)
         return _ok()
 
@@ -238,8 +244,8 @@ class SocketHandlers:
             maximum=self._limits.max_turn_seconds,
         )
 
-    def _parse_rating_caps(self, raw) -> dict[str, str]:
-        """Keep only caps naming a real level on a real axis of the image source.
+    def _parse_rating_caps(self, room, raw) -> dict[str, str]:
+        """Keep only caps naming a real level on a real axis of the room's source.
 
         Validated against the live provider rather than a hardcoded list, so a
         source with different rating scales needs no change here. An unknown
@@ -247,7 +253,7 @@ class SocketHandlers:
         """
         if not isinstance(raw, dict):
             return {}
-        levels = {axis["key"]: axis["levels"] for axis in self._service.rating_axes}
+        levels = {axis["key"]: axis["levels"] for axis in self._service.rating_axes_for(room)}
         caps = {}
         for key, value in raw.items():
             allowed = levels.get(str(key))
@@ -382,7 +388,8 @@ class SocketHandlers:
         return {
             **room_state(room),
             "turn_seconds": self._service.turn_seconds_for(room),
-            "rating_axes": self._service.rating_axes,
+            "rating_axes": self._service.rating_axes_for(room),
+            "sources": self._service.available_sources,
             "history": self._service.room_history(room.name),
             "win_counts": self._service.room_win_counts(room.name),
         }

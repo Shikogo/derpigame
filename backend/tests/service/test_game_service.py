@@ -7,7 +7,9 @@ import logging
 import pytest
 
 from app.config import LimitsSettings
+from app.domain.rating import PHILOMENA_AXES
 from app.domain.room import Room
+from app.domain.tag_taxonomy import DERPIBOORU_TAXONOMY, FURBOORU_TAXONOMY
 from app.domain.user import User
 from app.service.emitter import EventEmitter
 from app.service.errors import GameActionError, NotYourTurn
@@ -19,7 +21,8 @@ from app.service.image_source import (
     SearchOptions,
     StaticImageSource,
 )
-from app.service.tag_resolver import TagResolver
+from app.service.sources import SourceBundle
+from app.service.tag_resolver import NullTagResolver, TagResolver
 
 
 class RecordingEmitter(EventEmitter):
@@ -209,11 +212,11 @@ async def test_room_search_settings_reach_the_image_source():
     service.shutdown()
 
 
-async def test_rating_axes_come_from_the_image_source():
+async def test_rating_axes_come_from_the_rooms_source():
     """A source with no rating vocabulary reports none, rather than guessing."""
     service = GameService(StaticImageSource([]), RecordingEmitter())
 
-    assert service.rating_axes == []
+    assert service.rating_axes_for(make_room("alice")) == []
 
 
 async def test_no_matching_image_emits_no_image():
@@ -488,6 +491,8 @@ async def test_start_game_leads_with_image_started_and_hides_answers():
     started = emitter.payloads[0]  # picture arrives before the game/turn events
     assert started["type"] == "image_started"
     assert (started["id"], started["thumb_url"], started["full_url"]) == ("7", "thumb", "full")
+    # pins the round to its booru, so end-of-round links survive a source switch
+    assert started["source"] == room.source
     # answer-revealing fields must never leak mid-game
     for leaky in ("tags", "artists", "source_url", "page_url"):
         assert leaky not in started
@@ -809,4 +814,90 @@ async def test_game_snapshot_is_none_without_a_running_game():
     await service.submit_guess(room, "alice", "solo")  # single goal tag -> win
     assert room.game.is_over
     assert service.game_snapshot(room) is None  # finished round reveals, not snapshots
+    service.shutdown()
+
+
+# --- multiple sources --------------------------------------------------------
+
+
+def two_source_service(emitter: EventEmitter, **resolvers) -> GameService:
+    """A service wired with two distinct sources, one image and taxonomy each."""
+    derpi = StaticImageSource(
+        [Image(id="d", tags=["solo"], thumb_url="", full_url="")], rating_axes=PHILOMENA_AXES
+    )
+    furry = StaticImageSource(
+        [Image(id="f", tags=["solo"], thumb_url="", full_url="")], rating_axes=()
+    )
+    sources = {
+        "derpibooru": SourceBundle(
+            derpi, resolvers.get("derpibooru", NullTagResolver()), DERPIBOORU_TAXONOMY
+        ),
+        "furbooru": SourceBundle(
+            furry, resolvers.get("furbooru", NullTagResolver()), FURBOORU_TAXONOMY
+        ),
+    }
+    return GameService(emitter=emitter, sources=sources, default_source="derpibooru")
+
+
+async def test_the_rooms_source_picks_its_bundle_image_and_taxonomy():
+    service = two_source_service(RecordingEmitter())
+    room = make_room("alice")
+    room.source = "furbooru"
+
+    await service.start_game(room, first_index=0)
+
+    assert service._current_image[room.name].id == "f"  # furbooru's provider served it
+    assert room.game.taxonomy is FURBOORU_TAXONOMY  # and its taxonomy classified the tags
+    service.shutdown()
+
+
+async def test_the_round_payloads_carry_the_rooms_source():
+    """Both ways into a round name its booru, so links outlive a later switch."""
+    emitter = RecordingEmitter()
+    service = two_source_service(emitter)
+    room = make_room("alice")
+    room.source = "furbooru"  # not the default
+
+    await service.start_game(room, first_index=0)
+
+    assert emitter.payloads[0]["source"] == "furbooru"  # image_started opens the round
+    assert service.game_snapshot(room)["source"] == "furbooru"  # a rejoin agrees
+    service.shutdown()
+
+
+async def test_an_unknown_room_source_falls_back_to_the_default_bundle():
+    service = two_source_service(RecordingEmitter())
+    room = make_room("alice")
+    room.source = "e621"  # not configured
+
+    await service.start_game(room, first_index=0)
+
+    assert service._current_image[room.name].id == "d"  # the default (derpibooru)
+    service.shutdown()
+
+
+async def test_rating_axes_follow_the_rooms_source():
+    # derpibooru carries the Philomena axes; the furbooru stand-in carries none.
+    service = two_source_service(RecordingEmitter())
+    room = make_room("alice")
+
+    assert [a["key"] for a in service.rating_axes_for(room)] == ["rating", "darkness"]
+    room.source = "furbooru"
+    assert service.rating_axes_for(room) == []
+
+
+async def test_a_guess_is_resolved_by_the_rooms_own_source():
+    derpi_resolver = RecordingResolver()
+    furry_resolver = RecordingResolver({"bm": "big macintosh"})
+    service = two_source_service(
+        RecordingEmitter(), derpibooru=derpi_resolver, furbooru=furry_resolver
+    )
+    room = make_room("alice")
+    room.source = "furbooru"
+    await service.start_game(room, first_index=0)
+
+    await service.submit_guess(room, "alice", "bm")  # unrecognized → hits the resolver
+
+    assert furry_resolver.calls == ["bm"]  # the room's source resolved it
+    assert derpi_resolver.calls == []  # the other source stayed untouched
     service.shutdown()

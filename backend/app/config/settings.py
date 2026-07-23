@@ -48,8 +48,8 @@ class ServerSettings(_Section):
     cors_origins: list[str] = ["*"]
 
 
-class TaxonomySettings(_Section):
-    """Tag curation: what the game refuses to treat as a guessable tag.
+class SourceCuration(_Section):
+    """One source's tag curation: what the game refuses to treat as a guessable tag.
 
     These *replace* the taxonomy's own lists rather than adding to them, so the
     file is the whole truth and you can remove an entry by deleting the line.
@@ -64,12 +64,23 @@ class TaxonomySettings(_Section):
         return replace(base, ignored_tags=self.ignored_tags)
 
 
+class TaxonomySettings(_Section):
+    """Tag curation, per source — the two boorus have different housekeeping tags,
+    so each curates its own ignored list (see ``SourceCuration``)."""
+
+    derpibooru: SourceCuration = SourceCuration()
+    furbooru: SourceCuration = SourceCuration()
+
+
 class RoomDefaults(_Section):
     """What a freshly created room starts with, before anyone configures it."""
 
     nsfw: bool = False
     query: list[str] = []
     turn_seconds: float = Field(default=60.0, gt=0)
+    # Which image provider a new room pulls from; must be a configured source key
+    # (see Settings._check_default_source_is_known).
+    source: str = "derpibooru"
     # Search bounds. TOML has no null, so these can't be switched *off* from the
     # file — a room turns them off at runtime instead, via configure_room.
     min_tag_count: int = Field(default=15, ge=0)
@@ -87,25 +98,28 @@ class GameRules(_Section):
     near_miss_threshold: float = Field(default=0.85, gt=0.0, le=1.0)
 
 
-class DerpibooruSettings(_Section):
-    """Provider client: credentials, filters, and the mandatory back-off timings.
+class PhilomenaSourceSettings(_Section):
+    """One Philomena provider (Derpibooru, Furbooru, …): host, credentials,
+    filters, and the mandatory back-off timings.
 
-    The back-off durations implement Derpibooru's API rules and are configurable
-    only so they can be shortened in tests — raising them is safe, lowering them
-    in production is not.
+    ``base_url`` is the only per-instance field with no shared default — it names
+    which booru this is. The back-off durations implement Philomena's API rules
+    and are configurable only so they can be shortened in tests — raising them is
+    safe, lowering them in production is not.
     """
 
+    base_url: str = "https://derpibooru.org"
     api_key: str | None = None
     timeout: float = Field(default=10.0, gt=0)
     user_agent: str = "derpigame/0.1 (https://github.com/Shikogo/derpigame)"
-    # Sent explicitly so we never inherit the anonymous site default (a legacy
-    # filter that surfaces AI-generated content). Sfw rooms get the system
-    # "Default" filter, a hard server-side gate on everything above suggestive.
-    # Nsfw rooms get a public custom filter that blocks AI art but permits every
-    # rating tag, so the room's own caps — not the filter — decide how far a game
-    # goes.
+    # Sent explicitly so we never inherit the anonymous site default. The defaults
+    # below are Derpibooru's: sfw rooms get a custom filter that hard-gates above
+    # suggestive and blocks AI art, nsfw rooms a custom filter that blocks AI art
+    # but permits every rating tag, so the room's own caps — not the filter —
+    # decide how far a game goes. Each source overrides these (Furbooru's system
+    # filters already suit us; see config.toml).
     #
-    # A filter Derpibooru won't serve is *silently* replaced with the anonymous
+    # A filter the booru won't serve is *silently* replaced with the anonymous
     # default rather than refused, so a private or invalid id degrades quietly.
     # Verify a new id by checking that a search returns different totals.
     default_filter_id: str = "100073"
@@ -120,7 +134,7 @@ class DerpibooruSettings(_Section):
     # from growing without limit. Deliberately not a TTL — a "no alias" answer is
     # stable, and expiring it would re-open requests the spacing gate exists to avoid.
     alias_cache_max: int = Field(default=10000, ge=1)
-    # Back-off durations (seconds) per Derpibooru's API rules.
+    # Back-off durations (seconds) per Philomena's API rules.
     challenge_backoff: float = Field(default=5.0, gt=0)  # 501 anti-bot: silence >=5s
     block_backoff: float = Field(default=900.0, gt=0)  # 500 IP block: >=15min
     failure_backoff_base: float = Field(default=1.0, gt=0)  # other failures: exponential...
@@ -131,6 +145,29 @@ class DerpibooruSettings(_Section):
         if self.failure_backoff_max < self.failure_backoff_base:
             raise ValueError("failure_backoff_max must be >= failure_backoff_base")
         return self
+
+
+class SourcesSettings(_Section):
+    """The image providers a room can pull from, keyed by the name it selects.
+
+    Both are Philomena instances, so they share ``PhilomenaSourceSettings`` and
+    differ only by config (host, filters). Adding a provider that shares the
+    engine is a new field here; a different engine (e621) would be its own client.
+    """
+
+    derpibooru: PhilomenaSourceSettings = PhilomenaSourceSettings()
+    furbooru: PhilomenaSourceSettings = PhilomenaSourceSettings(
+        base_url="https://furbooru.org",
+        # 1 = system "Default" (sfw); 12153 = a custom, rating-permissive filter
+        # that blocks AI, drama, and politics. Furbooru's system 18+ filter (62)
+        # blocks no AI, so a public custom filter carries the nsfw AI policy.
+        default_filter_id="1",
+        nsfw_filter_id="12153",
+    )
+
+    def all(self) -> dict[str, PhilomenaSourceSettings]:
+        """Every source keyed by its selection name."""
+        return {"derpibooru": self.derpibooru, "furbooru": self.furbooru}
 
 
 class LimitsSettings(_Section):
@@ -185,7 +222,7 @@ class Settings(BaseSettings):
     taxonomy: TaxonomySettings = TaxonomySettings()
     room_defaults: RoomDefaults = RoomDefaults()
     game: GameRules = GameRules()
-    derpibooru: DerpibooruSettings = DerpibooruSettings()
+    sources: SourcesSettings = SourcesSettings()
     limits: LimitsSettings = LimitsSettings()
     logging: LoggingSettings = LoggingSettings()
 
@@ -198,6 +235,17 @@ class Settings(BaseSettings):
                 f"room_defaults.turn_seconds ({turn}) is outside the allowed range "
                 f"{self.limits.min_turn_seconds}–{self.limits.max_turn_seconds}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _check_default_source_is_known(self):
+        """A room default pointing at an unconfigured source could never be served."""
+        if self.room_defaults.source not in self.sources.all():
+            raise ValueError(
+                f"room_defaults.source ({self.room_defaults.source!r}) is not a "
+                f"configured source {sorted(self.sources.all())}"
+            )
+        return self
         return self
 
     @classmethod

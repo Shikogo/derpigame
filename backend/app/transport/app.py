@@ -22,11 +22,12 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import Settings, load_settings
 from app.domain.room import Room
-from app.domain.tag_taxonomy import DERPIBOORU_TAXONOMY
+from app.domain.tag_taxonomy import DERPIBOORU_TAXONOMY, FURBOORU_TAXONOMY
 from app.logging_config import configure_logging
-from app.service.derpibooru import DerpibooruClient
 from app.service.game_service import GameService
 from app.service.image_source import ImageSource
+from app.service.philomena import PhilomenaClient
+from app.service.sources import SourceBundle
 from app.service.tag_resolver import NullTagResolver, TagResolver
 from app.transport.emitter import SocketIOEmitter
 from app.transport.handlers import SocketHandlers
@@ -54,25 +55,18 @@ def create_app(
     cors_origins = list(settings.server.cors_origins)
 
     sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=cors_origins)
-    # One DerpibooruClient for both image search and alias lookups so they share
-    # the per-IP back-off, over one shared httpx client so every lookup reuses the
-    # connection pool instead of paying a fresh TLS handshake. A test that injects
-    # its own image_source gets a no-op resolver instead, so overrides never reach
-    # the live network.
-    booru_client = httpx.AsyncClient(timeout=settings.derpibooru.timeout)
-    booru = DerpibooruClient(config=settings.derpibooru, client=booru_client)
+    # One shared httpx client so every lookup reuses the connection pool instead of
+    # paying a fresh TLS handshake; each PhilomenaClient keeps its own back-off
+    # state (per-IP, per-booru) but shares that pool.
+    booru_client = httpx.AsyncClient(timeout=settings.sources.derpibooru.timeout)
+    sources = _build_sources(settings, booru_client, image_source, tag_resolver)
     service = GameService(
-        image_source or booru,
-        SocketIOEmitter(sio),
-        tag_resolver=tag_resolver or (NullTagResolver() if image_source else booru),
+        emitter=SocketIOEmitter(sio),
+        sources=sources,
+        default_source=settings.room_defaults.source,
         turn_seconds=settings.room_defaults.turn_seconds,
         max_query_lookups=settings.limits.max_query_lookups,
-        game_options={
-            # Curation from config.toml replaces the taxonomy's own lists; the
-            # constant keeps only what's structural about the source.
-            "taxonomy": settings.taxonomy.apply_to(DERPIBOORU_TAXONOMY),
-            **settings.game.model_dump(),
-        },
+        game_options=settings.game.model_dump(),
     )
     registry = RoomRegistry(partial(_new_room, settings))
     handlers = SocketHandlers(sio, registry, service, limits=settings.limits)
@@ -104,6 +98,50 @@ def create_app(
         api.mount("/", StaticFiles(directory=static_dir, html=True), name="frontend")
 
     return socketio.ASGIApp(sio, other_asgi_app=api)
+
+
+# Which structural taxonomy each source's tags are classified by. The config's
+# per-source curation (ignored tags) is applied over these at startup.
+_BASE_TAXONOMIES = {
+    "derpibooru": DERPIBOORU_TAXONOMY,
+    "furbooru": FURBOORU_TAXONOMY,
+}
+
+
+def _build_sources(
+    settings: Settings,
+    client: httpx.AsyncClient,
+    image_source: ImageSource | None,
+    tag_resolver: TagResolver | None,
+) -> dict[str, SourceBundle]:
+    """The source registry handed to the service, keyed by the name a room picks.
+
+    Production builds a ``PhilomenaClient`` per configured source, each paired
+    with its taxonomy (the source's constant with config curation applied over
+    it). A test that injects an ``image_source`` gets a single-source registry
+    under the default source name and a no-op resolver, so overrides never reach
+    the live network.
+    """
+    default = settings.room_defaults.source
+    if image_source is not None:
+        curation = getattr(settings.taxonomy, default)
+        return {
+            default: SourceBundle(
+                image_source=image_source,
+                tag_resolver=tag_resolver or NullTagResolver(),
+                taxonomy=curation.apply_to(_BASE_TAXONOMIES[default]),
+            )
+        }
+    bundles: dict[str, SourceBundle] = {}
+    for key, config in settings.sources.all().items():
+        booru = PhilomenaClient(config=config, client=client)
+        curation = getattr(settings.taxonomy, key)
+        bundles[key] = SourceBundle(
+            image_source=booru,
+            tag_resolver=booru,  # one client search + resolve, so they share back-off
+            taxonomy=curation.apply_to(_BASE_TAXONOMIES[key]),
+        )
+    return bundles
 
 
 def _new_room(settings: Settings, name: str) -> Room:

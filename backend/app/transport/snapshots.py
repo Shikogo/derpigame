@@ -13,6 +13,7 @@ def room_state(room: Room) -> dict:
         "room": room.name,
         "query": list(room.query),
         "nsfw": room.nsfw,
+        "source": room.source,
         "min_tag_count": room.min_tag_count,
         "min_score": room.min_score,
         "rating_caps": dict(room.rating_caps),

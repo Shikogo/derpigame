@@ -2,26 +2,30 @@
 
 from app.config.settings import (
     DEFAULT_CONFIG_FILE,
-    DerpibooruSettings,
     GameRules,
     LimitsSettings,
     LoggingSettings,
+    PhilomenaSourceSettings,
     RoomDefaults,
     ServerSettings,
     Settings,
+    SourceCuration,
+    SourcesSettings,
     TaxonomySettings,
     load_settings,
 )
 
 __all__ = [
     "DEFAULT_CONFIG_FILE",
-    "DerpibooruSettings",
     "GameRules",
     "LimitsSettings",
     "LoggingSettings",
+    "PhilomenaSourceSettings",
     "RoomDefaults",
     "ServerSettings",
     "Settings",
+    "SourceCuration",
+    "SourcesSettings",
     "TaxonomySettings",
     "load_settings",
 ]

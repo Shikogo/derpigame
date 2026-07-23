@@ -1,14 +1,17 @@
-"""An async Derpibooru client: random images and tag-alias resolution.
+"""An async Philomena client: random images and tag-alias resolution.
 
-Fetches a random image matching a room's query, and resolves a guessed alias to
-its canonical tag — both straight from Derpibooru's REST API with ``httpx``, no
-blocking calls inside the event loop.
+Serves any Philomena instance (Derpibooru, Furbooru, …) — they share one REST
+API, so a single client parameterized by ``base_url`` fits them all. Fetches a
+random image matching a room's query, and resolves a guessed alias to its
+canonical tag — both straight from the API with ``httpx``, no blocking calls
+inside the event loop.
 
 Image search and tag lookup live on one client on purpose: they must share the
-back-off state, because Derpibooru's mandatory back-offs are per-IP and apply to
-every endpoint. A cooldown gate refuses to touch the network while we owe a
-back-off — a 501 anti-bot challenge means stay silent ≥5s; a 500 means we're
-IP-blocked ≥15min and *any* request during the block resets that timer.
+back-off state, because the mandatory back-offs are per-IP and apply to every
+endpoint. A cooldown gate refuses to touch the network while we owe a back-off —
+a 501 anti-bot challenge means stay silent ≥5s; a 500 means we're IP-blocked
+≥15min and *any* request during the block resets that timer. Back-off state is
+per-client, so two instances (one per booru) never share a cooldown.
 
 Alias resolution is best-effort: on failure or during a back-off it returns the
 guess unchanged (play degrades to literal matching), never raising. Resolved
@@ -23,21 +26,21 @@ from collections import OrderedDict
 
 import httpx
 
-from app.config import DerpibooruSettings
-from app.domain.rating import DERPIBOORU_AXES, RatingAxis
+from app.config import PhilomenaSourceSettings
+from app.domain.rating import PHILOMENA_AXES, RatingAxis
 from app.service.image_source import Image, ImageSource, ImageSourceError, SearchOptions
 from app.service.tag_resolver import TagResolver
 
 logger = logging.getLogger(__name__)
 
-_SEARCH_URL = "https://derpibooru.org/api/v1/json/search/images"
-_TAGS_URL = "https://derpibooru.org/api/v1/json/search/tags"
+_SEARCH_PATH = "/api/v1/json/search/images"
+_TAGS_PATH = "/api/v1/json/search/tags"
 # Videos have no still representation — every size is a .webm — so the viewer has
 # nothing to show. Excluded by mime type, not the "webm" tag: a few dozen uploads
 # carry the mime type without the tag. webm is currently the only video type.
 _EXCLUDE_VIDEO = "-mime_type:video/webm"
 
-# Reverse of Derpibooru's tag-name → slug escaping, applied after url-decoding
+# Reverse of Philomena's tag-name → slug escaping, applied after url-decoding
 # (which turns the "+" space escape back into a space). Order mirrors the reverse
 # of how the site encodes, so a token can't be re-clobbered.
 _SLUG_ESCAPES = [
@@ -50,20 +53,23 @@ _SLUG_ESCAPES = [
 ]
 
 
-class DerpibooruClient(ImageSource, TagResolver):
+class PhilomenaClient(ImageSource, TagResolver):
     @property
     def rating_axes(self) -> tuple[RatingAxis, ...]:
-        return DERPIBOORU_AXES
+        return PHILOMENA_AXES
 
     def __init__(
         self,
         *,
-        config: DerpibooruSettings | None = None,
+        config: PhilomenaSourceSettings | None = None,
         client: httpx.AsyncClient | None = None,
         clock=time.monotonic,
         sleep=asyncio.sleep,
     ):
-        self._config = config or DerpibooruSettings()
+        self._config = config or PhilomenaSourceSettings()
+        self._base_url = self._config.base_url.rstrip("/")
+        self._search_url = f"{self._base_url}{_SEARCH_PATH}"
+        self._tags_url = f"{self._base_url}{_TAGS_PATH}"
         self._client = client  # an injected client is reused (and owned) by the caller
         self._clock = clock
         self._sleep = sleep
@@ -93,11 +99,11 @@ class DerpibooruClient(ImageSource, TagResolver):
         if self._config.api_key:
             params["key"] = self._config.api_key
 
-        payload = await self._get(_SEARCH_URL, params)
+        payload = await self._get(self._search_url, params)
         images = payload.get("images") or []
         if not images:
             return None
-        return _to_image(images[0])
+        return _to_image(images[0], self._base_url)
 
     async def canonicalize(self, tag: str) -> str:
         """Resolve ``tag`` to its canonical name, or return it unchanged.
@@ -115,7 +121,7 @@ class DerpibooruClient(ImageSource, TagResolver):
             params["key"] = self._config.api_key
         try:
             self._guard_cooldown()  # don't resolve while we owe the server a back-off
-            payload = await self._get(_TAGS_URL, params)
+            payload = await self._get(self._tags_url, params)
         except ImageSourceError as exc:
             logger.warning("Alias lookup for %r failed (%s); using literal match", key, exc)
             return key  # degrade to literal matching; don't poison the cache
@@ -253,7 +259,7 @@ def _https(url: str) -> str:
     return "https:" + url if url.startswith("//") else url
 
 
-def _to_image(raw: dict) -> Image:
+def _to_image(raw: dict, base_url: str) -> Image:
     reps = raw.get("representations") or {}
     image_id = str(raw.get("id", ""))
     return Image(
@@ -261,6 +267,6 @@ def _to_image(raw: dict) -> Image:
         tags=list(raw.get("tags") or []),
         thumb_url=_https(reps.get("medium", "")),
         full_url=_https(reps.get("full", "")),
-        page_url=f"https://derpibooru.org/images/{image_id}" if image_id else "",
+        page_url=f"{base_url}/images/{image_id}" if image_id else "",
         source_url=raw.get("source_url") or None,
     )

@@ -49,9 +49,10 @@ class RatingAxis:
         return tuple(tag for step in above for tag in step.tags)
 
 
-# Derpibooru's two scales. "none" introduces no tags: capping there excludes
-# every darkness tag, while the top level of either axis excludes nothing.
-DERPIBOORU_AXES = (
+# Philomena's two scales, shared by every instance (Derpibooru, Furbooru, …).
+# "none" introduces no tags: capping there excludes every darkness tag, while the
+# top level of either axis excludes nothing.
+PHILOMENA_AXES = (
     RatingAxis(
         key="rating",
         label="Rating",
