@@ -14,6 +14,7 @@ const room = useRoomStore()
 const dialog = ref<HTMLDialogElement | null>(null)
 const queryText = ref('')
 const nsfw = ref(false)
+const source = ref('derpibooru')
 const turnSeconds = ref(30)
 // A number input's v-model yields '' when the field is empty or unparseable
 // (Vue casts numeric inputs implicitly), which is how a bound gets turned off.
@@ -22,6 +23,7 @@ const minScore = ref<number | ''>('')
 const caps = ref<Record<string, string>>({})
 
 const axes = computed(() => room.roomState?.rating_axes ?? [])
+const sources = computed(() => room.roomState?.sources ?? [])
 
 /** Blank turns a bound off. Tested for emptiness, never truthiness: 0 is a real bound. */
 function parseBound(value: number | ''): number | null {
@@ -36,6 +38,7 @@ function open(): void {
   const state = room.roomState
   queryText.value = (state?.query ?? []).join(', ')
   nsfw.value = state?.nsfw ?? false
+  source.value = state?.source ?? 'derpibooru'
   turnSeconds.value = state?.turn_seconds ?? 30
   minTagCount.value = seedBound(state?.min_tag_count)
   minScore.value = seedBound(state?.min_score)
@@ -54,6 +57,7 @@ function apply(): void {
   room.configureRoom({
     query: queryText.value,
     nsfw: nsfw.value,
+    source: source.value,
     turn_seconds: turnSeconds.value,
     min_tag_count: parseBound(minTagCount.value),
     min_score: parseBound(minScore.value),
@@ -89,6 +93,17 @@ defineExpose({ open })
           placeholder="e.g. safe, pony"
           class="resize-y rounded-lg border border-border bg-raised px-2 py-1 text-sm text-ink placeholder:text-ink-faint focus:border-turn focus:outline-none"
         />
+      </label>
+
+      <label v-if="sources.length > 1" class="flex items-center justify-between gap-3 text-sm">
+        <span class="text-ink-muted">Image source</span>
+        <select
+          v-model="source"
+          name="source"
+          class="w-40 rounded-lg border border-border bg-raised px-2 py-1 text-sm text-ink focus:border-turn focus:outline-none"
+        >
+          <option v-for="s in sources" :key="s.key" :value="s.key">{{ s.label }}</option>
+        </select>
       </label>
 
       <label class="flex items-center justify-between gap-3 text-sm">

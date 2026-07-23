@@ -13,7 +13,13 @@ function player(base: Player, over: Partial<Player>): Player {
 /** The opening batch: image, then game_started, then the first turn. */
 function openedGame(freebieTags: string[] = []): GameState {
   const events: GameEvent[] = [
-    { type: 'image_started', id: '42', thumb_url: 't.jpg', full_url: 'f.jpg' },
+    {
+      type: 'image_started',
+      id: '42',
+      thumb_url: 't.jpg',
+      full_url: 'f.jpg',
+      source: 'derpibooru',
+    },
     {
       type: 'game_started',
       first_player: alice,
@@ -34,6 +40,7 @@ function snapshot(over: Partial<GameSnapshot>): GameSnapshot {
   return {
     type: 'game_snapshot',
     image: { id: '7', thumb_url: 't', full_url: 'f' },
+    source: 'derpibooru',
     players: [alice, bob],
     active_player: bob,
     freebie_tags: [],
@@ -56,6 +63,7 @@ describe('reduce', () => {
       id: '42',
       thumb_url: 't.jpg',
       full_url: 'f.jpg',
+      source: 'derpibooru',
     })
     expect(s.status).toBe('active')
     expect(s.image).toEqual({ id: '42', thumb_url: 't.jpg', full_url: 'f.jpg' })
@@ -71,11 +79,15 @@ describe('reduce', () => {
       id: '99',
       thumb_url: 't2.jpg',
       full_url: 'f2.jpg',
+      source: 'furbooru',
     })
     expect(fresh.goalRemaining).toBe(0)
     expect(fresh.bonusCounts).toEqual({})
     expect(fresh.feed).toEqual([])
     expect(fresh.players).toEqual({})
+    // each round is pinned to the source it was pulled from
+    expect(dirty.source).toBe('derpibooru')
+    expect(fresh.source).toBe('furbooru')
   })
 
   it('game_started seeds counts and the first active player', () => {
@@ -109,7 +121,7 @@ describe('reduce', () => {
 
   it('game_started seeds the whole roster, not just the first player', () => {
     const s = reduceAll(initialGameState(), [
-      { type: 'image_started', id: '1', thumb_url: 't', full_url: 'f' },
+      { type: 'image_started', id: '1', thumb_url: 't', full_url: 'f', source: 'derpibooru' },
       {
         type: 'game_started',
         first_player: alice,
@@ -336,6 +348,7 @@ describe('reduce', () => {
     const s = reduce(initialGameState(), {
       type: 'game_snapshot',
       image: { id: '7', thumb_url: 't', full_url: 'f' },
+      source: 'furbooru',
       players: [player(alice, { score: 2 }), player(bob, { score: 1, wrong_guesses: 1 })],
       active_player: bob,
       freebie_tags: ['safe', 'mare'],
@@ -355,6 +368,7 @@ describe('reduce', () => {
     ])
     expect(s.turnSeconds).toBe(20)
     expect(s.image).toEqual({ id: '7', thumb_url: 't', full_url: 'f' })
+    expect(s.source).toBe('furbooru')
     expect(s.activePlayerUuid).toBe('b')
     expect(s.goalTagCount).toBe(4)
     expect(s.goalRemaining).toBe(1)

@@ -28,7 +28,13 @@ function player(base: Player, over: Partial<Player> = {}): Player {
 function startRound(): void {
   game.reset()
   game.applyEvents([
-    { type: 'image_started', id: 'sandbox', thumb_url: '', full_url: '/viewer-test.svg' },
+    {
+      type: 'image_started',
+      id: 'sandbox',
+      thumb_url: '',
+      full_url: '/viewer-test.svg',
+      source: 'derpibooru',
+    },
     {
       type: 'game_started',
       first_player: SHIKO,

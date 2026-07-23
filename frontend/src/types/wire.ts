@@ -27,10 +27,20 @@ export interface RatingAxis {
   levels: string[]
 }
 
+/** One selectable image source: its wire key and a display label for the picker. */
+export interface SourceOption {
+  key: string
+  label: string
+}
+
 export interface RoomState {
   room: string
   query: string[]
   nsfw: boolean
+  /** Which booru the room draws from; picks the taxonomy, rating axes, and links. */
+  source: string
+  /** Every source the server offers, for the lobby picker. */
+  sources: SourceOption[]
   /** Search bounds; `null` means the setting is off. `min_score: 0` is real. */
   min_tag_count: number | null
   min_score: number | null
@@ -45,15 +55,17 @@ export interface RoomState {
 }
 
 /**
- * A finished round kept for the lobby history: its Derpibooru link and
- * attribution, plus the result. `aborted` rounds have a link worth keeping but
- * no `winners`/`standings`.
+ * A finished round kept for the lobby history: its booru link and attribution,
+ * plus the result. `source` is which booru it came from, so links target the
+ * right one even after the room later switches source. `aborted` rounds have a
+ * link worth keeping but no `winners`/`standings`.
  */
 export interface RoundRecord {
   page_url: string
   source_url: string | null
   thumb_url: string
   nsfw: boolean
+  source: string
   artists: string[]
   win: boolean
   aborted: boolean
@@ -190,6 +202,7 @@ export interface ImageStarted {
   id: string
   thumb_url: string
   full_url: string
+  source: string
 }
 
 /** Attribution, revealed once the image is no longer a secret (game end/abort). */
@@ -208,6 +221,7 @@ export interface ImageRevealed {
 export interface GameSnapshot {
   type: 'game_snapshot'
   image: { id: string; thumb_url: string; full_url: string }
+  source: string
   players: Player[]
   active_player: Player
   freebie_tags: string[]
@@ -283,6 +297,7 @@ export interface CreateRoomPayload {
   uuid: string
   nsfw?: boolean
   query?: QueryInput
+  source?: string
 }
 
 export interface JoinRoomPayload {
@@ -299,6 +314,7 @@ export interface SetReadyPayload {
 export interface ConfigureRoomPayload {
   query?: QueryInput
   nsfw?: boolean
+  source?: string
   turn_seconds?: number
   min_tag_count?: number | null
   min_score?: number | null

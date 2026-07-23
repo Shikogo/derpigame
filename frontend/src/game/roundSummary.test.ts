@@ -10,7 +10,13 @@ const bob: Player = { uuid: 'b', name: 'Bob', score: 0, wrong_guesses: 0 }
 /** A finished round: two freebies, a mix of guesses, then game over. */
 function playedRound(): GameState {
   const events: GameEvent[] = [
-    { type: 'image_started', id: '42', thumb_url: 't.jpg', full_url: 'f.jpg' },
+    {
+      type: 'image_started',
+      id: '42',
+      thumb_url: 't.jpg',
+      full_url: 'f.jpg',
+      source: 'derpibooru',
+    },
     {
       type: 'game_started',
       first_player: alice,

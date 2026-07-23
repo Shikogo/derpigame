@@ -29,6 +29,8 @@ export const useRoomStore = defineStore('room', () => {
   const code = computed(() => roomState.value?.room ?? null)
   const inProgress = computed(() => roomState.value?.in_progress ?? false)
   const nsfw = computed(() => roomState.value?.nsfw ?? false)
+  const source = computed(() => roomState.value?.source ?? 'derpibooru')
+  const sources = computed(() => roomState.value?.sources ?? [])
   const users = computed(() => roomState.value?.users ?? [])
   const history = computed(() => roomState.value?.history ?? [])
   const winCounts = computed(() => roomState.value?.win_counts ?? [])
@@ -64,7 +66,7 @@ export const useRoomStore = defineStore('room', () => {
 
   async function createRoom(
     name: string,
-    opts: { nsfw?: boolean; query?: QueryInput } = {},
+    opts: { nsfw?: boolean; query?: QueryInput; source?: string } = {},
   ): Promise<Ack> {
     const session = useSessionStore()
     session.setName(name)
@@ -162,6 +164,8 @@ export const useRoomStore = defineStore('room', () => {
     code,
     inProgress,
     nsfw,
+    source,
+    sources,
     users,
     history,
     winCounts,

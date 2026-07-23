@@ -10,14 +10,18 @@ import { foundTags, missedGroups, suggestedTags } from '@/game/roundSummary'
 import { bucketColor, bucketPillStyle } from '@/lib/tagColor'
 import { tagSearchUrl } from '@/lib/tagLink'
 import { useGameStore } from '@/stores/game'
+import { useRoomStore } from '@/stores/room'
 
 const game = useGameStore()
+const room = useRoomStore()
 
 const found = computed(() => foundTags(game.state))
 const missed = computed(() => missedGroups(game.state))
 const missedCount = computed(() => missed.value.reduce((n, g) => n + g.tags.length, 0))
 const suggested = computed(() => suggestedTags(game.state))
 const bucketKeys = computed(() => Object.keys(game.state.bonusCounts))
+// Tag links use the source the round was played on.
+const source = computed(() => game.state.source ?? room.source)
 </script>
 
 <template>
@@ -30,7 +34,7 @@ const bucketKeys = computed(() => Object.keys(game.state.bonusCounts))
         <a
           v-for="(t, i) in found"
           :key="`${t.tag}-${i}`"
-          :href="tagSearchUrl(t.tag)"
+          :href="tagSearchUrl(t.tag, source)"
           target="_blank"
           rel="noopener noreferrer"
           class="pill hover:underline"
@@ -62,7 +66,7 @@ const bucketKeys = computed(() => Object.keys(game.state.bonusCounts))
           <a
             v-for="tag in group.tags"
             :key="tag"
-            :href="tagSearchUrl(tag)"
+            :href="tagSearchUrl(tag, source)"
             target="_blank"
             rel="noopener noreferrer"
             class="pill hover:underline"

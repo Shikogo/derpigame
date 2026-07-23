@@ -14,6 +14,7 @@ const round: RoundRecord = {
   source_url: null,
   thumb_url: 't.jpg',
   nsfw: false,
+  source: 'derpibooru',
   artists: [],
   win: true,
   aborted: false,
@@ -156,5 +157,11 @@ describe('HistoryPanel — round links', () => {
     const links = mountPanel().findAll('li a')
     expect(links).toHaveLength(1)
     expect(links[0].text()).toBe('Derpibooru')
+  })
+
+  it('labels the booru link from the round’s own source', () => {
+    const furry: RoundRecord = { ...round, source: 'furbooru' }
+    useRoomStore().setRoomState(roomState({ nsfw: false, history: [furry] }))
+    expect(mountPanel().find('li a').text()).toBe('Furbooru')
   })
 })
