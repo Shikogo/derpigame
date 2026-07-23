@@ -9,6 +9,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { withWins } from '@/game/history'
+import { log } from '@/lib/logger'
 import { emitAck } from '@/socket/client'
 import { useChatStore } from '@/stores/chat'
 import { useGameStore } from '@/stores/game'
@@ -50,7 +51,8 @@ export const useRoomStore = defineStore('room', () => {
       const ack = await emitAck<Ack>(event, payload)
       error.value = ack.ok ? null : ack.error
       return ack
-    } catch {
+    } catch (err) {
+      log.warn(`emit '${event}' failed:`, err)
       error.value = 'timeout' // silent server / lost connection
       return { ok: false, error: 'timeout' }
     }
@@ -128,6 +130,7 @@ export const useRoomStore = defineStore('room', () => {
     if (!roomCode || !name) return
     const ack = await joinRoom(roomCode, name)
     if (!ack.ok) {
+      log.warn('rejoin rejected:', ack.error)
       roomState.value = null
       useGameStore().reset()
       useChatStore().reset()

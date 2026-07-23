@@ -7,6 +7,7 @@ import '@fontsource/space-mono/400.css'
 import '@fontsource/space-mono/700.css'
 import './style.css'
 import App from './App.vue'
+import { log } from './lib/logger'
 import { router } from './router'
 import { bindSocketToStores } from './socket/bindStores'
 import { connect } from './socket/client'
@@ -14,6 +15,10 @@ import { connect } from './socket/client'
 const app = createApp(App)
 app.use(createPinia())
 app.use(router)
+
+// Catch-alls so an otherwise-invisible failure still leaves a trace.
+app.config.errorHandler = (err, _instance, info) => log.error('vue error:', info, err)
+window.addEventListener('unhandledrejection', (e) => log.error('unhandled rejection:', e.reason))
 
 bindSocketToStores() // wire socket → stores before the first connect fires
 connect()

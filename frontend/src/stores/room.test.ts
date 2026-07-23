@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
+import { log } from '@/lib/logger'
 import { emitAck } from '@/socket/client'
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
@@ -96,14 +97,16 @@ describe('room store — start pending flag', () => {
     expect(room.starting).toBe(false)
   })
 
-  it('clears when the emit rejects', async () => {
+  it('clears when the emit rejects, and records the swallowed error', async () => {
     const room = useRoomStore()
+    const warn = vi.spyOn(log, 'warn').mockImplementation(() => {})
     vi.mocked(emitAck).mockRejectedValue(new Error('timeout'))
 
     await room.startGame()
 
     expect(room.starting).toBe(false)
     expect(room.error).toBe('timeout')
+    expect(warn).toHaveBeenCalled() // the exception is logged, not silently dropped
   })
 
   it('ignores a second start while one is in flight', async () => {

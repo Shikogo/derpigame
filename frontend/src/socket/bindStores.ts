@@ -4,6 +4,7 @@
  * socket-registration side effects (so they stay unit-testable in isolation).
  */
 
+import { log } from '@/lib/logger'
 import { socket } from '@/socket/client'
 import { useChatStore } from '@/stores/chat'
 import { useGameStore } from '@/stores/game'
@@ -15,11 +16,16 @@ export function bindSocketToStores(): void {
   const chat = useChatStore()
 
   socket.on('connect', () => {
+    log.info('socket connected')
     const reconnected = room.code !== null
     room.setConnected(true)
     if (reconnected) void room.rejoin()
   })
-  socket.on('disconnect', () => room.setConnected(false))
+  socket.on('disconnect', (reason) => {
+    log.warn('socket disconnected:', reason)
+    room.setConnected(false)
+  })
+  socket.on('connect_error', (err) => log.warn('socket connect failed:', err.message))
   socket.on('room_state', (state) => room.setRoomState(state))
   socket.on('game_events', (events) => game.applyEvents(events))
   socket.on('chat', (message) => chat.receive(message))

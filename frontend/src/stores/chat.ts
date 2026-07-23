@@ -6,6 +6,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+import { log } from '@/lib/logger'
 import { emitAck } from '@/socket/client'
 import type { ChatMessage } from '@/types/wire'
 
@@ -21,9 +22,10 @@ export const useChatStore = defineStore('chat', () => {
     if (!trimmed) return
     try {
       await emitAck('chat', { text: trimmed })
-    } catch {
+    } catch (err) {
       // Best-effort side-channel: a silent server / dropped socket is a no-op,
       // not an unhandled rejection.
+      log.debug('chat send failed:', err)
     }
   }
 
