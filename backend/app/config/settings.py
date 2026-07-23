@@ -109,6 +109,11 @@ class DerpibooruSettings(_Section):
     # Verify a new id by checking that a search returns different totals.
     default_filter_id: str = "100073"
     nsfw_filter_id: str = "232619"
+    # Search-path rate limit (both endpoints we call live on it): the client
+    # spaces requests to a minimum interval of window / limit. Margin against
+    # server-side clock skew comes from lowering the limit, not a separate knob.
+    search_rate_limit: int = Field(default=20, ge=1)  # 20 requests per window...
+    search_rate_window: float = Field(default=10.0, gt=0)  # ...of 10 seconds
     # Back-off durations (seconds) per Derpibooru's API rules.
     challenge_backoff: float = Field(default=5.0, gt=0)  # 501 anti-bot: silence >=5s
     block_backoff: float = Field(default=900.0, gt=0)  # 500 IP block: >=15min

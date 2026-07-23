@@ -40,7 +40,22 @@ class Clock:
         self.now += seconds
 
 
-def make_source(handler, clock=None, config=None):
+async def _no_sleep(_seconds):
+    """Default test sleep: let the spacing gate 'wait' without real time passing."""
+
+
+def coupled_sleep(clock):
+    """A fake sleep that records its waits and advances ``clock``, as real time would."""
+    waits = []
+
+    async def sleep(seconds):
+        waits.append(seconds)
+        clock.advance(seconds)
+
+    return sleep, waits
+
+
+def make_source(handler, clock=None, config=None, sleep=None):
     """Build a source whose HTTP goes through a recording MockTransport handler."""
     requests = []
 
@@ -49,7 +64,9 @@ def make_source(handler, clock=None, config=None):
         return handler(request)
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(recording))
-    source = DerpibooruClient(client=client, clock=clock or (lambda: 0.0), config=config)
+    source = DerpibooruClient(
+        client=client, clock=clock or (lambda: 0.0), sleep=sleep or _no_sleep, config=config
+    )
     return source, requests
 
 
@@ -317,6 +334,38 @@ async def test_success_clears_the_failure_backoff():
     assert (await source.random_image(["x"], options=SearchOptions())) is not None
     # After success the backoff is reset, so a later single failure starts at 1s again.
     assert source._failure_backoff == 0.0
+
+
+# --- request spacing ---------------------------------------------------------
+
+
+async def test_requests_are_spaced_to_stay_under_the_rate_limit():
+    """A burst is throttled to one request per interval; the first still fires now."""
+    clock = Clock()
+    sleep, waits = coupled_sleep(clock)
+    source, requests = make_source(respond(json=ONE_IMAGE), clock=clock, sleep=sleep)
+
+    for _ in range(3):
+        await source.random_image(["x"], options=SearchOptions())
+
+    assert len(requests) == 3  # every request is sent, just spread out
+    assert waits == [0.5, 0.5]  # first is immediate; each later one waits an interval
+
+
+async def test_a_backoff_refusal_skips_the_spacing_gate():
+    """The gate sits after the cooldown guard: a refused call neither sends nor sleeps."""
+    clock = Clock()
+    sleep, waits = coupled_sleep(clock)
+    source, requests = make_source(respond(status=500, content=b""), clock=clock, sleep=sleep)
+
+    with pytest.raises(ImageSourceError, match="block"):  # first call trips the 15min block
+        await source.random_image(["x"], options=SearchOptions())
+
+    with pytest.raises(ImageSourceError, match="backing off"):  # refused during the block
+        await source.random_image(["x"], options=SearchOptions())
+
+    assert len(requests) == 1  # the refusal sent nothing...
+    assert waits == []  # ...and never reached the spacing gate to sleep
 
 
 # --- alias resolution --------------------------------------------------------

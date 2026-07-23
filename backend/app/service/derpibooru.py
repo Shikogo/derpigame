@@ -15,6 +15,7 @@ guess unchanged (play degrades to literal matching), never raising. Resolved
 aliases are cached process-wide, including every sibling alias the lookup reveals.
 """
 
+import asyncio
 import time
 import urllib.parse
 
@@ -56,13 +57,21 @@ class DerpibooruClient(ImageSource, TagResolver):
         config: DerpibooruSettings | None = None,
         client: httpx.AsyncClient | None = None,
         clock=time.monotonic,
+        sleep=asyncio.sleep,
     ):
         self._config = config or DerpibooruSettings()
         self._client = client  # an injected client is reused (and owned) by the caller
         self._clock = clock
+        self._sleep = sleep
         self._cooldown_until = 0.0
         self._failure_backoff = 0.0
         self._alias_cache: dict[str, str] = {}  # guess/alias -> canonical, process-wide
+        # Request spacing: never send faster than window / limit, serialized so
+        # concurrent bursts (several rooms configuring at once) can't both read a
+        # stale slot. Only requests we actually send advance the cursor.
+        self._min_interval = self._config.search_rate_window / self._config.search_rate_limit
+        self._next_slot = 0.0
+        self._request_lock = asyncio.Lock()
 
     async def random_image(self, query: list[str], *, options: SearchOptions) -> Image | None:
         self._guard_cooldown()  # refuse to hit the network while we owe a back-off
@@ -136,7 +145,22 @@ class DerpibooruClient(ImageSource, TagResolver):
         if remaining > 0:
             raise ImageSourceError(f"backing off from Derpibooru for {remaining:.0f}s")
 
+    async def _space_requests(self) -> None:
+        """Reserve the next request slot, sleeping if we'd otherwise send too soon.
+
+        Runs after ``_guard_cooldown``, so a call refused during a back-off never
+        reaches here and never consumes a slot — the cursor only advances for
+        requests we go on to send.
+        """
+        async with self._request_lock:
+            now = self._clock()
+            slot = max(now, self._next_slot)
+            if slot > now:
+                await self._sleep(slot - now)
+            self._next_slot = slot + self._min_interval
+
     async def _get(self, url: str, params: dict) -> dict:
+        await self._space_requests()  # stay under the search-path rate limit
         headers = {"User-Agent": self._config.user_agent}
         try:
             response = await self._request(url, params, headers)
