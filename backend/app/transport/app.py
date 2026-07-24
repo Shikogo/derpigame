@@ -59,7 +59,7 @@ def create_app(
     # One shared httpx client so every lookup reuses the connection pool instead of
     # paying a fresh TLS handshake; each PhilomenaClient keeps its own back-off
     # state (per-IP, per-booru) but shares that pool.
-    booru_client = httpx.AsyncClient(timeout=settings.sources.derpibooru.timeout)
+    booru_client = httpx.AsyncClient()
     sources = _build_sources(settings, booru_client, image_source, tag_resolver)
     service = GameService(
         emitter=SocketIOEmitter(sio),

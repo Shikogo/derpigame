@@ -529,6 +529,28 @@ async def test_configured_filter_ids_are_used_per_room_rating():
     assert requests[1].url.params["filter_id"] == "222"
 
 
+async def test_the_sources_own_timeout_governs_its_requests():
+    # The shared client is one pool for every booru, so a client-level timeout
+    # would give both sources whichever one built it.
+    requests = []
+
+    def recording(request):
+        requests.append(request)
+        return httpx.Response(200, json=ONE_IMAGE)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(recording), timeout=99.0)
+    source = PhilomenaClient(
+        client=client,
+        clock=lambda: 0.0,
+        sleep=_no_sleep,
+        config=PhilomenaSourceSettings(timeout=2.5),
+    )
+
+    await source.random_image(["cute"], options=SearchOptions())
+
+    assert requests[0].extensions["timeout"]["read"] == 2.5
+
+
 async def test_configured_backoff_governs_the_cooldown():
     # The back-offs are API-compliance rules, so a config value that didn't reach
     # the gate would leave us hammering a source that asked for silence.
