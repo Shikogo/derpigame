@@ -235,8 +235,12 @@ class PhilomenaClient(ImageSource, TagResolver):
         return payload
 
     async def _request(self, url: str, params: dict, headers: dict) -> httpx.Response:
+        # Per request, not per client: an injected client is shared between
+        # sources, so its own timeout would apply one source's setting to both.
         if self._client is not None:
-            return await self._client.get(url, params=params, headers=headers)
+            return await self._client.get(
+                url, params=params, headers=headers, timeout=self._config.timeout
+            )
         async with httpx.AsyncClient(timeout=self._config.timeout) as client:
             return await client.get(url, params=params, headers=headers)
 
