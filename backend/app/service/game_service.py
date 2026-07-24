@@ -57,37 +57,20 @@ def _is_plain_tag(term: str) -> bool:
 class GameService:
     def __init__(
         self,
-        image_source: ImageSource | None = None,
-        emitter: EventEmitter | None = None,
+        emitter: EventEmitter,
+        sources: Mapping[str, SourceBundle],
         *,
-        sources: Mapping[str, SourceBundle] | None = None,
         default_source: str = "derpibooru",
-        tag_resolver: TagResolver | None = None,
         turn_seconds: float | None = None,
         max_query_lookups: int | None = None,
         game_options: dict | None = None,
     ):
-        assert emitter is not None, "GameService needs an emitter"
         self._emitter = emitter
         self._default_source = default_source
         self._game_options = dict(game_options or {})
-        # Taxonomy is per-source now, carried on the bundle rather than shared —
-        # so lift it out of the common game options either way.
-        fallback_taxonomy = self._game_options.pop("taxonomy", None)
         # A room selects a source by name; the bundle carries its provider,
-        # resolver, and taxonomy. The single-source form (image_source=...) wraps
-        # the one provider as the default bundle so existing callers and tests
-        # keep working.
-        if sources is not None:
-            self._sources: dict[str, SourceBundle] = dict(sources)
-        else:
-            self._sources = {
-                default_source: SourceBundle(
-                    image_source=image_source,
-                    tag_resolver=tag_resolver or NullTagResolver(),
-                    taxonomy=fallback_taxonomy,
-                )
-            }
+        # resolver, and taxonomy.
+        self._sources: dict[str, SourceBundle] = dict(sources)
         self._turn_seconds = RoomDefaults().turn_seconds if turn_seconds is None else turn_seconds
         self._max_query_lookups = (
             LimitsSettings().max_query_lookups if max_query_lookups is None else max_query_lookups
@@ -97,6 +80,35 @@ class GameService:
         self._history: dict[str, list[dict]] = {}  # finished rounds, per room
         self._feed: dict[str, list[dict]] = {}  # current round's feed, per room
         self._starting: set[str] = set()  # rooms with an in-flight start
+
+    @classmethod
+    def single_source(
+        cls,
+        image_source: ImageSource,
+        emitter: EventEmitter,
+        *,
+        source: str = "derpibooru",
+        tag_resolver: TagResolver | None = None,
+        taxonomy: TagTaxonomy | None = None,
+        turn_seconds: float | None = None,
+        max_query_lookups: int | None = None,
+        game_options: dict | None = None,
+    ) -> "GameService":
+        """One provider serving every room — a single-booru deploy, or a test.
+
+        The registry form is the general case; this is the shorthand for when
+        there's nothing to choose between. The shared knobs pass through as
+        ``None``, so their defaults stay resolved in one place.
+        """
+        bundle = SourceBundle(image_source, tag_resolver or NullTagResolver(), taxonomy)
+        return cls(
+            emitter,
+            {source: bundle},
+            default_source=source,
+            turn_seconds=turn_seconds,
+            max_query_lookups=max_query_lookups,
+            game_options=game_options,
+        )
 
     def _bundle(self, room: Room) -> SourceBundle:
         """The source bundle a room pulls from; a stale/unknown key degrades to

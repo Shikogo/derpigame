@@ -100,7 +100,7 @@ def ready_up(room: Room) -> None:
 
 def make_service(tags: list[str], emitter: EventEmitter, **kwargs) -> GameService:
     image = Image(id="1", tags=tags, thumb_url="t", full_url="f")
-    return GameService(StaticImageSource([image]), emitter, **kwargs)
+    return GameService.single_source(StaticImageSource([image]), emitter, **kwargs)
 
 
 def rich_image() -> Image:
@@ -176,7 +176,7 @@ async def test_concurrent_starts_open_only_one_game():
     emitter = RecordingEmitter()
     image = Image(id="1", tags=["solo", "twilight"], thumb_url="t", full_url="f")
     source = GatedImageSource(image)
-    service = GameService(source, emitter)
+    service = GameService.single_source(source, emitter)
     room = make_room("alice", "bob")
 
     first = asyncio.create_task(service.start_game(room, first_index=0))
@@ -194,7 +194,7 @@ async def test_concurrent_starts_open_only_one_game():
 async def test_room_search_settings_reach_the_image_source():
     emitter = RecordingEmitter()
     source = RecordingImageSource(Image(id="1", tags=["solo"], thumb_url="", full_url=""))
-    service = GameService(source, emitter)
+    service = GameService.single_source(source, emitter)
     room = make_room("alice")
     room.nsfw = True
     room.min_tag_count = 20
@@ -214,14 +214,14 @@ async def test_room_search_settings_reach_the_image_source():
 
 async def test_rating_axes_come_from_the_rooms_source():
     """A source with no rating vocabulary reports none, rather than guessing."""
-    service = GameService(StaticImageSource([]), RecordingEmitter())
+    service = GameService.single_source(StaticImageSource([]), RecordingEmitter())
 
     assert service.rating_axes_for(make_room("alice")) == []
 
 
 async def test_no_matching_image_emits_no_image():
     emitter = RecordingEmitter()
-    service = GameService(StaticImageSource([]), emitter)
+    service = GameService.single_source(StaticImageSource([]), emitter)
     room = make_room("alice", query=["cute"])
 
     await service.start_game(room)
@@ -233,7 +233,7 @@ async def test_no_matching_image_emits_no_image():
 
 async def test_image_source_failure_emits_image_error(caplog):
     emitter = RecordingEmitter()
-    service = GameService(BrokenImageSource(), emitter)
+    service = GameService.single_source(BrokenImageSource(), emitter)
     room = make_room("alice")
 
     with caplog.at_level(logging.WARNING, logger="app.service.game_service"):
@@ -483,7 +483,7 @@ async def test_armed_timer_fires_a_timeout_on_its_own():
 
 async def test_start_game_leads_with_image_started_and_hides_answers():
     emitter = RecordingEmitter()
-    service = GameService(StaticImageSource([rich_image()]), emitter)
+    service = GameService.single_source(StaticImageSource([rich_image()]), emitter)
     room = make_room("alice", "bob")
 
     await service.start_game(room, first_index=0)
@@ -501,7 +501,7 @@ async def test_start_game_leads_with_image_started_and_hides_answers():
 
 async def test_game_over_reveals_attribution():
     emitter = RecordingEmitter()
-    service = GameService(StaticImageSource([rich_image()]), emitter)
+    service = GameService.single_source(StaticImageSource([rich_image()]), emitter)
     room = make_room("alice")
 
     await service.start_game(room, first_index=0)
@@ -517,7 +517,7 @@ async def test_game_over_reveals_attribution():
 
 async def test_stop_game_reveals_attribution_with_the_abort():
     emitter = RecordingEmitter()
-    service = GameService(StaticImageSource([rich_image()]), emitter)
+    service = GameService.single_source(StaticImageSource([rich_image()]), emitter)
     room = make_room("alice", "bob")
     await service.start_game(room, first_index=0)
     emitter.batches.clear()
@@ -531,7 +531,7 @@ async def test_stop_game_reveals_attribution_with_the_abort():
 
 async def test_stop_game_reveals_the_unguessed_tags_it_is_discarding():
     emitter = RecordingEmitter()
-    service = GameService(StaticImageSource([rich_image()]), emitter)
+    service = GameService.single_source(StaticImageSource([rich_image()]), emitter)
     room = make_room("alice", "bob")
     await service.start_game(room, first_index=0)
     emitter.batches.clear()
@@ -561,7 +561,7 @@ async def test_cancel_room_drops_the_image_without_revealing():
 
 async def test_game_over_records_a_won_round_in_history():
     emitter = RecordingEmitter()
-    service = GameService(StaticImageSource([rich_image()]), emitter)
+    service = GameService.single_source(StaticImageSource([rich_image()]), emitter)
     room = make_room("alice")
 
     await service.start_game(room, first_index=0)
@@ -581,7 +581,7 @@ async def test_game_over_records_a_won_round_in_history():
 
 async def test_round_history_captures_nsfw_at_play_time():
     emitter = RecordingEmitter()
-    service = GameService(StaticImageSource([rich_image()]), emitter)
+    service = GameService.single_source(StaticImageSource([rich_image()]), emitter)
     room = make_room("alice")
     room.nsfw = True
 
@@ -595,7 +595,7 @@ async def test_round_history_captures_nsfw_at_play_time():
 
 async def test_aborted_round_is_recorded_with_the_link_but_no_result():
     emitter = RecordingEmitter()
-    service = GameService(StaticImageSource([rich_image()]), emitter)
+    service = GameService.single_source(StaticImageSource([rich_image()]), emitter)
     room = make_room("alice", "bob")
     await service.start_game(room, first_index=0)
 
@@ -611,7 +611,7 @@ async def test_aborted_round_is_recorded_with_the_link_but_no_result():
 
 async def test_history_accumulates_across_rounds():
     emitter = RecordingEmitter()
-    service = GameService(StaticImageSource([rich_image(), rich_image()]), emitter)
+    service = GameService.single_source(StaticImageSource([rich_image(), rich_image()]), emitter)
     room = make_room("alice")
 
     await service.start_game(room, first_index=0)
@@ -626,7 +626,7 @@ async def test_history_accumulates_across_rounds():
 
 async def test_cancel_room_drops_history():
     emitter = RecordingEmitter()
-    service = GameService(StaticImageSource([rich_image()]), emitter)
+    service = GameService.single_source(StaticImageSource([rich_image()]), emitter)
     room = make_room("alice")
     await service.start_game(room, first_index=0)
     await service.submit_guess(room, "alice", "solo")
@@ -641,7 +641,7 @@ async def test_cancel_room_drops_history():
 
 async def test_win_counts_come_from_played_rounds():
     emitter = RecordingEmitter()
-    service = GameService(StaticImageSource([rich_image(), rich_image()]), emitter)
+    service = GameService.single_source(StaticImageSource([rich_image(), rich_image()]), emitter)
     room = make_room("alice")
 
     await service.start_game(room, first_index=0)
@@ -654,7 +654,7 @@ async def test_win_counts_come_from_played_rounds():
 
 
 def test_win_counts_tally_by_uuid_sorted_with_latest_name():
-    service = GameService(StaticImageSource([]), RecordingEmitter())
+    service = GameService.single_source(StaticImageSource([]), RecordingEmitter())
     service._history["lobby"] = [
         {"winners": [{"uuid": "a", "name": "Alice"}]},
         {"winners": [{"uuid": "b", "name": "Bob"}, {"uuid": "a", "name": "Alicia"}]},
@@ -668,7 +668,7 @@ def test_win_counts_tally_by_uuid_sorted_with_latest_name():
 
 
 def test_win_counts_are_empty_for_an_unplayed_room():
-    service = GameService(StaticImageSource([]), RecordingEmitter())
+    service = GameService.single_source(StaticImageSource([]), RecordingEmitter())
     assert service.room_win_counts("lobby") == []
 
 
@@ -836,7 +836,7 @@ def two_source_service(emitter: EventEmitter, **resolvers) -> GameService:
             furry, resolvers.get("furbooru", NullTagResolver()), FURBOORU_TAXONOMY
         ),
     }
-    return GameService(emitter=emitter, sources=sources, default_source="derpibooru")
+    return GameService(emitter, sources, default_source="derpibooru")
 
 
 async def test_the_rooms_source_picks_its_bundle_image_and_taxonomy():

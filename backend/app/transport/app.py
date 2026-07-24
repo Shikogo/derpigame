@@ -62,8 +62,8 @@ def create_app(
     booru_client = httpx.AsyncClient()
     sources = _build_sources(settings, booru_client, image_source, tag_resolver)
     service = GameService(
-        emitter=SocketIOEmitter(sio),
-        sources=sources,
+        SocketIOEmitter(sio),
+        sources,
         default_source=settings.room_defaults.source,
         turn_seconds=settings.room_defaults.turn_seconds,
         max_query_lookups=settings.limits.max_query_lookups,

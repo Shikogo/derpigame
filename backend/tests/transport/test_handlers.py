@@ -80,11 +80,9 @@ def make():
         registry = RoomRegistry()
         image = Image(id="1", tags=list(tags), thumb_url="t", full_url="f")
         if sources is not None:
-            service = GameService(
-                emitter=SocketIOEmitter(server), sources=sources, turn_seconds=turn_seconds
-            )
+            service = GameService(SocketIOEmitter(server), sources, turn_seconds=turn_seconds)
         else:
-            service = GameService(
+            service = GameService.single_source(
                 StaticImageSource([image], rating_axes=rating_axes),
                 SocketIOEmitter(server),
                 turn_seconds=turn_seconds,
