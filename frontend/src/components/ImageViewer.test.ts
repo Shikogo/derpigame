@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
+import { nextTick } from 'vue'
 
 import ImageViewer from '@/components/ImageViewer.vue'
 
@@ -140,6 +141,28 @@ describe('ImageViewer controls', () => {
 
     await wrapper.get('[aria-label="Zoom in"]').trigger('click')
     expect(wrapper.text()).toContain('160%')
+  })
+})
+
+describe('ImageViewer frame resize', () => {
+  it('re-fits a fitted picture into a shorter frame, but leaves a zoom alone', async () => {
+    // The on-screen keyboard opening on a phone: the frame halves in height.
+    const wrapper = mountViewer()
+    await finishLoad(wrapper) // 800×600 in a 400×300 frame, fit scale 0.5
+
+    resize({ width: 400, height: 150 })
+    await nextTick()
+    // Keeping 0.5 here would crop the picture the moment you go to type.
+    expect(wrapper.vm.view.scale).toBeCloseTo(0.25)
+
+    resize(FRAME)
+    await wrapper.get('[aria-label="Zoom in"]').trigger('click')
+    expect(wrapper.vm.view.scale).toBeCloseTo(0.8)
+
+    resize({ width: 400, height: 150 })
+    await nextTick()
+    // A zoom you asked for survives the keyboard; only a fit is re-fitted.
+    expect(wrapper.vm.view.scale).toBeCloseTo(0.8)
   })
 })
 

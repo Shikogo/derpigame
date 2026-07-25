@@ -123,6 +123,24 @@ export function fitView(frame: Size, image: Size): View {
 }
 
 /**
+ * The view after the frame changes size. A view the user zoomed keeps its zoom,
+ * clamped back into the new bounds; a view that was merely fitted re-fits.
+ *
+ * The distinction matters because a shrinking frame lowers the fit scale, so
+ * clamping alone leaves a fitted picture at a scale that now overflows — it
+ * crops. Which is what a phone does every time the on-screen keyboard opens.
+ */
+export function resizeView(view: View, prevFrame: Size, nextFrame: Size, image: Size): View {
+  if (image.width <= 0 || image.height <= 0) return fitView(nextFrame, image)
+  if (isFitted(view, prevFrame, image)) return fitView(nextFrame, image)
+  return clampTranslate(
+    { ...view, scale: clampScale(view.scale, nextFrame, image) },
+    nextFrame,
+    image,
+  )
+}
+
+/**
  * Zoom to `nextScale` (clamped) while keeping the frame point `pivot` over the
  * same image pixel — the point under the cursor / pinch-midpoint stays put.
  */

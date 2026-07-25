@@ -20,13 +20,13 @@ import IconZoomIn from '@/components/icons/IconZoomIn.vue'
 import IconZoomOut from '@/components/icons/IconZoomOut.vue'
 import {
   ZOOM_STEP,
-  clampScale,
   clampTranslate,
   fitView,
   isFitted,
   isMaxZoomed,
   panBy,
   pictureTop,
+  resizeView,
   zoomPercent,
   zoomToPoint,
   type Size,
@@ -213,14 +213,12 @@ let observer: ResizeObserver | null = null
 onMounted(() => {
   beginLoad()
   observer = new ResizeObserver(([entry]) => {
+    // Snapshot first: `resizeView` needs the old frame to tell a fitted view
+    // from a zoomed one, and `frame` is mutated in place.
+    const previous = { width: frame.width, height: frame.height }
     frame.width = entry.contentRect.width
     frame.height = entry.contentRect.height
-    // Re-fit before the image is measured; otherwise keep it in the hard bounds.
-    apply(
-      image.width
-        ? clampTranslate({ ...view, scale: clampScale(view.scale, frame, image) }, frame, image)
-        : fitView(frame, image),
-    )
+    apply(resizeView(view, previous, frame, image))
   })
   if (frameEl.value) observer.observe(frameEl.value)
   // A cached image can finish before the listener is attached, with no `load` to come.

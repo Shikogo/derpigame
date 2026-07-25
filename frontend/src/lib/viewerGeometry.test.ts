@@ -9,6 +9,7 @@ import {
   isMaxZoomed,
   panBy,
   pictureTop,
+  resizeView,
   zoomPercent,
   zoomToPoint,
   type View,
@@ -141,6 +142,36 @@ describe('pictureTop', () => {
 
   it('reports no band once the picture runs off the top', () => {
     expect(pictureTop({ scale: 2, tx: 0, ty: -50 })).toBe(0)
+  })
+})
+
+describe('resizeView', () => {
+  const image = { width: 100, height: 100 } // fit scale 1 in the 100×100 frame
+  const shorter = { width: 100, height: 50 } // ...and 0.5 in this one
+
+  it('re-fits a fitted view into a shorter frame instead of cropping it', () => {
+    // The keyboard opening. Clamping alone would keep scale 1, which no longer
+    // fits — the picture would silently crop top and bottom.
+    expect(resizeView(fitView(frame, image), frame, shorter, image)).toEqual({
+      scale: 0.5,
+      tx: 25,
+      ty: 0,
+    })
+  })
+
+  it('keeps a zoom the user chose, clamped back into the new frame', () => {
+    const zoomed: View = { scale: 4, tx: -150, ty: -150 }
+    const next = resizeView(zoomed, frame, shorter, image)
+    expect(next.scale).toBe(4)
+    // Still covering the shorter frame, so no gap is exposed.
+    expect(next.ty).toBeLessThanOrEqual(0)
+    expect(next.ty).toBeGreaterThanOrEqual(shorter.height - image.height * 4)
+  })
+
+  it('fits a frame that changes before the image is measured', () => {
+    expect(resizeView({ scale: 1, tx: 0, ty: 0 }, frame, shorter, { width: 0, height: 0 })).toEqual(
+      fitView(shorter, { width: 0, height: 0 }),
+    )
   })
 })
 
