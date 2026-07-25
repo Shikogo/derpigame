@@ -63,6 +63,27 @@ describe('GameOverPanel celebrations', () => {
   })
 })
 
+describe('GameOverPanel heading', () => {
+  const THIRD: Player = { uuid: 'third', name: 'Third', score: 9, wrong_guesses: 0 }
+
+  it('names every winner of a tie, with you at the front', () => {
+    const tie = { win: false, winners: [RIVAL, ME, THIRD], standings: [RIVAL, ME, THIRD] }
+
+    expect(mountResult(tie).text()).toContain('You, Rival, and Third won! 🎉')
+    // Same tie without you: still everyone, no second person, no cheer.
+    expect(mountResult({ ...tie, winners: [RIVAL, THIRD] }).text()).toContain(
+      'Rival and Third won!',
+    )
+  })
+
+  it('keeps a solo win to one name', () => {
+    expect(mountResult({ win: false, winners: [ME], standings: [ME] }).text()).toContain(
+      'You won! 🎉',
+    )
+    expect(mountResult({ win: false, winners: [], standings: [ME] }).text()).toContain('Round over')
+  })
+})
+
 describe('GameOverPanel attribution', () => {
   it("names the booru the round came from, not the room's current one", () => {
     useRoomStore().setRoomState(roomState({ source: 'derpibooru' }))

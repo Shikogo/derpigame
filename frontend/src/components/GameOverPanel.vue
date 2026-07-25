@@ -40,9 +40,15 @@ const winnerList = new Intl.ListFormat('en', { type: 'conjunction' })
 
 const heading = computed(() => {
   if (aborted.value) return 'Round aborted'
-  if (iWon.value) return 'You won! 🎉'
-  const names = over.value?.winners.map((w) => w.name) ?? []
-  return names.length ? `${winnerList.format(names)} won!` : 'Round over'
+  const winners = over.value?.winners ?? []
+  if (!winners.length) return 'Round over'
+  // A tie names everyone who shares it, you included — you just lead the list,
+  // as "You", rather than replacing it.
+  const names = [
+    ...(iWon.value ? ['You'] : []),
+    ...winners.filter((w) => w.uuid !== session.uuid).map((w) => w.name),
+  ]
+  return `${winnerList.format(names)} won!${iWon.value ? ' 🎉' : ''}`
 })
 
 // Two separate things to celebrate, and you can have either or both: the cannons
