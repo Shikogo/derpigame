@@ -89,6 +89,13 @@
     height: 100%;
   }
 
+  html {
+    /* Keep the scrollbar's gutter reserved whether or not one is showing. The
+       results screen is taller than the live round, so without this the
+       scrollbar arrives mid-cross-fade and shifts the whole app sideways. */
+    scrollbar-gutter: stable;
+  }
+
   body {
     margin: 0;
     background-color: var(--color-bg);
