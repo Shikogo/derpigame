@@ -8,14 +8,17 @@
  * shows them side by side and they have to stay distinct.
  */
 
-/** The category ramp, as CSS color values (defined in `style.css`). */
-export const CATEGORY_COLORS = [
-  'var(--color-cat-1)',
-  'var(--color-cat-2)',
-  'var(--color-cat-3)',
-  'var(--color-cat-4)',
-  'var(--color-cat-5)',
+/** The category ramp, as CSS custom-property names (defined in `style.css`). */
+export const CATEGORY_TOKENS = [
+  '--color-cat-1',
+  '--color-cat-2',
+  '--color-cat-3',
+  '--color-cat-4',
+  '--color-cat-5',
 ] as const
+
+/** The same ramp as CSS color values, for anything styling an element. */
+export const CATEGORY_COLORS = CATEGORY_TOKENS.map((token) => `var(${token})`)
 
 /** Stable, well-spread string hash (djb2). */
 function hash(key: string): number {

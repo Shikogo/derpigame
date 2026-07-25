@@ -14,37 +14,22 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import confetti, { type CreateTypes } from 'canvas-confetti'
 
-import {
-  DEFAULT_TUNING,
-  celebration,
-  type CelebrationKind,
-  type ConfettiTuning,
-} from '@/lib/confetti'
+import { celebration, type CelebrationKind } from '@/lib/confetti'
+import { CATEGORY_TOKENS } from '@/lib/tagColor'
 
 // `kinds` fires once on mount — after `delay`, which lets a panel finish
-// arriving before anything goes off on top of it. Leaving it empty mounts an
-// idle overlay for a caller that would rather drive `fire()` itself: the
-// sandbox, which stacks shots. `tuning` is that caller's hook for dialling the
-// feel in live; the game never passes it.
+// arriving before anything goes off on top of it. An empty `kinds` mounts an
+// idle overlay that never fires.
 const props = withDefaults(
   defineProps<{
     kinds?: readonly CelebrationKind[]
     delay?: number
-    tuning?: ConfettiTuning
   }>(),
-  { kinds: () => [], delay: 0, tuning: () => DEFAULT_TUNING },
+  { kinds: () => [], delay: 0 },
 )
 
 /** Theme tokens the paper is cut from — canvas can't read CSS vars itself. */
-const COLOR_TOKENS = [
-  '--color-cat-1',
-  '--color-cat-2',
-  '--color-cat-3',
-  '--color-cat-4',
-  '--color-cat-5',
-  '--color-turn',
-  '--color-correct',
-]
+const COLOR_TOKENS = [...CATEGORY_TOKENS, '--color-turn', '--color-correct']
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const timers: ReturnType<typeof setTimeout>[] = []
@@ -55,32 +40,27 @@ function palette(): string[] {
   return COLOR_TOKENS.map((t) => style.getPropertyValue(t).trim()).filter(Boolean)
 }
 
-/**
- * Send up another celebration. Shots stack rather than replace: the library
- * keeps animating whatever is already in the air.
- */
-function fire(kinds: readonly CelebrationKind[]): void {
+/** Send the celebration up, every shot in it held back by `delay`. */
+function fire(kinds: readonly CelebrationKind[], delay: number): void {
   if (!launch || !kinds.length) return
   const view = { width: window.innerWidth, height: window.innerHeight }
   const colors = palette()
-  for (const shot of celebration(kinds, view, props.tuning)) {
+  for (const shot of celebration(kinds, view)) {
     timers.push(
       setTimeout(() => {
         // Reduced motion is the library's own opt-out: it drops the pieces in
         // place rather than animating them across the screen.
         void launch?.({ ...shot.options, colors, disableForReducedMotion: true })
-      }, shot.at),
+      }, delay + shot.at),
     )
   }
 }
-
-defineExpose({ fire })
 
 onMounted(() => {
   const el = canvas.value
   if (!el) return
   launch = confetti.create(el, { resize: true, useWorker: true })
-  if (props.kinds.length) timers.push(setTimeout(() => fire(props.kinds), props.delay))
+  fire(props.kinds, props.delay)
 })
 
 onBeforeUnmount(() => {

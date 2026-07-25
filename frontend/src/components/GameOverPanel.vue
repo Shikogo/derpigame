@@ -42,10 +42,10 @@ const heading = computed(() => {
 // in the heading: a stopped round is never celebrated.
 const celebration = computed<CelebrationKind[]>(() => {
   if (aborted.value || !over.value) return []
-  return [
-    ...(iWon.value ? (['winner'] as const) : []),
-    ...(over.value.win ? (['sweep'] as const) : []),
-  ]
+  const kinds: CelebrationKind[] = []
+  if (iWon.value) kinds.push('winner')
+  if (over.value.win) kinds.push('sweep')
+  return kinds
 })
 </script>
 

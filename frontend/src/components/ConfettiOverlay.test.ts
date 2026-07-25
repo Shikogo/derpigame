@@ -38,27 +38,14 @@ describe('ConfettiOverlay', () => {
     expect(document.body.querySelector('canvas')).toBeNull()
   })
 
-  it('stays idle without a kind, and fires on demand', () => {
-    const wrapper = mount(ConfettiOverlay)
+  it('stays idle without a kind, and celebrates with one', () => {
+    mount(ConfettiOverlay)
     playSchedule()
     expect(launch).not.toHaveBeenCalled()
 
-    wrapper.vm.fire(['winner'])
+    mount(ConfettiOverlay, { props: { kinds: ['winner'] } })
     playSchedule()
     expect(launch).toHaveBeenCalled()
-  })
-
-  it('stacks shots rather than replacing what is in the air', () => {
-    const wrapper = mount(ConfettiOverlay)
-
-    wrapper.vm.fire(['winner'])
-    playSchedule()
-    const afterOne = launch.mock.calls.length
-
-    wrapper.vm.fire(['winner'])
-    playSchedule()
-
-    expect(launch.mock.calls.length).toBe(afterOne * 2)
   })
 
   it('holds a mounted celebration back by its delay, then fires it', () => {

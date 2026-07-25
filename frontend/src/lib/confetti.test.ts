@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { DEFAULT_TUNING, celebration, viewScale } from '@/lib/confetti'
+import { celebration, viewScale } from '@/lib/confetti'
 
 const view = { width: 1920, height: 900 }
 
@@ -45,8 +45,8 @@ describe('celebration', () => {
   })
 
   it('scatters the fireworks with the randomness it is handed', () => {
-    const left = celebration(['sweep'], view, DEFAULT_TUNING, () => 0)
-    const right = celebration(['sweep'], view, DEFAULT_TUNING, () => 1)
+    const left = celebration(['sweep'], view, () => 0)
+    const right = celebration(['sweep'], view, () => 1)
 
     expect(left.at(-1)!.options.origin!.x!).toBeLessThan(right.at(-1)!.options.origin!.x!)
   })
@@ -58,16 +58,5 @@ describe('celebration', () => {
     expect(viewScale({ width: 2560, height: 1400 })).toBeGreaterThan(1)
     expect(large.options.startVelocity!).toBeGreaterThan(small.options.startVelocity!)
     expect(large.options.particleCount).toBe(small.options.particleCount)
-  })
-
-  it('takes its knobs from the tuning it is handed', () => {
-    const [tuned] = celebration(['winner'], view, {
-      ...DEFAULT_TUNING,
-      particleCount: 20,
-      scalar: 3,
-    })
-
-    expect(tuned.options.particleCount).toBe(20)
-    expect(tuned.options.scalar).toBe(3)
   })
 })

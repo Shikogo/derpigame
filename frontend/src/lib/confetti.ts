@@ -21,8 +21,8 @@ export interface ViewSize {
   height: number
 }
 
-/** The knobs the sandbox puts on sliders; everything else is library default. */
-export interface ConfettiTuning {
+/** The knobs this recipe sets; everything else is library default. */
+interface ConfettiTuning {
   /** Pieces per cannon barrel (a firework shell throws proportionally fewer). */
   particleCount: number
   /** Cone width, degrees. */
@@ -38,7 +38,7 @@ export interface ConfettiTuning {
   ticks: number
 }
 
-export const DEFAULT_TUNING: ConfettiTuning = {
+const TUNING: ConfettiTuning = {
   particleCount: 55,
   spread: 62,
   // Reach is roughly `startVelocity / (1 - decay)` px, so these two together are
@@ -61,16 +61,10 @@ export function viewScale(view: ViewSize): number {
 }
 
 /** Both barrels at the same instant — a bang, not a stream. */
-function cannons(view: ViewSize, tuning: ConfettiTuning): Shot[] {
-  const shared: Options = {
-    particleCount: tuning.particleCount,
-    spread: tuning.spread,
-    startVelocity: tuning.startVelocity * viewScale(view),
-    decay: tuning.decay,
-    gravity: tuning.gravity,
-    scalar: tuning.scalar,
-    ticks: tuning.ticks,
-  }
+function cannons(view: ViewSize): Shot[] {
+  // `ConfettiTuning` is named after the library's own options, so it spreads
+  // straight in and only the overrides need spelling out.
+  const shared: Options = { ...TUNING, startVelocity: TUNING.startVelocity * viewScale(view) }
   return [
     { at: 0, options: { ...shared, angle: 60, origin: { x: 0, y: CANNON_Y } } },
     { at: 0, options: { ...shared, angle: 120, origin: { x: 1, y: CANNON_Y } } },
@@ -82,22 +76,15 @@ function cannons(view: ViewSize, tuning: ConfettiTuning): Shot[] {
  * Unlike the cannons these are meant to land one after another — separate
  * events rather than one salvo smeared out.
  */
-function fireworks(
-  view: ViewSize,
-  tuning: ConfettiTuning,
-  random: () => number,
-  start: number,
-): Shot[] {
+function fireworks(view: ViewSize, random: () => number, start: number): Shot[] {
+  const scale = viewScale(view)
   return Array.from({ length: 10 }, (_, i) => ({
     at: start + i * 340,
     options: {
-      particleCount: Math.round(tuning.particleCount * 0.75),
+      ...TUNING,
+      particleCount: Math.round(TUNING.particleCount * 0.75),
       spread: 360,
-      startVelocity: tuning.startVelocity * 0.5 * viewScale(view),
-      decay: tuning.decay,
-      gravity: tuning.gravity,
-      scalar: tuning.scalar,
-      ticks: tuning.ticks,
+      startVelocity: TUNING.startVelocity * 0.5 * scale,
       origin: { x: 0.12 + random() * 0.76, y: 0.12 + random() * 0.38 },
     },
   }))
@@ -111,13 +98,12 @@ function fireworks(
 export function celebration(
   kinds: readonly CelebrationKind[],
   view: ViewSize,
-  tuning: ConfettiTuning = DEFAULT_TUNING,
   random: () => number = Math.random,
 ): Shot[] {
   const won = kinds.includes('winner')
-  const shots = won ? cannons(view, tuning) : []
+  const shots = won ? cannons(view) : []
   if (!kinds.includes('sweep')) return shots
   // Shells hold back for the shot when there is one, and open promptly when
   // there isn't — nobody should watch an empty screen for a third of a second.
-  return [...shots, ...fireworks(view, tuning, random, won ? 340 : 120)]
+  return [...shots, ...fireworks(view, random, won ? 340 : 120)]
 }

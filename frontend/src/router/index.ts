@@ -27,11 +27,6 @@ export const router = createRouter({
       component: () => import('@/views/sandbox/GuessSandbox.vue'),
     },
     {
-      path: '/sandbox/confetti',
-      name: 'confetti-sandbox',
-      component: () => import('@/views/sandbox/ConfettiSandbox.vue'),
-    },
-    {
       // The real room layout, driven by fabricated events — for the panel
       // cross-fade into the results screen and the confetti riding on it.
       path: '/sandbox/room',
