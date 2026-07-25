@@ -29,7 +29,10 @@ beforeEach(() => {
   )
 })
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+})
 
 const FRAME = { width: 400, height: 300 }
 
@@ -141,6 +144,35 @@ describe('ImageViewer controls', () => {
 
     await wrapper.get('[aria-label="Zoom in"]').trigger('click')
     expect(wrapper.text()).toContain('160%')
+  })
+})
+
+describe('ImageViewer controls', () => {
+  it('rides in on the hint, then belongs to the pointer', async () => {
+    vi.useFakeTimers()
+    const wrapper = mountViewer()
+    await finishLoad(wrapper)
+
+    const controls = () => wrapper.get('[aria-label="Zoom in"]').element.parentElement!
+    // Introduced alongside the gesture hint, so they're discoverable at all.
+    expect(controls().className).toContain('opacity-100')
+
+    vi.advanceTimersByTime(7100) // the hint retires
+    await nextTick()
+    // Gone, and non-interactive — an invisible button over the picture would
+    // otherwise swallow a drag that starts on it. This is the whole point: the
+    // bottom-right corner is where a signature lives.
+    expect(controls().className).toContain('opacity-0')
+    expect(controls().className).toContain('pointer-events-none')
+
+    // Only hovering brings them back, and they stay for as long as it lasts.
+    await wrapper.trigger('pointerenter') // the root element is the frame
+    vi.advanceTimersByTime(30_000)
+    await nextTick()
+    expect(controls().className).toContain('opacity-100')
+
+    await wrapper.trigger('pointerleave')
+    expect(controls().className).toContain('opacity-0')
   })
 })
 

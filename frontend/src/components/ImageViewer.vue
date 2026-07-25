@@ -12,6 +12,13 @@
  * Booru images run to tens of megabytes, so the picture stays hidden behind a
  * spinner until it has fully decoded — otherwise the browser paints the partial
  * image under a stale transform, which reads as a flash of the top-left corner.
+ *
+ * `touch-none` on the frame hands every touch to the pan/pinch handlers. Nothing
+ * loses a scroll to it: the room's mobile shell is a fixed box with its own
+ * scroll regions, and the frame isn't one of them.
+ *
+ * Keep the template single-root — a comment beside the frame makes it a
+ * fragment, which drops any class a parent passes down.
  */
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
@@ -46,8 +53,17 @@ const slow = ref(false) // loading long enough to be worth announcing
 const failed = ref(false)
 const dragging = ref(false)
 const showHint = ref(false)
+const hovering = ref(false)
 
 const ready = computed(() => !loading.value && !failed.value)
+/**
+ * The controls sit over the bottom-right of the picture, which is where a
+ * signature usually goes — so they're a hover affordance, and moving the pointer
+ * off the picture is how you see what's under them. They ride in on the gesture
+ * hint the first time so they're discoverable at all, and once that has retired
+ * the only thing that brings them back is the pointer.
+ */
+const showControls = computed(() => ready.value && (hovering.value || showHint.value))
 const fitted = computed(() => isFitted(view, frame, image))
 const maxed = computed(() => isMaxZoomed(view, frame, image))
 const percent = computed(() => zoomPercent(view, frame, image))
@@ -248,13 +264,12 @@ defineExpose({ view, reset, contentTop })
 </script>
 
 <template>
-  <!-- `touch-none` hands every touch to the pan/pinch handlers. Nothing loses a
-       scroll to it: the room's mobile shell is a fixed box with its own scroll
-       regions, and the frame isn't one of them. -->
   <div
     ref="frameEl"
     class="relative h-full w-full touch-none select-none overflow-hidden rounded-lg bg-black/80"
     :class="dragging ? 'cursor-grabbing' : 'cursor-grab'"
+    @pointerenter="hovering = true"
+    @pointerleave="hovering = false"
     @wheel="onWheel"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
@@ -306,17 +321,28 @@ defineExpose({ view, reset, contentTop })
       enter-from-class="opacity-0"
       leave-to-class="opacity-0"
     >
+      <!-- The gestures are the only zoom controls a touch device gets, so the
+           wording has to match the device rather than split the difference. -->
       <p
         v-if="showHint"
         class="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-black/60 px-2.5 py-1.5 text-xs text-white/85 ring-1 ring-white/15 backdrop-blur-sm"
       >
-        Drag to pan · scroll or pinch to zoom · double-click to reset
+        <span class="[@media(hover:none)]:hidden">
+          Drag to pan · scroll or pinch to zoom · double-click to reset
+        </span>
+        <span class="hidden [@media(hover:none)]:inline">
+          Drag to pan · pinch to zoom · double-tap to reset
+        </span>
       </p>
     </Transition>
 
+    <!-- Hidden outright on touch: there's no hover to summon them back, pinch
+         and double-tap already do the job, and a phone has the least picture to
+         spare. -->
     <div
       v-if="ready"
-      class="absolute bottom-3 right-3 flex items-center gap-0.5 rounded-lg bg-black/60 p-1 ring-1 ring-white/15 backdrop-blur-sm"
+      class="absolute bottom-3 right-3 flex items-center gap-0.5 rounded-lg bg-black/60 p-1 ring-1 ring-white/15 backdrop-blur-sm transition-opacity duration-200 [@media(hover:none)]:hidden"
+      :class="showControls ? 'opacity-100' : 'pointer-events-none opacity-0'"
       @pointerdown.stop
       @dblclick.stop
       @wheel.stop
