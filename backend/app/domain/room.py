@@ -67,6 +67,15 @@ class Room:
         for user in self.users.values():
             user.ready = False
 
+    def mark_viewing_results(self) -> None:
+        """A finished round puts everyone in the room on its results screen."""
+        for user in self.users.values():
+            user.viewing_results = True
+
+    def clear_viewing_results(self) -> None:
+        for user in self.users.values():
+            user.viewing_results = False
+
     def start_game(
         self,
         tags: list[str],

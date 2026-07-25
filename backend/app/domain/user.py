@@ -10,6 +10,7 @@ class User:
         self.uuid = uuid
         self.name = name
         self.ready = False
+        self.viewing_results = False
 
     def __repr__(self) -> str:  # pragma: no cover - debug aid
         return f"User(name={self.name!r})"

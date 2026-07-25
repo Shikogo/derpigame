@@ -90,6 +90,15 @@ export const useRoomStore = defineStore('room', () => {
     return request('set_ready', { ready })
   }
 
+  /**
+   * Dismiss the results screen. The rest of the room sees us as back in the
+   * lobby, and the broadcast that carries it also clears the `in_progress` the
+   * finished round left standing.
+   */
+  async function returnToLobby(): Promise<Ack> {
+    return request('return_to_lobby')
+  }
+
   async function configureRoom(config: ConfigureRoomPayload): Promise<Ack> {
     return request('configure_room', config)
   }
@@ -173,6 +182,7 @@ export const useRoomStore = defineStore('room', () => {
     createRoom,
     joinRoom,
     setReady,
+    returnToLobby,
     configureRoom,
     startGame,
     stopGame,

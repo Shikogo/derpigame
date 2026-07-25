@@ -155,6 +155,8 @@ class GameService:
                 options["taxonomy"] = taxonomy
             query = await self._canonical_query(bundle.tag_resolver, room.query, image.tags)
             game = room.start_game(image.tags, first_index=first_index, query=query, **options)
+            room.clear_ready()  # Starting consumes readiness
+            room.clear_viewing_results()  # the last round's recap is gone from every screen
             logger.info("Game started in room %r (%d players)", room.name, len(game.players))
             self._current_image[room.name] = image
             self._feed[room.name] = []  # a new round starts from an empty feed
@@ -237,7 +239,7 @@ class GameService:
         self._drop_timer(room.name)
         unguessed = game.unguessed if game else {}
         room.end_game()
-        room.clear_ready()  # aborting returns everyone to an unready lobby
+        room.mark_viewing_results()  # an abort lands on the results screen too
         payloads: list[dict] = [{"type": "game_aborted", "unguessed": unguessed}]
         self._feed.pop(room.name, None)
         image = self._current_image.pop(room.name, None)
@@ -282,7 +284,12 @@ class GameService:
             if image is not None:
                 payloads.append(_image_revealed_payload(image))
                 self._record_round(room, image, game_over)
-            room.clear_ready()  # round's done — the next needs a fresh ready-up
+            room.mark_viewing_results()
+            # What the round did to the room's tally, read after _record_round so
+            # this round counts.
+            for payload in payloads:
+                if payload["type"] == "game_over":
+                    payload["win_counts"] = self.room_win_counts(room.name)
         try:
             if payloads:
                 await self._emitter.emit(room.name, payloads)

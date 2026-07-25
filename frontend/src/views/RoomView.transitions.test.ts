@@ -16,7 +16,7 @@ import GameOverPanel from '@/components/GameOverPanel.vue'
 import GamePanel from '@/components/GamePanel.vue'
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
-import { roomState } from '@/test/factories'
+import { roomState, roomUser } from '@/test/factories'
 import type { GameEvent, Player } from '@/types/wire'
 
 const router = createRouter({
@@ -56,6 +56,7 @@ const gameOver: GameEvent = {
   win: true,
   winners: [ME],
   standings: [ME],
+  win_counts: [],
   unguessed: {},
 }
 
@@ -68,7 +69,7 @@ describe('RoomView — panel transitions', () => {
     pinia = createPinia()
     setActivePinia(pinia)
     useRoomStore().setRoomState(
-      roomState({ in_progress: true, users: [{ uuid: 'me', name: 'ME', ready: true }] }),
+      roomState({ in_progress: true, users: [roomUser('me', { name: 'ME', ready: true })] }),
     )
   })
 

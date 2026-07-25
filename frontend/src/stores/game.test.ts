@@ -86,6 +86,7 @@ describe('game store — round outro', () => {
     win: true,
     winners: [p('me')],
     standings: [p('me')],
+    win_counts: [],
     unguessed: {},
   }
 

@@ -215,6 +215,19 @@ async def test_set_ready_toggles_and_broadcasts(make):
     assert server.last_state()["users"][0]["ready"] is True
 
 
+async def test_return_to_lobby_clears_only_the_caller_and_broadcasts(make):
+    handlers, server, registry, _service = make()
+    code = await _create(handlers, "sa", "ua", "Alice")
+    await handlers.join_room("sb", {"room": code, "uuid": "ub", "name": "Bob"})
+    registry.get(code).mark_viewing_results()  # as a finished round leaves them
+
+    ack = await handlers.return_to_lobby("sa")
+
+    assert ack == {"ok": True}
+    viewing = {u["name"]: u["viewing_results"] for u in server.last_state()["users"]}
+    assert viewing == {"Alice": False, "Bob": True}
+
+
 async def test_configure_room_updates_query_and_nsfw_before_a_game(make):
     handlers, server, registry, _service = make()
     code = await _create(handlers, "sa", "ua", "Alice")
@@ -648,7 +661,8 @@ async def test_lobby_join_gets_no_snapshot(make):
 
 
 @pytest.mark.parametrize(
-    "action", ["set_ready", "configure_room", "start_game", "submit_guess", "stop_game"]
+    "action",
+    ["set_ready", "return_to_lobby", "configure_room", "start_game", "submit_guess", "stop_game"],
 )
 async def test_actions_before_joining_are_rejected(make, action):
     handlers, _server, _registry, _service = make()

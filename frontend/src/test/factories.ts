@@ -6,7 +6,12 @@
  * `.test.ts` / `.spec.ts`, so this file is a plain module.
  */
 
-import type { RoomState } from '@/types/wire'
+import type { RoomState, RoomUser } from '@/types/wire'
+
+/** A room member, idle in the lobby until told otherwise. */
+export function roomUser(uuid: string, over: Partial<RoomUser> = {}): RoomUser {
+  return { uuid, name: uuid, ready: false, viewing_results: false, ...over }
+}
 
 /** A default lobby snapshot, overridable field by field. */
 export function roomState(over: Partial<RoomState> = {}): RoomState {

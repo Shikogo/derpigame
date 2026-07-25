@@ -3,12 +3,14 @@
  * End-of-round screen for both a finished game and an aborted one. Either way it
  * reveals the image — still pan/zoomable, so the tags you missed are worth a
  * second look — plus its attribution and the tag recap; a finished game also
- * shows winners, standings and the confetti.
+ * shows winners, standings and the confetti. The ready/start bar stays on screen
+ * throughout, so the next round is one click away without a trip to the lobby.
  */
 import { computed } from 'vue'
 
 import ConfettiOverlay from '@/components/ConfettiOverlay.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
+import ReadyBar from '@/components/ReadyBar.vue'
 import RoundSummary from '@/components/RoundSummary.vue'
 import type { CelebrationKind } from '@/lib/confetti'
 import { sourceLabel } from '@/lib/sourceLabel'
@@ -33,6 +35,10 @@ const over = computed(() => game.state.over)
 const reveal = computed(() => game.state.reveal)
 const image = computed(() => game.state.image)
 const iWon = computed(() => over.value?.winners.some((w) => w.uuid === session.uuid) ?? false)
+
+// The tally the round itself reported, so it already counts this one.
+const winsByUuid = computed(() => new Map(over.value?.winCounts.map((w) => [w.uuid, w.wins])))
+const wins = (uuid: string): number => winsByUuid.value.get(uuid) ?? 0
 
 // Winning is scoring the most points, not clearing every tag — that's a rare
 // bonus, celebrated separately below rather than framing the whole result.
@@ -120,9 +126,18 @@ const celebration = computed<CelebrationKind[]>(() => {
           :key="p.uuid"
           class="flex items-center justify-between px-3 py-2"
         >
-          <span
-            ><span class="mr-2 font-mono text-ink-faint">{{ i + 1 }}.</span>{{ p.name }}</span
-          >
+          <span class="flex items-center gap-2">
+            <span
+              ><span class="mr-2 font-mono text-ink-faint">{{ i + 1 }}.</span>{{ p.name }}</span
+            >
+            <span
+              v-if="wins(p.uuid)"
+              class="rounded-full bg-turn/10 px-1.5 text-xs font-semibold text-turn"
+              :title="`${wins(p.uuid)} win${wins(p.uuid) === 1 ? '' : 's'} in this room`"
+            >
+              🏆 {{ wins(p.uuid) }}
+            </span>
+          </span>
           <span class="font-mono font-semibold tabular-nums">{{ p.score }}</span>
         </li>
       </ol>
@@ -130,12 +145,15 @@ const celebration = computed<CelebrationKind[]>(() => {
 
     <RoundSummary />
 
-    <button
-      class="self-start rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-on-accent"
-      @click="emit('back')"
+    <!-- Last in the section, so it floats over the whole tag recap and settles
+         only at the very bottom: `sticky bottom` holds an element down only
+         while its own place in the flow is still below the fold, and the recap
+         runs long enough to bury anything it doesn't cover. -->
+    <div
+      class="sticky bottom-4 z-10 rounded-lg border border-border bg-surface p-3 shadow-lg shadow-black/20"
     >
-      Back to lobby
-    </button>
+      <ReadyBar start-label="Start next round" show-back @back="emit('back')" />
+    </div>
   </section>
 </template>
 

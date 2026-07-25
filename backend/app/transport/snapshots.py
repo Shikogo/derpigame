@@ -19,7 +19,12 @@ def room_state(room: Room) -> dict:
         "rating_caps": dict(room.rating_caps),
         "in_progress": room.active,
         "users": [
-            {"uuid": user.uuid, "name": user.name, "ready": user.ready}
+            {
+                "uuid": user.uuid,
+                "name": user.name,
+                "ready": user.ready,
+                "viewing_results": user.viewing_results,
+            }
             for user in room.users.values()
         ],
     }

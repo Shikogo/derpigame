@@ -264,6 +264,7 @@ describe('reduce', () => {
       win: false,
       winners: [],
       standings: [player(alice, { score: 2 }), bob],
+      win_counts: [],
       unguessed: { tags: ['rare'], ocs: ['oc:bar'] },
     })
     // `ending`, not `over`: the round is decided but still has to play out its
@@ -284,6 +285,7 @@ describe('reduce', () => {
       win: true,
       winners: [alice],
       standings: [alice],
+      win_counts: [],
       unguessed: {},
     })
     const done = concludeRound(ending)
@@ -298,6 +300,7 @@ describe('reduce', () => {
       win: true,
       winners: [alice],
       standings: [alice],
+      win_counts: [],
       unguessed: {},
     })
     s = reduce(s, {
@@ -458,6 +461,7 @@ describe('reduce', () => {
       win: true,
       winners: [alice],
       standings: [alice],
+      win_counts: [],
       unguessed: {},
     })
     const empty = reduce(finished, { type: 'no_image', query: ['x'] })

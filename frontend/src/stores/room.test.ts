@@ -6,16 +6,13 @@ import { emitAck } from '@/socket/client'
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
-import { roomState } from '@/test/factories'
+import { roomState, roomUser } from '@/test/factories'
 import type { GameEvent, Player, RoomState, RoomUser } from '@/types/wire'
 
 vi.mock('@/socket/client', () => ({ emitAck: vi.fn() }))
 
-const member = (uuid: string, ready: boolean): RoomUser => ({
-  uuid,
-  name: uuid.toUpperCase(),
-  ready,
-})
+const member = (uuid: string, ready: boolean): RoomUser =>
+  roomUser(uuid, { name: uuid.toUpperCase(), ready })
 const player = (uuid: string): Player => ({
   uuid,
   name: uuid.toUpperCase(),

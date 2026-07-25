@@ -93,7 +93,7 @@ def make_room(*names: str, query: list[str] | None = None) -> Room:
 
 
 def ready_up(room: Room) -> None:
-    """Re-ready everyone — a round end clears readiness, so a new round needs it."""
+    """Re-ready everyone — starting a round consumes readiness, so the next needs it."""
     for user in room.users.values():
         user.ready = True
 
@@ -319,26 +319,46 @@ async def test_winning_guess_ends_game_and_drops_the_timer():
     assert "lobby" not in service._timers  # timer released
 
 
-async def test_game_over_unreadies_everyone():
+async def test_starting_consumes_readiness_and_clears_the_last_results():
+    emitter = RecordingEmitter()
+    service = make_service(["solo", "twilight"], emitter)
+    room = make_room("alice", "bob")
+    room.mark_viewing_results()  # as the previous round left them
+
+    await service.start_game(room, first_index=0)
+
+    # The roster is locked, so the flags have done their job — the next round
+    # needs a fresh ready-up, and nobody is left holding a stale "Ready ✓".
+    assert room.ready_users() == []
+    assert not any(user.viewing_results for user in room.users.values())
+
+
+async def test_a_finished_round_puts_everyone_on_the_results_screen():
     emitter = RecordingEmitter()
     service = make_service(["solo"], emitter)  # one regular tag -> instant win
     room = make_room("alice", "bob")
     await service.start_game(room, first_index=0)
 
     await service.submit_guess(room, "alice", "solo")
+    assert all(user.viewing_results for user in room.users.values())
 
-    assert room.ready_users() == []  # a new round needs a fresh ready-up
+    # An abort lands there too.
+    ready_up(room)
+    await service.start_game(room, first_index=0)
+    await service.stop_game(room, "alice")
+    assert all(user.viewing_results for user in room.users.values())
 
 
-async def test_stop_game_unreadies_everyone():
+async def test_game_over_carries_the_tally_including_the_round_just_played():
     emitter = RecordingEmitter()
-    service = make_service(["solo", "twilight"], emitter)
+    service = make_service(["solo"], emitter)
     room = make_room("alice", "bob")
     await service.start_game(room, first_index=0)
 
-    await service.stop_game(room, "alice")
+    await service.submit_guess(room, "alice", "solo")
 
-    assert room.ready_users() == []
+    game_over = next(p for p in emitter.payloads if p["type"] == "game_over")
+    assert game_over["win_counts"] == [{"uuid": "alice", "name": "alice", "wins": 1}]
 
 
 async def test_stop_game_refuses_anyone_who_is_not_a_current_player():
@@ -616,7 +636,7 @@ async def test_history_accumulates_across_rounds():
 
     await service.start_game(room, first_index=0)
     await service.submit_guess(room, "alice", "solo")
-    ready_up(room)  # the finished round un-readied everyone
+    ready_up(room)  # starting the last round consumed everyone’s readiness
     await service.start_game(room, first_index=0)
     await service.stop_game(room, "alice")
 
@@ -646,7 +666,7 @@ async def test_win_counts_come_from_played_rounds():
 
     await service.start_game(room, first_index=0)
     await service.submit_guess(room, "alice", "solo")  # win #1
-    ready_up(room)  # the finished round un-readied everyone
+    ready_up(room)  # starting the last round consumed everyone’s readiness
     await service.start_game(room, first_index=0)
     await service.submit_guess(room, "alice", "solo")  # win #2
 

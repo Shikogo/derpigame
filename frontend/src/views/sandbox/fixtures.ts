@@ -32,8 +32,8 @@ export function devRoomState(me: Player, over: Partial<RoomState> = {}): RoomSta
     in_progress: false,
     turn_seconds: 30,
     users: [
-      { uuid: me.uuid, name: me.name, ready: true },
-      { uuid: RIVAL.uuid, name: RIVAL.name, ready: true },
+      { uuid: me.uuid, name: me.name, ready: true, viewing_results: false },
+      { uuid: RIVAL.uuid, name: RIVAL.name, ready: true, viewing_results: false },
     ],
     history: [],
     win_counts: [],
@@ -97,7 +97,14 @@ export function roundWon(winners: Player[], standings: Player[], win: boolean): 
       tag_type: 'tags',
       remaining: 0,
     },
-    { type: 'game_over', win, winners, standings, unguessed: win ? {} : UNGUESSED },
+    {
+      type: 'game_over',
+      win,
+      winners,
+      standings,
+      unguessed: win ? {} : UNGUESSED,
+      win_counts: winners.map((w) => ({ uuid: w.uuid, name: w.name, wins: 2 })),
+    },
     REVEAL,
   ]
 }

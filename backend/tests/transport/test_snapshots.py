@@ -17,7 +17,9 @@ def _room_with_users() -> Room:
     alice = User("ua", "Alice")
     alice.ready = True
     room.add_user(alice)
-    room.add_user(User("ub", "Bob"))
+    bob = User("ub", "Bob")
+    bob.viewing_results = True
+    room.add_user(bob)
     return room
 
 
@@ -33,8 +35,8 @@ def test_snapshot_carries_config_and_roster():
     assert snap["rating_caps"] == {}  # uncapped until a host says otherwise
     assert snap["in_progress"] is False
     assert snap["users"] == [
-        {"uuid": "ua", "name": "Alice", "ready": True},
-        {"uuid": "ub", "name": "Bob", "ready": False},
+        {"uuid": "ua", "name": "Alice", "ready": True, "viewing_results": False},
+        {"uuid": "ub", "name": "Bob", "ready": False, "viewing_results": True},
     ]
 
 

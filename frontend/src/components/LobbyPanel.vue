@@ -1,15 +1,16 @@
 <script setup lang="ts">
 /**
- * The between-rounds lobby: roster, your ready toggle, a read-only settings
- * summary (editing lives in a dialog), start, a copyable invite link, and the
- * round history.
+ * The between-rounds lobby: roster, the ready/start bar, a read-only settings
+ * summary (editing lives in a dialog), a copyable invite link, and the round
+ * history. The bar sits right under the roster — the two halves of starting a
+ * round belong together, and everything below is setup you touch far less often.
  */
 import { computed, ref } from 'vue'
 
 import HistoryPanel from '@/components/HistoryPanel.vue'
+import ReadyBar from '@/components/ReadyBar.vue'
 import RoomSettingsDialog from '@/components/RoomSettingsDialog.vue'
 import UserList from '@/components/UserList.vue'
-import { errorLabel } from '@/lib/errors'
 import { useRoomStore } from '@/stores/room'
 
 const room = useRoomStore()
@@ -38,8 +39,6 @@ const boundsSummary = computed(() => {
   return parts
 })
 
-const ready = computed(() => room.me?.ready ?? false)
-
 const inviteLink = computed(() => `${location.origin}${location.pathname}#/room/${room.code}`)
 const copied = ref(false)
 async function copyInvite(): Promise<void> {
@@ -57,18 +56,11 @@ async function copyInvite(): Promise<void> {
   <!-- Capped and centred like the results screen: with no rail beside it the
        lobby would otherwise stretch the full width of the page. -->
   <div class="mx-auto flex w-full max-w-3xl flex-col gap-5">
-    <div class="flex items-center justify-between">
-      <h2 class="font-display text-xl font-bold">Lobby</h2>
-      <button
-        class="rounded-lg px-4 py-2 text-sm font-semibold"
-        :class="ready ? 'bg-correct text-on-accent' : 'border border-border hover:bg-raised'"
-        @click="room.setReady(!ready)"
-      >
-        {{ ready ? 'Ready ✓' : 'Ready up' }}
-      </button>
-    </div>
+    <h2 class="font-display text-xl font-bold">Lobby</h2>
 
     <UserList />
+
+    <ReadyBar />
 
     <div
       class="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface p-3"
@@ -91,23 +83,6 @@ async function copyInvite(): Promise<void> {
       </button>
     </div>
     <RoomSettingsDialog ref="settingsDialog" />
-
-    <div class="flex flex-col gap-2">
-      <button
-        class="flex items-center justify-center gap-2 rounded-lg bg-turn px-4 py-2.5 text-sm font-semibold text-on-accent disabled:opacity-40"
-        :disabled="!ready || room.starting"
-        @click="room.startGame()"
-      >
-        <span
-          v-if="room.starting"
-          class="h-4 w-4 animate-spin rounded-full border-2 border-on-accent/30 border-t-on-accent"
-        />
-        {{ room.starting ? 'Starting…' : 'Start game' }}
-      </button>
-      <p v-if="room.starting" class="text-xs text-ink-faint">Finding an image…</p>
-      <p v-else-if="!ready" class="text-xs text-ink-faint">Ready up to start the game.</p>
-      <p v-else-if="room.error" class="text-xs text-wrong">{{ errorLabel(room.error) }}</p>
-    </div>
 
     <div class="flex flex-col gap-1">
       <span class="text-sm font-semibold text-ink-muted">Invite link</span>

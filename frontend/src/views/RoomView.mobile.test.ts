@@ -14,7 +14,7 @@ import GuessDock from '@/components/GuessDock.vue'
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
-import { roomState } from '@/test/factories'
+import { roomState, roomUser } from '@/test/factories'
 import type { GameEvent, Player } from '@/types/wire'
 
 const router = createRouter({
@@ -57,6 +57,7 @@ const gameOver: GameEvent = {
   win: true,
   winners: [ME],
   standings: [ME],
+  win_counts: [],
   unguessed: {},
 }
 
@@ -69,7 +70,7 @@ describe('RoomView — mobile shell', () => {
     pinia = createPinia()
     setActivePinia(pinia)
     useRoomStore().setRoomState(
-      roomState({ in_progress: true, users: [{ uuid: 'me', name: 'ME', ready: true }] }),
+      roomState({ in_progress: true, users: [roomUser('me', { name: 'ME', ready: true })] }),
     )
   })
 
@@ -89,14 +90,14 @@ describe('RoomView — mobile shell', () => {
     const game = useGameStore()
     const room = useRoomStore()
 
-    room.setRoomState(roomState({ users: [{ uuid: 'me', name: 'ME', ready: false }] }))
+    room.setRoomState(roomState({ users: [roomUser('me', { name: 'ME', ready: false })] }))
     const wrapper = mountRoom()
     await flushPromises()
     expect(shell(wrapper)).toBeUndefined() // lobby scrolls
     expect(rail(wrapper)).toBe(false)
 
     room.setRoomState(
-      roomState({ in_progress: true, users: [{ uuid: 'me', name: 'ME', ready: true }] }),
+      roomState({ in_progress: true, users: [roomUser('me', { name: 'ME', ready: true })] }),
     )
     game.applyEvents(openRound(ME))
     await flushPromises()
@@ -116,7 +117,7 @@ describe('RoomView — mobile shell', () => {
       roomState({
         nsfw: true,
         in_progress: true,
-        users: [{ uuid: 'me', name: 'ME', ready: true }],
+        users: [roomUser('me', { name: 'ME', ready: true })],
       }),
     )
     const wrapper = mountRoom()

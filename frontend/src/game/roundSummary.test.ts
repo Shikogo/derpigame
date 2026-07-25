@@ -57,6 +57,7 @@ function playedRound(): GameState {
       win: false,
       winners: [alice],
       standings: [alice, bob],
+      win_counts: [],
       unguessed: { tags: ['rarity', 'mare'], artists: ['artist:foo'] },
     },
   ]

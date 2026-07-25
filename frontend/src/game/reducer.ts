@@ -7,7 +7,7 @@
  * latest `GameState` and feeds batches through `reduceAll`.
  */
 
-import type { BucketKey, GameEvent, Player, RejectReason } from '@/types/wire'
+import type { BucketKey, GameEvent, Player, RejectReason, WinCount } from '@/types/wire'
 
 /**
  * `ending` is a round that is decided but still playing out: the server has sent
@@ -35,6 +35,8 @@ export interface GameOverResult {
   win: boolean
   winners: Player[]
   standings: Player[]
+  /** The room's win tally with this round counted. */
+  winCounts: WinCount[]
 }
 
 /** One entry in the ordered guess feed; `seq` is a stable key for rendering. */
@@ -288,6 +290,7 @@ export function reduce(prev: GameState, event: GameEvent): GameState {
           win: event.win,
           winners: event.winners,
           standings: event.standings,
+          winCounts: event.win_counts,
         },
       }
     }

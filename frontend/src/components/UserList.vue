@@ -1,10 +1,18 @@
 <script setup lang="ts">
-/** Room roster with ready state and each player's running win count. */
+/** Room roster with where each member is, and their running win count. */
+import { presenceOf } from '@/game/lobbyStatus'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
 const room = useRoomStore()
 const session = useSessionStore()
+
+const LABELS = { ready: 'Ready', results: 'On results', lobby: 'In lobby' } as const
+const TONES = {
+  ready: 'text-correct',
+  results: 'text-ink-muted',
+  lobby: 'text-ink-faint',
+} as const
 </script>
 
 <template>
@@ -25,8 +33,12 @@ const session = useSessionStore()
           🏆 {{ u.wins }}
         </span>
       </span>
-      <span class="text-xs font-semibold" :class="u.ready ? 'text-correct' : 'text-ink-faint'">
-        {{ u.ready ? 'Ready' : 'Not ready' }}
+      <span
+        class="text-xs font-semibold"
+        :class="TONES[presenceOf(u)]"
+        :title="presenceOf(u) === 'results' ? 'Still reading the last round’s results' : undefined"
+      >
+        {{ LABELS[presenceOf(u)] }}
       </span>
     </li>
   </ul>

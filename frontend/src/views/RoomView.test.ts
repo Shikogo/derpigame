@@ -8,7 +8,7 @@ import AgeGate from '@/components/AgeGate.vue'
 import GamePanel from '@/components/GamePanel.vue'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
-import { roomState as baseRoomState } from '@/test/factories'
+import { roomState as baseRoomState, roomUser } from '@/test/factories'
 import type { RoomState } from '@/types/wire'
 
 const router = createRouter({
@@ -34,7 +34,7 @@ function roomState(over: Partial<RoomState> = {}): RoomState {
   return baseRoomState({
     nsfw: true,
     in_progress: true,
-    users: [{ uuid: 'me', name: 'ME', ready: true }],
+    users: [roomUser('me', { name: 'ME', ready: true })],
     ...over,
   })
 }

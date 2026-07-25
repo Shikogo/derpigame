@@ -19,17 +19,20 @@ beforeEach(() => {
   setActivePinia(createPinia())
 })
 
+/** An outcome to mount; the win tally defaults to empty where it isn't the point. */
+type Outcome = Omit<GameOverResult, 'winCounts'> & Partial<Pick<GameOverResult, 'winCounts'>>
+
 /** Mount the results screen on a finished round with the given outcome. */
-function mountResult(over: GameOverResult) {
+function mountResult(over: Outcome) {
   const game = useGameStore()
   game.state.status = 'over'
-  game.state.over = over
+  game.state.over = { winCounts: [], ...over }
   // jsdom has no canvas; the panel's job here is deciding whether to mount it.
   return mount(GameOverPanel, { global: { stubs: { ConfettiOverlay: true } } })
 }
 
 /** What the panel asks for: the cannons, the fireworks, both, or nothing. */
-function celebration(over: GameOverResult): string[] {
+function celebration(over: Outcome): string[] {
   const overlay = mountResult(over).findComponent(ConfettiOverlay)
   return overlay.exists() ? [...(overlay.props('kinds') as string[])] : []
 }
@@ -54,7 +57,7 @@ describe('GameOverPanel celebrations', () => {
   it('stays quiet for an aborted round', () => {
     const game = useGameStore()
     game.state.status = 'aborted'
-    game.state.over = { win: true, winners: [ME], standings: [ME] }
+    game.state.over = { win: true, winners: [ME], standings: [ME], winCounts: [] }
 
     const wrapper = mount(GameOverPanel, { global: { stubs: { ConfettiOverlay: true } } })
 
@@ -81,6 +84,21 @@ describe('GameOverPanel heading', () => {
       'You won! 🎉',
     )
     expect(mountResult({ win: false, winners: [], standings: [ME] }).text()).toContain('Round over')
+  })
+})
+
+describe('GameOverPanel standings', () => {
+  it('shows each winner their room tally, and nothing for the winless', () => {
+    const wrapper = mountResult({
+      win: false,
+      winners: [RIVAL],
+      standings: [RIVAL, ME],
+      winCounts: [{ uuid: RIVAL.uuid, name: RIVAL.name, wins: 3 }],
+    })
+
+    const rows = wrapper.findAll('ol li')
+    expect(rows[0].text()).toContain('🏆 3')
+    expect(rows[1].text()).not.toContain('🏆')
   })
 })
 

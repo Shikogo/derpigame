@@ -102,6 +102,7 @@ class SocketHandlers:
             "create_room",
             "join_room",
             "set_ready",
+            "return_to_lobby",
             "configure_room",
             "start_game",
             "submit_guess",
@@ -201,6 +202,17 @@ class SocketHandlers:
             return _err("not_in_room")
         room, user = resolved
         user.ready = bool((data or {}).get("ready", False))
+        await self._broadcast_state(room)
+        return _ok()
+
+    async def return_to_lobby(self, sid, data=None):
+        """The caller dismissed the results screen — the rest of the room can see
+        they're back, and the broadcast clears any stale ``in_progress``."""
+        resolved = await self._resolve(sid)
+        if resolved is None:
+            return _err("not_in_room")
+        room, user = resolved
+        user.viewing_results = False
         await self._broadcast_state(room)
         return _ok()
 
@@ -331,6 +343,7 @@ class SocketHandlers:
         else:
             user.name = name
         user.ready = False
+        user.viewing_results = False
 
         await self._sio.save_session(sid, {"uuid": uuid, "room": room.name, "name": name})
         await self._sio.enter_room(sid, room.name)

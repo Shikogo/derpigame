@@ -13,6 +13,8 @@ export interface RoomUser {
   uuid: string
   name: string
   ready: boolean
+  /** Still on the last round's results screen rather than back in the lobby. */
+  viewing_results: boolean
 }
 
 /**
@@ -177,6 +179,8 @@ export interface GameOver {
   standings: Player[]
   /** Tags nobody got, keyed by bucket — goal bucket first, empty ones omitted. */
   unguessed: Record<BucketKey, string[]>
+  /** The room's win tally with this round counted, for the results standings. */
+  win_counts: WinCount[]
 }
 
 // Service-composed payloads (plain dicts, not domain events).

@@ -127,13 +127,30 @@ watch(keyboardOpen, (on) => {
   if (on && mobileShell.value) window.scrollTo(0, 0)
 })
 
+// Leaving drops your seat and can't be taken back, and the button sits close
+// enough to the results screen's own way out that players were hitting it by
+// mistake — so it asks first. Declining the age gate still leaves outright:
+// that answer is already deliberate.
+const leaveDialog = ref<HTMLDialogElement | null>(null)
+
+function askLeave(): void {
+  leaveDialog.value?.showModal()
+}
+
 async function leave(): Promise<void> {
+  leaveDialog.value?.close()
   await room.leaveRoom()
   router.push({ name: 'home' })
 }
 
+// Native <dialog> doesn't dismiss on backdrop click; a click on the element
+// itself (not its content) is the backdrop.
+function onLeaveBackdrop(event: MouseEvent): void {
+  if (event.target === leaveDialog.value) leaveDialog.value?.close()
+}
+
 async function backToLobby(): Promise<void> {
-  await room.setReady(false) // force a fresh room_state so in_progress clears
+  await room.returnToLobby()
   game.reset()
 }
 </script>
@@ -227,7 +244,7 @@ async function backToLobby(): Promise<void> {
           class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-ink-faint transition-colors hover:bg-raised hover:text-wrong"
           title="Leave"
           aria-label="Leave"
-          @click="leave"
+          @click="askLeave"
         >
           <IconLeave class="h-[1.15rem] w-[1.15rem]" />
         </button>
@@ -290,6 +307,35 @@ async function backToLobby(): Promise<void> {
           </BottomSheet>
         </aside>
       </div>
+
+      <dialog
+        ref="leaveDialog"
+        class="m-auto w-[min(24rem,90vw)] rounded-xl border border-border bg-surface p-0 text-ink shadow-2xl backdrop:bg-black/60"
+        @click="onLeaveBackdrop"
+      >
+        <div class="flex flex-col gap-4 p-5">
+          <h2 class="font-display text-xl font-bold">Leave this room?</h2>
+          <p class="text-sm text-ink-muted">
+            You'll drop out of the room and go back to the home screen.
+          </p>
+          <div class="flex justify-end gap-2">
+            <button
+              type="button"
+              class="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-raised"
+              @click="leaveDialog?.close()"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="rounded-lg bg-wrong px-4 py-1.5 text-sm font-semibold text-on-accent"
+              @click="leave()"
+            >
+              Leave
+            </button>
+          </div>
+        </div>
+      </dialog>
     </template>
   </main>
 </template>
