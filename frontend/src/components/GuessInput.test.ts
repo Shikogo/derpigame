@@ -13,35 +13,39 @@ beforeEach(() => {
 })
 
 describe('GuessInput', () => {
-  it('is disabled when it is not your turn', () => {
+  it('stays typeable off your turn but refuses to send', async () => {
     // No active player set, so isMyTurn is false.
-    const wrapper = mount(GuessInput)
-
-    const input = wrapper.find('input').element as HTMLInputElement
-    const button = wrapper.find('button').element as HTMLButtonElement
-    expect(input.disabled).toBe(true)
-    expect(button.disabled).toBe(true)
-    expect(input.placeholder).toBe('Wait for your turn')
-  })
-
-  it('enables the box on your turn and submits the trimmed guess', async () => {
-    const session = useSessionStore()
-    const game = useGameStore()
-    game.state.activePlayerUuid = session.uuid // now isMyTurn
-
     const room = useRoomStore()
     const guess = vi.spyOn(room, 'submitGuess').mockResolvedValue({ ok: true })
 
     const wrapper = mount(GuessInput)
-    await nextTick()
+    const input = wrapper.find('input')
 
-    expect((wrapper.find('input').element as HTMLInputElement).disabled).toBe(false)
-    // Button stays disabled until there's a non-empty guess.
+    expect((input.element as HTMLInputElement).disabled).toBe(false)
+    expect((input.element as HTMLInputElement).placeholder).toBe('Type ahead for your turn…')
+
+    await input.setValue('mare')
     expect((wrapper.find('button').element as HTMLButtonElement).disabled).toBe(true)
 
-    await wrapper.find('input').setValue('  mare  ')
-    expect((wrapper.find('button').element as HTMLButtonElement).disabled).toBe(false)
+    await wrapper.find('form').trigger('submit')
+    expect(guess).not.toHaveBeenCalled()
+    // Enter off-turn is a no-op — it must not eat what you typed ahead.
+    expect((input.element as HTMLInputElement).value).toBe('mare')
+  })
 
+  it('sends the guess typed ahead once your turn arrives', async () => {
+    const session = useSessionStore()
+    const game = useGameStore()
+    const room = useRoomStore()
+    const guess = vi.spyOn(room, 'submitGuess').mockResolvedValue({ ok: true })
+
+    const wrapper = mount(GuessInput)
+    await wrapper.find('input').setValue('  mare  ')
+
+    game.state.activePlayerUuid = session.uuid // now isMyTurn
+    await nextTick()
+
+    expect((wrapper.find('button').element as HTMLButtonElement).disabled).toBe(false)
     await wrapper.find('form').trigger('submit')
 
     expect(guess).toHaveBeenCalledWith('mare')
@@ -62,6 +66,25 @@ describe('GuessInput', () => {
     await nextTick() // ...then focuses it
 
     expect(document.activeElement).toBe(input)
+    wrapper.unmount()
+  })
+
+  it('hands focus back to the box after the Guess button sends', async () => {
+    const session = useSessionStore()
+    const game = useGameStore()
+    game.state.activePlayerUuid = session.uuid
+    const room = useRoomStore()
+    const guess = vi.spyOn(room, 'submitGuess').mockResolvedValue({ ok: true })
+
+    const wrapper = mount(GuessInput, { attachTo: document.body })
+    await wrapper.find('input').setValue('mare')
+
+    const button = wrapper.find('button')
+    ;(button.element as HTMLButtonElement).focus() // as a real click would
+    await button.trigger('click')
+
+    expect(guess).toHaveBeenCalledWith('mare') // the click really did send
+    expect(document.activeElement).toBe(wrapper.find('input').element)
     wrapper.unmount()
   })
 
@@ -92,8 +115,6 @@ describe('GuessInput', () => {
 
     expect(wrapper.find('button span.animate-spin').exists()).toBe(true)
     expect((wrapper.find('button').element as HTMLButtonElement).disabled).toBe(true)
-    // The box stays enabled so it keeps focus for the next guess this turn.
-    expect((wrapper.find('input').element as HTMLInputElement).disabled).toBe(false)
   })
 
   it('does not submit while a guess is already in flight', async () => {

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * The dedicated guess box — enabled only on your turn (guesses are the active
- * player's alone; this is never the chat path).
+ * The dedicated guess box — always typeable so you can line a guess up before
+ * your turn, but only sendable on it (guesses are the active player's alone;
+ * this is never the chat path).
  */
 import { nextTick, ref, watch } from 'vue'
 
@@ -30,6 +31,10 @@ async function submit(): Promise<void> {
   const value = guess.value.trim()
   if (!value || !game.isMyTurn || room.guessing) return
   guess.value = ''
+  // Tapping the button takes focus with it, so hand it back for the next guess.
+  // Synchronously: past the `await` this is no longer the click's user gesture,
+  // and mobile browsers only reopen the keyboard for a focus inside one.
+  input.value?.focus()
   await room.submitGuess(value)
 }
 </script>
@@ -39,11 +44,15 @@ async function submit(): Promise<void> {
     <input
       ref="input"
       v-model="guess"
-      :disabled="!game.isMyTurn"
       type="text"
       autocomplete="off"
-      :placeholder="game.isMyTurn ? 'Guess a tag…' : 'Wait for your turn'"
-      class="flex-1 rounded-lg border border-border bg-raised px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-turn focus:outline-none disabled:cursor-not-allowed disabled:bg-surface disabled:text-ink-faint"
+      :placeholder="game.isMyTurn ? 'Guess a tag…' : 'Type ahead for your turn…'"
+      class="flex-1 rounded-lg border px-3 py-2 text-sm placeholder:text-ink-faint transition-colors focus:outline-none"
+      :class="
+        game.isMyTurn
+          ? 'border-turn/70 bg-raised text-ink focus:border-turn focus:ring-2 focus:ring-turn/25'
+          : 'border-border bg-surface text-ink-muted focus:border-ink-faint'
+      "
     />
     <button
       type="submit"
