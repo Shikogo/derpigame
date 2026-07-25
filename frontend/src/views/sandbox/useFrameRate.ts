@@ -11,6 +11,13 @@ import { onBeforeUnmount, ref } from 'vue'
  */
 const WINDOW_MS = 250
 
+/**
+ * How long one `watch()` keeps sampling for. Sampling forever would leave a
+ * rAF callback running for the life of the page and let the readout drift back
+ * to an idle 60 — the interesting number is the one from while the paper flew.
+ */
+const RUN_MS = 8000
+
 export function useFrameRate() {
   const fps = ref(0)
   const worst = ref(0)
@@ -19,6 +26,7 @@ export function useFrameRate() {
   let previous = 0
   let windowStart = 0
   let windowFrames = 0
+  let until = 0
 
   function sample(now: number): void {
     if (previous) {
@@ -34,11 +42,16 @@ export function useFrameRate() {
       windowStart = now
       windowFrames = 0
     }
+    if (now >= until) {
+      handle = 0 // done; the last published figures stand as the run's record
+      return
+    }
     handle = requestAnimationFrame(sample)
   }
 
-  /** Start sampling, or keep going if it already is. */
+  /** Sample the next few seconds. Firing again extends an in-flight run. */
   function watch(): void {
+    until = performance.now() + RUN_MS
     if (handle) return
     previous = 0
     windowStart = 0
