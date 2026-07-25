@@ -15,7 +15,7 @@ defineEmits<{ confirm: []; decline: [] }>()
   >
     <h2 class="font-display text-xl font-bold">Adult content</h2>
     <p class="mt-2 text-sm text-ink-muted">
-      This room is set to show NSFW results from Derpibooru. You must be 18 or older to view them.
+      This room is set to show NSFW results. You must be 18 or older to view them.
     </p>
     <div class="mt-5 flex justify-center gap-3">
       <button

@@ -5,6 +5,8 @@ import { createPinia, setActivePinia } from 'pinia'
 import ConfettiOverlay from '@/components/ConfettiOverlay.vue'
 import GameOverPanel from '@/components/GameOverPanel.vue'
 import { useGameStore } from '@/stores/game'
+import { useRoomStore } from '@/stores/room'
+import { roomState } from '@/test/factories'
 import type { GameOverResult } from '@/game/reducer'
 import type { Player } from '@/types/wire'
 
@@ -58,5 +60,20 @@ describe('GameOverPanel celebrations', () => {
 
     expect(wrapper.findComponent(ConfettiOverlay).exists()).toBe(false)
     expect(wrapper.text()).toContain('Round aborted')
+  })
+})
+
+describe('GameOverPanel attribution', () => {
+  it("names the booru the round came from, not the room's current one", () => {
+    useRoomStore().setRoomState(roomState({ source: 'derpibooru' }))
+    const game = useGameStore()
+    game.state.source = 'furbooru'
+    game.state.reveal = { artists: [], source_url: null, page_url: 'https://furbooru.org/1' }
+
+    const link = mountResult({ win: false, winners: [ME], standings: [ME] }).get(
+      'a[href="https://furbooru.org/1"]',
+    )
+
+    expect(link.text()).toBe('on Furbooru')
   })
 })

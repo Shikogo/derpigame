@@ -11,13 +11,22 @@ import ConfettiOverlay from '@/components/ConfettiOverlay.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
 import RoundSummary from '@/components/RoundSummary.vue'
 import type { CelebrationKind } from '@/lib/confetti'
+import { sourceLabel } from '@/lib/sourceLabel'
 import { useGameStore } from '@/stores/game'
+import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
 const emit = defineEmits<{ back: [] }>()
 
 const game = useGameStore()
+const room = useRoomStore()
 const session = useSessionStore()
+
+// The round's own source, not the room's — switching booru mid-recap must not
+// relabel the link under a picture that came from the other one.
+const booru = computed(() =>
+  game.state.source ? sourceLabel(game.state.source, room.sources) : 'the booru',
+)
 
 const aborted = computed(() => game.state.status === 'aborted')
 const over = computed(() => game.state.over)
@@ -92,7 +101,7 @@ const celebration = computed<CelebrationKind[]>(() => {
         rel="noopener noreferrer"
         class="text-turn underline"
       >
-        on derpibooru
+        on {{ booru }}
       </a>
     </div>
 
