@@ -6,14 +6,12 @@
 
 import { log } from '@/lib/logger'
 import { socket } from '@/socket/client'
-import { useChatStore } from '@/stores/chat'
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
 
 export function bindSocketToStores(): void {
   const room = useRoomStore()
   const game = useGameStore()
-  const chat = useChatStore()
 
   socket.on('connect', () => {
     log.info('socket connected')
@@ -28,7 +26,6 @@ export function bindSocketToStores(): void {
   socket.on('connect_error', (err) => log.warn('socket connect failed:', err.message))
   socket.on('room_state', (state) => room.setRoomState(state))
   socket.on('game_events', (events) => game.applyEvents(events))
-  socket.on('chat', (message) => chat.receive(message))
 
   // A tab close or refresh unloads the page. Signal it while the socket is still
   // up so the server clears our seat on the short window — a refresh reconnects

@@ -10,7 +10,7 @@
 import GuessInput from '@/components/GuessInput.vue'
 import { useGameStore } from '@/stores/game'
 
-defineProps<{ unread: number; sheetOpen: boolean }>()
+defineProps<{ sheetOpen: boolean }>()
 const emit = defineEmits<{ toggle: [] }>()
 
 const game = useGameStore()
@@ -31,18 +31,15 @@ const game = useGameStore()
          same in both, minus a display:none child. -->
     <button
       type="button"
-      class="relative flex items-center justify-center gap-2 py-1 lg:hidden"
+      class="flex items-center justify-center gap-2 py-1 lg:hidden"
       :aria-expanded="sheetOpen"
       aria-controls="round-sheet"
-      :aria-label="sheetOpen ? 'Hide guesses, scores and chat' : 'Show guesses, scores and chat'"
+      :aria-label="sheetOpen ? 'Hide guesses and scores' : 'Show guesses and scores'"
       @click="emit('toggle')"
     >
       <span class="h-1 w-10 rounded-full bg-border" />
       <span aria-hidden="true" class="text-xs leading-none text-ink-faint">
         {{ sheetOpen ? '▼' : '▲' }}
-      </span>
-      <span v-if="unread" class="absolute right-2 top-1.5 h-2 w-2 rounded-full bg-turn">
-        <span class="sr-only">{{ unread }} unread chat messages</span>
       </span>
     </button>
   </div>

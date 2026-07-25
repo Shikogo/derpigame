@@ -1,8 +1,7 @@
 <script setup lang="ts">
 /**
  * The dedicated guess box — always typeable so you can line a guess up before
- * your turn, but only sendable on it (guesses are the active player's alone;
- * this is never the chat path).
+ * your turn, but only sendable on it: guesses are the active player's alone.
  */
 import { nextTick, ref, watch } from 'vue'
 

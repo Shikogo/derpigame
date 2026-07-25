@@ -80,7 +80,6 @@ describe('RoomView — panel transitions', () => {
         // The point of these tests: exercise the real transition, not a stub.
         // Confetti is stubbed only because jsdom has no canvas to draw on.
         stubs: {
-          ChatPanel: true,
           RoundStatusStrip: true,
           GuessDock: true,
           RoundLog: true,

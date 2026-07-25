@@ -11,7 +11,6 @@ import { computed, ref } from 'vue'
 import { withWins } from '@/game/history'
 import { log } from '@/lib/logger'
 import { emitAck } from '@/socket/client'
-import { useChatStore } from '@/stores/chat'
 import { useGameStore } from '@/stores/game'
 import { useSessionStore } from '@/stores/session'
 import type { Ack, ConfigureRoomPayload, QueryInput, RoomState } from '@/types/wire'
@@ -135,15 +134,13 @@ export const useRoomStore = defineStore('room', () => {
       log.warn('rejoin rejected:', ack.error)
       roomState.value = null
       useGameStore().reset()
-      useChatStore().reset()
     }
   }
 
   async function leaveRoom(): Promise<Ack> {
     const ack = await request('leave_room')
     roomState.value = null
-    useGameStore().reset() // drop the last round's feed/scoreboard/image…
-    useChatStore().reset() // …and messages, so the next room starts clean
+    useGameStore().reset() // drop the last round's feed/scoreboard/image
     return ack
   }
 

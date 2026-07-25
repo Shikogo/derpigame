@@ -107,7 +107,6 @@ class SocketHandlers:
             "submit_guess",
             "stop_game",
             "leave_room",
-            "chat",
         ):
             self._sio.on(event, getattr(self, event))
 
@@ -307,17 +306,6 @@ class SocketHandlers:
         except GameActionError as exc:
             return _err(str(exc))
         await self._broadcast_state(room)
-        return _ok()
-
-    async def chat(self, sid, data=None):
-        session = await self._session(sid)
-        room_name = session.get("room")
-        if not room_name:
-            return _err("not_in_room")
-        text = str((data or {}).get("text", "")).strip()
-        if not text:
-            return _err("empty")
-        await self._sio.emit("chat", {"name": session.get("name"), "text": text}, room=room_name)
         return _ok()
 
     # --- helpers --------------------------------------------------------------

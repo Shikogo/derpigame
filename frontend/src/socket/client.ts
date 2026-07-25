@@ -2,21 +2,20 @@
  * The one Socket.IO connection to the backend.
  *
  * A thin wrapper: it holds the singleton socket, exposes an ack-aware `emitAck`
- * for the request/reply half of the contract, and types the three inbound
- * channels (`game_events`, `room_state`, `chat`). All game/lobby logic lives in
- * the stores — this module just moves bytes.
+ * for the request/reply half of the contract, and types the two inbound channels
+ * (`game_events`, `room_state`). All game/lobby logic lives in the stores — this
+ * module just moves bytes.
  */
 
 import { io, type Socket } from 'socket.io-client'
 
-import type { Ack, ChatMessage, GameEvent, RoomState } from '@/types/wire'
+import type { Ack, GameEvent, RoomState } from '@/types/wire'
 
 interface ServerToClientEvents {
   /** Batched, ordered list of typed game-event payloads. */
   game_events: (events: GameEvent[]) => void
   /** Whole-snapshot lobby state, rebroadcast on any membership/config change. */
   room_state: (state: RoomState) => void
-  chat: (message: ChatMessage) => void
 }
 
 // Every client→server event takes a payload plus an ack callback; the names are

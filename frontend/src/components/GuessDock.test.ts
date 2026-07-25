@@ -13,8 +13,8 @@ beforeEach(() => {
   setActivePinia(createPinia())
 })
 
-function mountDock(props: Partial<{ unread: number; sheetOpen: boolean }> = {}) {
-  return mount(GuessDock, { props: { unread: 0, sheetOpen: false, ...props } })
+function mountDock(props: Partial<{ sheetOpen: boolean }> = {}) {
+  return mount(GuessDock, { props: { sheetOpen: false, ...props } })
 }
 
 describe('GuessDock', () => {
@@ -43,13 +43,5 @@ describe('GuessDock', () => {
     await wrapper.setProps({ sheetOpen: true })
     expect(handle.attributes('aria-expanded')).toBe('true')
     expect(handle.attributes('aria-label')).toContain('Hide')
-  })
-
-  it('marks the handle only while chat is unread', async () => {
-    const wrapper = mountDock({ unread: 0 })
-    expect(wrapper.find('.sr-only').exists()).toBe(false)
-
-    await wrapper.setProps({ unread: 3 })
-    expect(wrapper.get('.sr-only').text()).toBe('3 unread chat messages')
   })
 })

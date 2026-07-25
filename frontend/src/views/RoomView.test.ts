@@ -24,7 +24,6 @@ const stubs = {
   GamePanel: true,
   GameOverPanel: true,
   LobbyPanel: true,
-  ChatPanel: true,
   RoundStatusStrip: true,
   GuessDock: true,
   RoundLog: true,

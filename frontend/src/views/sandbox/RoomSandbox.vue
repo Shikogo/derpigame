@@ -13,7 +13,6 @@ import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import RoomView from '@/views/RoomView.vue'
 import {
   RIVAL,
-  chatBurst,
   devRoomState,
   rivalGuesses,
   roundAborted,
@@ -22,7 +21,6 @@ import {
 } from '@/views/sandbox/fixtures'
 import { useFrameRate } from '@/views/sandbox/useFrameRate'
 import { useKeyboardInset } from '@/composables/useKeyboardInset'
-import { useChatStore } from '@/stores/chat'
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
@@ -30,7 +28,6 @@ import type { Player } from '@/types/wire'
 
 const room = useRoomStore()
 const game = useGameStore()
-const chat = useChatStore()
 const session = useSessionStore()
 
 const ME: Player = {
@@ -69,10 +66,6 @@ function finish(winners: Player[], win = false): void {
 function abort(): void {
   if (!game.state.image) startRound()
   game.applyEvents(roundAborted())
-}
-
-function say(): void {
-  for (const message of chatBurst()) chat.receive(message)
 }
 
 function rivalPlays(): void {
@@ -219,12 +212,6 @@ const collapsed = ref(window.innerWidth < 1024)
         @click="rivalPlays"
       >
         Rival guesses
-      </button>
-      <button
-        class="rounded-lg border border-border bg-raised px-3 py-1.5 text-xs font-medium hover:border-turn hover:text-turn"
-        @click="say"
-      >
-        Chat ×3
       </button>
       <button
         class="rounded-lg border border-border bg-raised px-3 py-1.5 text-xs font-medium hover:border-turn hover:text-turn"

@@ -263,13 +263,6 @@ export type GameEvent =
 /** Discriminator string of every game event, for exhaustive reducer switches. */
 export type GameEventType = GameEvent['type']
 
-// --- chat (social side-channel) ---------------------------------------------
-
-export interface ChatMessage {
-  name: string
-  text: string
-}
-
 // --- ack callbacks (per-caller replies) -------------------------------------
 
 export interface OkAck {
@@ -323,8 +316,4 @@ export interface ConfigureRoomPayload {
 
 export interface SubmitGuessPayload {
   guess: string
-}
-
-export interface ChatPayload {
-  text: string
 }

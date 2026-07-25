@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * A room: a name gate for deep links / refreshes, then the lobby, the live game,
- * or the game-over screen depending on state. Chat rides alongside throughout.
+ * or the game-over screen depending on state.
  *
  * Panel priority: a finished/aborted round shows the game-over screen even while
  * `in_progress` is briefly stale; otherwise `in_progress` (or a live game batch)
@@ -12,7 +12,6 @@ import { useRouter } from 'vue-router'
 
 import AgeGate from '@/components/AgeGate.vue'
 import BottomSheet from '@/components/BottomSheet.vue'
-import ChatPanel from '@/components/ChatPanel.vue'
 import GameOverPanel from '@/components/GameOverPanel.vue'
 import GamePanel from '@/components/GamePanel.vue'
 import GuessDock from '@/components/GuessDock.vue'
@@ -22,7 +21,6 @@ import RoundLog from '@/components/RoundLog.vue'
 import RoundStatusStrip from '@/components/RoundStatusStrip.vue'
 import { useKeyboardInset } from '@/composables/useKeyboardInset'
 import { errorLabel } from '@/lib/errors'
-import { useChatStore } from '@/stores/chat'
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
@@ -32,7 +30,6 @@ const props = defineProps<{ code: string }>()
 const router = useRouter()
 const room = useRoomStore()
 const game = useGameStore()
-const chat = useChatStore()
 const session = useSessionStore()
 const { open: keyboardOpen } = useKeyboardInset()
 
@@ -89,41 +86,29 @@ const notice = computed(() => {
 })
 
 /**
- * Below `lg`, a live round runs as a fixed-height shell instead of a scrolling
- * page: the picture takes what's left after a compact header, the status strip
- * and the docked guess box, so both the picture and the box stay on screen while
- * you type. The lobby, the age gate and the results screen keep scrolling —
- * there's nothing they need to hold in view.
+ * A round on screen, past the age gate. Everything in the rail — the status
+ * strip, the guess box, the log — belongs to a round, so this is also whether
+ * there's a rail at all: the lobby and the results screen run one column.
+ */
+const roundLive = computed(() => live.value && !needsAgeGate.value)
+
+/**
+ * The same state, named for what it does below `lg`: a live round runs as a
+ * fixed-height shell instead of a scrolling page, where the picture takes what's
+ * left after a compact header, the status strip and the docked guess box, so both
+ * the picture and the box stay on screen while you type. The lobby, the age gate
+ * and the results screen keep scrolling — there's nothing they need to hold in
+ * view.
  *
  * Everything the shell needs is a `max-lg:` class, so the desktop layout is the
  * one that was always here.
  */
-const mobileShell = computed(() => live.value && !needsAgeGate.value)
+const mobileShell = roundLive
 
-// The guess feed, the standings and chat, tucked behind the guess box on a phone
-// — the overlay cards carry the verdicts, so a round is playable without ever
-// opening this.
+// The guess feed and the standings, tucked behind the guess box on a phone — the
+// overlay cards carry the verdicts, so a round is playable without ever opening
+// this.
 const sheetOpen = ref(false)
-
-// Inside the docked sheet the chat flexes, so its box lands on the sheet's
-// bottom edge and is reachable without scrolling to it. Anywhere else it's a
-// fixed panel in a column that scrolls, where flexing would collapse it to
-// nothing.
-const chatSizing = computed(() =>
-  mobileShell.value
-    ? 'max-lg:min-h-0 max-lg:flex-1 lg:h-[22rem] lg:shrink-0'
-    : 'h-[18rem] shrink-0 lg:h-[22rem]',
-)
-// The log takes what it needs up to a share of the sheet and scrolls past that,
-// rather than claiming a fixed half and leaving a gap above the chat when the
-// round is young. And it goes entirely when the keyboard is up: it's the half
-// you're not using, at the moment the sheet has the least room to give.
-const logSizing = computed(() => {
-  if (!mobileShell.value) return ''
-  return keyboardOpen.value
-    ? 'max-lg:hidden'
-    : 'max-lg:min-h-0 max-lg:max-h-[45%] max-lg:overflow-y-auto max-lg:overscroll-contain'
-})
 
 // Your turn arriving already focuses the guess box; clearing the sheet off the
 // picture is the same thought.
@@ -137,17 +122,6 @@ watch(
 watch(mobileShell, (on) => {
   if (!on) sheetOpen.value = false
 })
-// Read state belongs to the sheet, not to ChatPanel: on a phone the panel is
-// mounted the whole round inside a *closed* sheet, and would mark it all read.
-watch(sheetOpen, (on) => {
-  if (on) chat.markRead()
-})
-watch(
-  () => chat.messages.length,
-  () => {
-    if (sheetOpen.value) chat.markRead()
-  },
-)
 // Safari scrolls the layout viewport up on focus even with nothing to scroll.
 watch(keyboardOpen, (on) => {
   if (on && mobileShell.value) window.scrollTo(0, 0)
@@ -262,9 +236,14 @@ async function backToLobby(): Promise<void> {
       <!-- The `min-h-0` runs all the way down to the panel cell: it's what lets
            the picture give up height to the keyboard instead of shoving the
            guess box out through the bottom of the shell. -->
+      <!-- The rail's column exists only while a round does; the lobby and the
+           results screen have nothing to put beside them. -->
       <div
-        class="grid flex-1 gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_22rem]"
-        :class="mobileShell && 'max-lg:min-h-0 max-lg:grid-rows-[minmax(0,1fr)_auto] max-lg:gap-0'"
+        class="grid flex-1 gap-4 lg:min-h-0"
+        :class="
+          roundLive &&
+          'max-lg:min-h-0 max-lg:grid-rows-[minmax(0,1fr)_auto] max-lg:gap-0 lg:grid-cols-[minmax(0,1fr)_22rem]'
+        "
       >
         <div class="flex min-w-0 flex-col gap-4" :class="mobileShell && 'max-lg:min-h-0'">
           <p v-if="notice" class="rounded-lg bg-wrong/10 px-3 py-2 text-sm text-wrong">
@@ -299,23 +278,15 @@ async function backToLobby(): Promise<void> {
         <!-- One stack on desktop, three zones on a phone: the strip and the dock
              pin to the bottom of the shell and the rest becomes the sheet.
              Ordered so both readings fall out of the same markup — nothing is
-             mounted twice, so crossing `lg` never restarts the turn timer or
-             loses chat's scroll position. -->
+             mounted twice, so crossing `lg` never restarts the turn timer. -->
         <aside
-          class="flex min-w-0 flex-col gap-4 lg:min-h-0 lg:overflow-hidden"
-          :class="mobileShell && 'max-lg:min-h-0 max-lg:gap-0'"
+          v-if="roundLive"
+          class="flex min-w-0 flex-col gap-4 max-lg:min-h-0 max-lg:gap-0 lg:min-h-0 lg:overflow-hidden"
         >
-          <template v-if="live && !needsAgeGate">
-            <RoundStatusStrip :compact="keyboardOpen" />
-            <GuessDock
-              :unread="chat.unread"
-              :sheet-open="sheetOpen"
-              @toggle="sheetOpen = !sheetOpen"
-            />
-          </template>
-          <BottomSheet v-model:open="sheetOpen" :docked="mobileShell">
-            <RoundLog v-if="live && !needsAgeGate" :class="logSizing" />
-            <ChatPanel :class="chatSizing" />
+          <RoundStatusStrip :compact="keyboardOpen" />
+          <GuessDock :sheet-open="sheetOpen" @toggle="sheetOpen = !sheetOpen" />
+          <BottomSheet v-model:open="sheetOpen">
+            <RoundLog />
           </BottomSheet>
         </aside>
       </div>

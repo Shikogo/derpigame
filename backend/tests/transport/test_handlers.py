@@ -477,7 +477,7 @@ async def test_active_player_guess_is_applied(make):
     assert "correct_guess" in server.game_event_types()
 
 
-# --- stopping, leaving, chat -------------------------------------------------
+# --- stopping and leaving ----------------------------------------------------
 
 
 async def test_stop_game_aborts_and_returns_to_lobby(make):
@@ -642,20 +642,6 @@ async def test_lobby_join_gets_no_snapshot(make):
     await handlers.join_room("sb", {"room": code, "uuid": "ub", "name": "Bob"})
 
     assert "game_snapshot" not in server.game_event_types()
-
-
-async def test_chat_broadcasts_and_never_touches_the_game(make):
-    handlers, server, registry, _service = make()
-    code = await _create(handlers, "sa", "ua", "Alice")
-    await handlers.set_ready("sa", {"ready": True})
-    await handlers.start_game("sa")
-    before = server.game_event_types()
-
-    ack = await handlers.chat("sa", {"text": "hi all"})
-
-    assert ack == {"ok": True}
-    assert ("chat", {"name": "Alice", "text": "hi all"}, code) in server.emits
-    assert server.game_event_types() == before  # no game state moved
 
 
 # --- acting before joining ---------------------------------------------------

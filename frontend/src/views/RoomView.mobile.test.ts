@@ -11,7 +11,6 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import RoomView from '@/views/RoomView.vue'
 import GuessDock from '@/components/GuessDock.vue'
-import { useChatStore } from '@/stores/chat'
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
@@ -77,12 +76,14 @@ describe('RoomView — mobile shell', () => {
   function mountRoom() {
     return mount(RoomView, {
       props: { code: 'r' },
-      global: { plugins: [pinia, router], stubs: { ChatPanel: true, RoundLog: true } },
+      global: { plugins: [pinia, router], stubs: { RoundLog: true } },
     })
   }
 
   const shell = (wrapper: ReturnType<typeof mountRoom>) =>
     wrapper.get('main').attributes('data-mobile-shell')
+  /** Everything in the rail belongs to a round, so it comes and goes with one. */
+  const rail = (wrapper: ReturnType<typeof mountRoom>) => wrapper.find('aside').exists()
 
   it('runs only for a live round, not the lobby, the gate or the results', async () => {
     const game = useGameStore()
@@ -92,6 +93,7 @@ describe('RoomView — mobile shell', () => {
     const wrapper = mountRoom()
     await flushPromises()
     expect(shell(wrapper)).toBeUndefined() // lobby scrolls
+    expect(rail(wrapper)).toBe(false)
 
     room.setRoomState(
       roomState({ in_progress: true, users: [{ uuid: 'me', name: 'ME', ready: true }] }),
@@ -99,12 +101,14 @@ describe('RoomView — mobile shell', () => {
     game.applyEvents(openRound(ME))
     await flushPromises()
     expect(shell(wrapper)).toBeDefined()
+    expect(rail(wrapper)).toBe(true)
 
     // The shell is a fixed box; it has to let go before the results land.
     game.applyEvents([gameOver])
     game.finishRound()
     await flushPromises()
     expect(shell(wrapper)).toBeUndefined()
+    expect(rail(wrapper)).toBe(false)
   })
 
   it('stays off behind the age gate, where there is no picture to keep in view', async () => {
@@ -123,32 +127,6 @@ describe('RoomView — mobile shell', () => {
     useSessionStore().acknowledgeNsfw()
     await flushPromises()
     expect(shell(wrapper)).toBeDefined()
-  })
-
-  it('marks chat read while the sheet is open and counts again once it closes', async () => {
-    const chat = useChatStore()
-    const game = useGameStore()
-    game.applyEvents(openRound(RIVAL)) // not your turn, so the sheet stays put
-    const wrapper = mountRoom()
-    await flushPromises()
-
-    chat.receive({ name: 'Rival', text: 'hi' })
-    await flushPromises()
-    expect(chat.unread).toBe(1)
-
-    await wrapper.findComponent(GuessDock).vm.$emit('toggle')
-    await flushPromises()
-    expect(chat.unread).toBe(0)
-
-    // Still open: messages land already read.
-    chat.receive({ name: 'Rival', text: 'and again' })
-    await flushPromises()
-    expect(chat.unread).toBe(0)
-
-    await wrapper.findComponent(GuessDock).vm.$emit('toggle')
-    chat.receive({ name: 'Rival', text: 'once more' })
-    await flushPromises()
-    expect(chat.unread).toBe(1)
   })
 
   it('clears the sheet off the picture when your turn arrives', async () => {
