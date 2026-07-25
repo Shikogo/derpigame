@@ -194,30 +194,43 @@ async function backToLobby(): Promise<void> {
 
     <!-- in the room -->
     <template v-else>
+      <!-- Everything here has to survive a 360px-wide phone without pushing the
+           leave button off the end, so the row shrinks in order of how much each
+           part earns its width. -->
       <header
-        class="mb-4 flex items-center justify-between"
+        class="mb-4 flex items-center justify-between gap-2 sm:gap-3"
         :class="
           mobileShell &&
           'max-lg:mb-0 max-lg:shrink-0 max-lg:border-b max-lg:border-border max-lg:px-3 max-lg:py-2'
         "
       >
-        <div class="flex items-center gap-3">
-          <RouterLink to="/" class="font-display text-lg font-bold tracking-tight text-turn">
+        <div class="flex min-w-0 items-center gap-2 sm:gap-3">
+          <RouterLink
+            to="/"
+            class="shrink-0 font-display text-base font-bold tracking-tight text-turn sm:text-lg"
+          >
             derpigame
           </RouterLink>
-          <span class="pill border border-border bg-raised font-mono uppercase text-ink">
-            {{ code }}
+          <span class="pill min-w-0 border border-border bg-raised font-mono uppercase text-ink">
+            <span class="truncate">{{ code }}</span>
           </span>
-          <span class="flex items-center gap-1 text-xs text-ink-faint">
+          <!-- The word is the first thing to go: the dot already says it, and it
+               keeps its meaning through the tooltip and the label. -->
+          <span
+            class="flex shrink-0 items-center gap-1 text-xs text-ink-faint"
+            :title="room.connected ? 'Connected' : 'Offline'"
+          >
             <span
               class="h-2 w-2 rounded-full"
               :class="room.connected ? 'bg-correct' : 'bg-eliminated'"
             />
-            {{ room.connected ? 'connected' : 'offline' }}
+            <span class="sr-only sm:not-sr-only">
+              {{ room.connected ? 'connected' : 'offline' }}
+            </span>
           </span>
         </div>
         <button
-          class="grid h-8 w-8 place-items-center rounded-lg text-ink-faint transition-colors hover:bg-raised hover:text-wrong"
+          class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-ink-faint transition-colors hover:bg-raised hover:text-wrong"
           title="Leave"
           aria-label="Leave"
           @click="leave"
