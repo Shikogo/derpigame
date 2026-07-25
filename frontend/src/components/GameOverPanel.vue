@@ -3,12 +3,14 @@
  * End-of-round screen for both a finished game and an aborted one. Either way it
  * reveals the image — still pan/zoomable, so the tags you missed are worth a
  * second look — plus its attribution and the tag recap; a finished game also
- * shows winners and standings.
+ * shows winners, standings and the confetti.
  */
 import { computed } from 'vue'
 
+import ConfettiOverlay from '@/components/ConfettiOverlay.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
 import RoundSummary from '@/components/RoundSummary.vue'
+import type { CelebrationKind } from '@/lib/confetti'
 import { useGameStore } from '@/stores/game'
 import { useSessionStore } from '@/stores/session'
 
@@ -33,15 +35,34 @@ const heading = computed(() => {
   const names = over.value?.winners.map((w) => w.name) ?? []
   return names.length ? `${winnerList.format(names)} won!` : 'Round over'
 })
+
+// Two separate things to celebrate, and you can have either or both: the cannons
+// are personal — you get them for winning — while a clean sweep is the room's
+// doing, so its fireworks play for everyone, winner or not. `aborted` leads, as
+// in the heading: a stopped round is never celebrated.
+const celebration = computed<CelebrationKind[]>(() => {
+  if (aborted.value || !over.value) return []
+  return [
+    ...(iWon.value ? (['winner'] as const) : []),
+    ...(over.value.win ? (['sweep'] as const) : []),
+  ]
+})
 </script>
 
 <template>
   <section class="mx-auto flex w-full max-w-3xl flex-col gap-5">
+    <!-- Held until the panel has finished arriving: RoomView cross-fades it in
+         over 0.28s, and a cannon going off mid-fade fights the transition. -->
+    <ConfettiOverlay v-if="celebration.length" :kinds="celebration" :delay="420" />
+
     <h2 class="font-display text-3xl font-bold" :class="iWon ? 'text-correct' : 'text-turn'">
       {{ heading }}
     </h2>
 
-    <p v-if="over?.win" class="-mt-3 text-sm font-semibold text-correct">
+    <p
+      v-if="over?.win"
+      class="sweep -mt-3 self-start rounded-lg bg-correct/10 px-3 py-1.5 text-sm font-semibold text-correct ring-1 ring-correct/30"
+    >
       🏆 Clean sweep — every goal tag guessed!
     </p>
 
@@ -102,3 +123,16 @@ const heading = computed(() => {
     </button>
   </section>
 </template>
+
+<style scoped>
+/* Lands a beat after the panel, like a stamp. */
+.sweep {
+  animation: sweep-in 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) 0.15s backwards;
+}
+@keyframes sweep-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8) rotate(-3deg);
+  }
+}
+</style>
