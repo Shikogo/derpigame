@@ -7,6 +7,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+import { randomUuid } from '@/lib/uuid'
+
 const UUID_KEY = 'derpigame:uuid'
 const NAME_KEY = 'derpigame:name'
 const NSFW_ACK_KEY = 'derpigame:nsfwAck'
@@ -15,7 +17,7 @@ const NSFW_ACK_KEY = 'derpigame:nsfwAck'
 export function loadOrCreateUuid(storage: Storage = localStorage): string {
   const existing = storage.getItem(UUID_KEY)
   if (existing) return existing
-  const uuid = crypto.randomUUID()
+  const uuid = randomUuid()
   storage.setItem(UUID_KEY, uuid)
   return uuid
 }
