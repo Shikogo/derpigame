@@ -105,6 +105,26 @@ const mobileShell = computed(() => live.value && !needsAgeGate.value)
 // opening this.
 const sheetOpen = ref(false)
 
+// Inside the docked sheet the chat flexes, so its box lands on the sheet's
+// bottom edge and is reachable without scrolling to it. Anywhere else it's a
+// fixed panel in a column that scrolls, where flexing would collapse it to
+// nothing.
+const chatSizing = computed(() =>
+  mobileShell.value
+    ? 'max-lg:min-h-0 max-lg:flex-1 lg:h-[22rem] lg:shrink-0'
+    : 'h-[18rem] shrink-0 lg:h-[22rem]',
+)
+// The log takes what it needs up to a share of the sheet and scrolls past that,
+// rather than claiming a fixed half and leaving a gap above the chat when the
+// round is young. And it goes entirely when the keyboard is up: it's the half
+// you're not using, at the moment the sheet has the least room to give.
+const logSizing = computed(() => {
+  if (!mobileShell.value) return ''
+  return keyboardOpen.value
+    ? 'max-lg:hidden'
+    : 'max-lg:min-h-0 max-lg:max-h-[45%] max-lg:overflow-y-auto max-lg:overscroll-contain'
+})
+
 // Your turn arriving already focuses the guess box; clearing the sheet off the
 // picture is the same thought.
 watch(
@@ -294,8 +314,8 @@ async function backToLobby(): Promise<void> {
             />
           </template>
           <BottomSheet v-model:open="sheetOpen" :docked="mobileShell">
-            <RoundLog v-if="live && !needsAgeGate" />
-            <ChatPanel class="h-[18rem] shrink-0 lg:h-[22rem]" />
+            <RoundLog v-if="live && !needsAgeGate" :class="logSizing" />
+            <ChatPanel :class="chatSizing" />
           </BottomSheet>
         </aside>
       </div>

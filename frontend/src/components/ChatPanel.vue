@@ -28,7 +28,7 @@ watch(
 <template>
   <section class="flex min-h-0 flex-col rounded-lg border border-border bg-surface">
     <h3 class="border-b border-border px-3 py-2 text-sm font-semibold text-ink-muted">Chat</h3>
-    <ul ref="listEl" class="flex-1 space-y-1 overflow-y-auto p-3 text-sm">
+    <ul ref="listEl" class="flex-1 space-y-1 overflow-y-auto overscroll-contain p-3 text-sm">
       <li v-for="(m, i) in chat.messages" :key="i">
         <span class="font-semibold text-turn">{{ m.name }}:</span> {{ m.text }}
       </li>
