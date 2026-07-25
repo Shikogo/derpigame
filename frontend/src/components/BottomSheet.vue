@@ -28,31 +28,21 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
-  <!-- A tap-anywhere-to-close target, deliberately not a dim: the picture above
-       the sheet is the thing you open the sheet next to, and darkening it is the
-       one thing this layout exists to avoid. The sheet reads as on top from its
-       own surface and shadow.
+  <!-- Tap anywhere to close. Transparent, not a dim: the picture behind is what
+       you opened the sheet next to.
 
-       Teleported so the shell's `overflow-hidden` can't clip it. -->
-  <Teleport to="body">
-    <div v-if="open" class="fixed inset-0 z-30 lg:hidden" @click="emit('update:open', false)" />
-  </Teleport>
+       Sibling of the sheet so the two order against each other: the mobile shell
+       makes `main` a stacking context, which keeps the sheet's z-index local to
+       it. Anything above from outside would swallow every tap meant for it. -->
+  <div v-if="open" class="fixed inset-0 z-30 lg:hidden" @click="emit('update:open', false)" />
 
-  <!-- `invisible` rather than v-show/inert: it takes the closed sheet out of the
-       tab order and the accessibility tree, and being `max-lg:`-scoped it can
-       never touch the desktop rail. Naming `visibility` in the transition is
-       what flips it at the end of the slide down and at the start of the slide
-       up, instead of blanking the sheet the moment it starts moving.
+  <!-- `invisible` rather than v-show/inert: it drops the closed sheet from the
+       tab order and the a11y tree, and naming `visibility` in the transition
+       flips it at the ends of the slide rather than the moment it starts.
 
-       Nothing in here takes focus, so the keyboard is only ever up from the guess
-       box behind it. The inset still bounds the sheet — it sits above the keys and
-       takes what's left above them — so opening it mid-typing can't land it behind
-       the keyboard or run it off the top.
-
-       It scrolls itself, so its contents can be any length: in the rail it takes
-       what the strip and the dock leave, and as a sheet it grows with the round
-       up to a cap — a `max-h`, so early on it's a short card over the picture
-       rather than a mostly-empty panel. -->
+       The keyboard inset bounds it, so opening it mid-typing lands it above the
+       keys. It scrolls itself and grows with the round up to a `max-h`, so an
+       early round is a short card over the picture, not a half-empty panel. -->
   <div
     id="round-sheet"
     class="flex min-h-0 flex-col gap-4 lg:flex-1 lg:overflow-y-auto"
