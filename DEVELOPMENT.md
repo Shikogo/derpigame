@@ -34,6 +34,20 @@ rather than the first place you find out.
 CI uses `ruff format --check` and `npm run format:check` in place of the
 in-place commands above; everything else is identical.
 
+**The deploys gate on the same suite.** Each half lives in a callable workflow
+— [`checks-backend.yml`](.github/workflows/checks-backend.yml) and
+[`checks-frontend.yml`](.github/workflows/checks-frontend.yml) — which
+`checks.yml` runs on a push, and which the deploy workflows run as a `needs:`
+job. So a red `main` doesn't ship: the Fly deploy waits on the backend suite,
+the Pages deploy on the frontend one, and each ignores the other half so an
+unrelated failure can't block a fix. That's why they're callable workflows and
+not a copy of the commands — one definition, three callers.
+
+Nothing is a *required status check* on `main` by choice: those only pass for
+commits GitHub has already seen, which would mean pushing a branch and waiting
+before every one-line fix. Gating the deploys protects what actually matters
+without changing how you commit.
+
 ## What each tool covers
 
 | Tool | Scope | Catches |

@@ -18,7 +18,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # `npm run build` already type-checks, so a type error could never ship; this
+  # extends that to lint, formatting and the tests. Frontend suite only — a
+  # backend failure shouldn't hold up a Pages deploy.
+  checks:
+    uses: ./.github/workflows/checks-frontend.yml
+
   build:
+    needs: checks
     runs-on: ubuntu-latest
     defaults:
       run:

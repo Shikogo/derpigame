@@ -56,8 +56,9 @@ npm run lint && npm run format && npm run typecheck && npm run test
 ```
 
 CI runs the same set on every push to `main` and every PR
-(`.github/workflows/checks.yml`), but there's no pre-commit hook — run them
-before committing rather than letting the runner find it. `DEVELOPMENT.md` has
+(`.github/workflows/checks.yml`), and the Fly and Pages deploys gate on it, so a
+red `main` doesn't ship. There's no pre-commit hook — run the checks before
+committing rather than letting the runner find it. `DEVELOPMENT.md` has
 the details, including why the configs are the way they are; don't add layout
 rules to ESLint (Prettier owns formatting) and use `npm run typecheck`, never
 `tsc --noEmit`.
