@@ -13,8 +13,11 @@ const label = computed(() =>
 </script>
 
 <template>
+  <!-- `data-theme-toggle` is the hook style.css uses to take this out of the way
+       of a bottom-docked layout. A marker, not knowledge of who's docking. -->
   <button
     type="button"
+    data-theme-toggle
     class="fixed bottom-4 right-4 z-50 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface/80 text-ink-muted shadow-lg backdrop-blur transition-colors hover:border-turn hover:text-ink"
     :aria-label="label"
     :title="label"

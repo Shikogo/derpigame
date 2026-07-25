@@ -5,6 +5,10 @@ import { computed } from 'vue'
 import { bucketPillStyle } from '@/lib/tagColor'
 import { useGameStore } from '@/stores/game'
 
+// Compact drops the bonus chips — the bar and the count are what a short
+// viewport (the keyboard is up) has room for.
+withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
+
 const game = useGameStore()
 
 const found = computed(() => game.state.goalTagCount - game.state.goalRemaining)
@@ -34,7 +38,7 @@ const bonuses = computed(() =>
         :style="{ width: `${pct}%` }"
       />
     </div>
-    <div v-if="bonuses.length" class="flex flex-wrap gap-1.5">
+    <div v-if="bonuses.length && !compact" class="flex flex-wrap gap-1.5">
       <span
         v-for="[bucket, n] in bonuses"
         :key="bucket"

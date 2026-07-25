@@ -3,7 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `interactive-widget=resizes-content` shrinks the layout viewport when the
+         on-screen keyboard opens, so `100dvh` follows it and the room's mobile
+         shell keeps the guess box above the keys. Chrome/Android only; Safari
+         ignores it, which is what `useKeyboardInset` measures instead. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"
+    />
     <meta name="theme-color" content="#171a21" />
     <title>Derpigame</title>
     <script>

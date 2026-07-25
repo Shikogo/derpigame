@@ -4,7 +4,7 @@
  * two want different defaults — a harness wants a room that looks played-in.
  */
 
-import type { GameEvent, Player, RoomState } from '@/types/wire'
+import type { ChatMessage, GameEvent, Player, RoomState } from '@/types/wire'
 
 export const RIVAL: Player = { uuid: 'sandbox-rival', name: 'Rival', score: 4, wrong_guesses: 2 }
 
@@ -104,4 +104,29 @@ export function roundWon(winners: Player[], standings: Player[], win: boolean): 
 
 export function roundAborted(): GameEvent[] {
   return [{ type: 'game_aborted', unguessed: UNGUESSED }, REVEAL]
+}
+
+/** Enough chatter to fill the sheet and to light its unread dot. */
+export function chatBurst(): ChatMessage[] {
+  return [
+    { name: RIVAL.name, text: 'ok that one is a stumper' },
+    { name: RIVAL.name, text: 'is it the background?' },
+    { name: 'Onlooker', text: 'no spoilers!' },
+  ]
+}
+
+/** A rival's guesses, one of each verdict the overlay card renders. */
+export function rivalGuesses(): GameEvent[] {
+  return [
+    { type: 'turn_started', player: RIVAL },
+    {
+      type: 'correct_guess',
+      player: RIVAL,
+      guess: 'princess celestia',
+      tag_type: 'tags',
+      remaining: 3,
+    },
+    { type: 'near_miss', player: RIVAL, guess: 'rainbowdash', closeness: 91 },
+    { type: 'wrong_guess', player: RIVAL, guess: 'nonsense tag', wrong_count: 2 },
+  ]
 }

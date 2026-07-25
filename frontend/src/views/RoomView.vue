@@ -7,17 +7,22 @@
  * `in_progress` is briefly stale; otherwise `in_progress` (or a live game batch)
  * shows the game, and everything else is the lobby.
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import AgeGate from '@/components/AgeGate.vue'
+import BottomSheet from '@/components/BottomSheet.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
-import GameControls from '@/components/GameControls.vue'
 import GameOverPanel from '@/components/GameOverPanel.vue'
 import GamePanel from '@/components/GamePanel.vue'
+import GuessDock from '@/components/GuessDock.vue'
 import IconLeave from '@/components/icons/IconLeave.vue'
 import LobbyPanel from '@/components/LobbyPanel.vue'
+import RoundLog from '@/components/RoundLog.vue'
+import RoundStatusStrip from '@/components/RoundStatusStrip.vue'
+import { useKeyboardInset } from '@/composables/useKeyboardInset'
 import { errorLabel } from '@/lib/errors'
+import { useChatStore } from '@/stores/chat'
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
@@ -27,7 +32,9 @@ const props = defineProps<{ code: string }>()
 const router = useRouter()
 const room = useRoomStore()
 const game = useGameStore()
+const chat = useChatStore()
 const session = useSessionStore()
+const { open: keyboardOpen } = useKeyboardInset()
 
 const isMember = computed(
   () => room.code?.toLowerCase() === props.code.toLowerCase() && room.me !== null,
@@ -81,6 +88,51 @@ const notice = computed(() => {
   return null
 })
 
+/**
+ * Below `lg`, a live round runs as a fixed-height shell instead of a scrolling
+ * page: the picture takes what's left after a compact header, the status strip
+ * and the docked guess box, so both the picture and the box stay on screen while
+ * you type. The lobby, the age gate and the results screen keep scrolling —
+ * there's nothing they need to hold in view.
+ *
+ * Everything the shell needs is a `max-lg:` class, so the desktop layout is the
+ * one that was always here.
+ */
+const mobileShell = computed(() => live.value && !needsAgeGate.value)
+
+// The guess feed, the standings and chat, tucked behind the guess box on a phone
+// — the overlay cards carry the verdicts, so a round is playable without ever
+// opening this.
+const sheetOpen = ref(false)
+
+// Your turn arriving already focuses the guess box; clearing the sheet off the
+// picture is the same thought.
+watch(
+  () => game.isMyTurn,
+  (mine) => {
+    if (mine) sheetOpen.value = false
+  },
+)
+// The sheet is `position: fixed` — left open it would cover the results.
+watch(mobileShell, (on) => {
+  if (!on) sheetOpen.value = false
+})
+// Read state belongs to the sheet, not to ChatPanel: on a phone the panel is
+// mounted the whole round inside a *closed* sheet, and would mark it all read.
+watch(sheetOpen, (on) => {
+  if (on) chat.markRead()
+})
+watch(
+  () => chat.messages.length,
+  () => {
+    if (sheetOpen.value) chat.markRead()
+  },
+)
+// Safari scrolls the layout viewport up on focus even with nothing to scroll.
+watch(keyboardOpen, (on) => {
+  if (on && mobileShell.value) window.scrollTo(0, 0)
+})
+
 async function leave(): Promise<void> {
   await room.leaveRoom()
   router.push({ name: 'home' })
@@ -93,7 +145,19 @@ async function backToLobby(): Promise<void> {
 </script>
 
 <template>
-  <main class="mx-auto flex min-h-full max-w-6xl flex-col p-4">
+  <!-- Taken out of flow rather than merely height-capped: with no content in the
+       document there is nothing for the page to scroll, so `min-h-full` can't
+       fight the calc and a stray drag can't reveal anything underneath.
+       `inset-x-0` is `mx-auto max-w-6xl` below `lg`, where the viewport is
+       narrower than 72rem anyway. -->
+  <main
+    class="mx-auto flex min-h-full max-w-6xl flex-col p-4"
+    :class="
+      mobileShell &&
+      'max-lg:fixed max-lg:inset-x-0 max-lg:top-0 max-lg:h-[calc(100dvh-var(--kbd-inset,0px))] max-lg:min-h-0 max-lg:overflow-hidden max-lg:p-0'
+    "
+    :data-mobile-shell="mobileShell || undefined"
+  >
     <!-- reconnecting / name gate -->
     <div v-if="!isMember" class="m-auto w-full max-w-sm">
       <div
@@ -130,7 +194,13 @@ async function backToLobby(): Promise<void> {
 
     <!-- in the room -->
     <template v-else>
-      <header class="mb-4 flex items-center justify-between">
+      <header
+        class="mb-4 flex items-center justify-between"
+        :class="
+          mobileShell &&
+          'max-lg:mb-0 max-lg:shrink-0 max-lg:border-b max-lg:border-border max-lg:px-3 max-lg:py-2'
+        "
+      >
         <div class="flex items-center gap-3">
           <RouterLink to="/" class="font-display text-lg font-bold tracking-tight text-turn">
             derpigame
@@ -156,8 +226,14 @@ async function backToLobby(): Promise<void> {
         </button>
       </header>
 
-      <div class="grid flex-1 gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div class="flex min-w-0 flex-col gap-4">
+      <!-- The `min-h-0` runs all the way down to the panel cell: it's what lets
+           the picture give up height to the keyboard instead of shoving the
+           guess box out through the bottom of the shell. -->
+      <div
+        class="grid flex-1 gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_22rem]"
+        :class="mobileShell && 'max-lg:min-h-0 max-lg:grid-rows-[minmax(0,1fr)_auto] max-lg:gap-0'"
+      >
+        <div class="flex min-w-0 flex-col gap-4" :class="mobileShell && 'max-lg:min-h-0'">
           <p v-if="notice" class="rounded-lg bg-wrong/10 px-3 py-2 text-sm text-wrong">
             {{ notice }}
           </p>
@@ -170,7 +246,15 @@ async function backToLobby(): Promise<void> {
                resolves, nothing is left on screen at all. Overlapping them in a
                single grid cell makes an empty panel area impossible, and reads
                as a truer cross-fade besides. -->
-          <div class="grid min-w-0 flex-1">
+          <!-- The panel's height lives here rather than on GamePanel, so the
+               floor for a stacked layout and the shell's shrink-to-fit can't
+               fight each other. It also catches the round ending: the shell
+               releases while the panel is still fading out, and the floor keeps
+               the leaving panel from collapsing mid-fade. -->
+          <div
+            class="grid min-w-0 flex-1"
+            :class="mobileShell ? 'max-lg:min-h-0' : 'max-lg:min-h-[45svh]'"
+          >
             <Transition name="panel">
               <AgeGate v-if="needsAgeGate" @confirm="session.acknowledgeNsfw()" @decline="leave" />
               <GameOverPanel v-else-if="showGameOver" @back="backToLobby" />
@@ -179,9 +263,27 @@ async function backToLobby(): Promise<void> {
             </Transition>
           </div>
         </div>
-        <aside class="flex min-w-0 flex-col gap-4 lg:min-h-0 lg:overflow-hidden">
-          <GameControls v-if="live && !needsAgeGate" />
-          <ChatPanel class="h-[22rem] shrink-0" />
+        <!-- One stack on desktop, three zones on a phone: the strip and the dock
+             pin to the bottom of the shell and the rest becomes the sheet.
+             Ordered so both readings fall out of the same markup — nothing is
+             mounted twice, so crossing `lg` never restarts the turn timer or
+             loses chat's scroll position. -->
+        <aside
+          class="flex min-w-0 flex-col gap-4 lg:min-h-0 lg:overflow-hidden"
+          :class="mobileShell && 'max-lg:min-h-0 max-lg:gap-0'"
+        >
+          <template v-if="live && !needsAgeGate">
+            <RoundStatusStrip :compact="keyboardOpen" />
+            <GuessDock
+              :unread="chat.unread"
+              :sheet-open="sheetOpen"
+              @toggle="sheetOpen = !sheetOpen"
+            />
+          </template>
+          <BottomSheet v-model:open="sheetOpen" :docked="mobileShell">
+            <RoundLog v-if="live && !needsAgeGate" />
+            <ChatPanel class="h-[18rem] shrink-0 lg:h-[22rem]" />
+          </BottomSheet>
         </aside>
       </div>
     </template>

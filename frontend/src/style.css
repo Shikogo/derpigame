@@ -143,6 +143,35 @@
   }
 }
 
+/* A room running its mobile shell is a fixed box that owns the whole viewport.
+   Keyed off the shell's own marker attribute so `App.vue` and `ThemeToggle` stay
+   ignorant of what any given route is doing. */
+
+/* The shell docks a guess bar along the bottom edge, which is where the floating
+   theme switch lives. Hidden rather than nudged: mid-round isn't when anyone
+   changes themes, and the only place to nudge it to is over the picture.
+   64rem is Tailwind's `lg`, where the rail comes back and the dock goes away. */
+@media (width < 64rem) {
+  body:has([data-mobile-shell]) [data-theme-toggle] {
+    display: none;
+  }
+}
+
+/* Nothing in the shell scrolls the page, so a drag that starts off the picture
+   mustn't rubber-band it either. */
+body:has([data-mobile-shell]) {
+  overscroll-behavior: none;
+}
+
+/* The reserved gutter above is for the desktop cross-fade. Touch browsers use
+   overlay scrollbars and reserve nothing — except under desktop device
+   emulation, where it leaves a dead strip beside a shell that never scrolls. */
+@media (pointer: coarse) {
+  html {
+    scrollbar-gutter: auto;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

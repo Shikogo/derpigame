@@ -99,8 +99,11 @@ function retire(): void {
  * `pointer-events-none`: making the card itself the target would put a dead
  * zone for panning over the middle of the image.
  */
-function dismiss(): void {
+function dismiss(event: PointerEvent): void {
   if (!current.value) return
+  // On a phone the guess box sits inches under the picture. Reaching for the
+  // keyboard isn't "get out of the way" — reaching for the picture is.
+  if (event.target instanceof Element && event.target.closest('[data-guess-dock]')) return
   clearTimeout(timer)
   retire()
 }
@@ -120,27 +123,30 @@ onBeforeUnmount(() => {
        covering any of it is a last resort — and `safe` is what makes it one,
        flipping to start alignment when the band is too short to hold the card,
        which overlaps the picture's top rather than overflowing off-frame.
-       pointer-events-none throughout, so the picture stays pannable. -->
+       pointer-events-none throughout, so the picture stays pannable.
+
+       The card is one row on a wide band and wraps to two on a phone, where
+       truncating would eat the headline — the one part worth reading. -->
   <div
-    class="band pointer-events-none absolute inset-x-0 top-0 z-10 grid justify-center p-3 transition-[height] duration-200"
+    class="band pointer-events-none absolute inset-x-0 top-0 z-10 grid justify-center p-2 transition-[height] duration-200 sm:p-3"
     :style="{ height: `${props.pictureTop}px` }"
   >
     <Transition name="card">
       <div
         v-if="current"
         :key="current.seq"
-        class="flex max-w-full items-center gap-3 rounded-xl bg-black/70 px-4 py-2.5 shadow-xl ring-1 backdrop-blur-md"
+        class="flex max-w-full flex-wrap items-center justify-center gap-x-2.5 gap-y-1 rounded-xl bg-black/70 px-3 py-2 shadow-xl ring-1 backdrop-blur-md sm:flex-nowrap sm:gap-3 sm:px-4 sm:py-2.5"
         :class="[tone.ring, tone.glow]"
         role="status"
         aria-live="polite"
       >
         <!-- verdict badge -->
         <span
-          class="grid h-8 w-8 shrink-0 place-items-center rounded-full ring-2"
+          class="grid h-7 w-7 shrink-0 place-items-center rounded-full ring-2 sm:h-8 sm:w-8"
           :class="[tone.text, tone.ring]"
         >
           <svg
-            class="h-5 w-5"
+            class="h-4 w-4 sm:h-5 sm:w-5"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -173,7 +179,7 @@ onBeforeUnmount(() => {
             class="shrink-0 font-display text-xs font-semibold text-white/45"
             >{{ current.asTyped }}<span aria-hidden="true" class="text-white/30"> →</span></span
           >
-          <span class="truncate font-display text-xl font-bold text-white">{{
+          <span class="truncate font-display text-base font-bold text-white sm:text-xl">{{
             current.headline
           }}</span>
         </span>
@@ -183,7 +189,7 @@ onBeforeUnmount(() => {
           <svg
             v-for="n in current.strikes.used"
             :key="n"
-            class="strike h-5 w-5"
+            class="strike h-4 w-4 sm:h-5 sm:w-5"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"

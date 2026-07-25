@@ -248,6 +248,9 @@ defineExpose({ view, reset, contentTop })
 </script>
 
 <template>
+  <!-- `touch-none` hands every touch to the pan/pinch handlers. Nothing loses a
+       scroll to it: the room's mobile shell is a fixed box with its own scroll
+       regions, and the frame isn't one of them. -->
   <div
     ref="frameEl"
     class="relative h-full w-full touch-none select-none overflow-hidden rounded-lg bg-black/80"

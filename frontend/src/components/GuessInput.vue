@@ -41,11 +41,17 @@ async function submit(): Promise<void> {
 
 <template>
   <form class="flex gap-2" @submit.prevent="submit">
+    <!-- Tags are lowercase and mostly not words, so every phone-keyboard
+         nicety that assumes prose is off. -->
     <input
       ref="input"
       v-model="guess"
       type="text"
       autocomplete="off"
+      enterkeyhint="send"
+      autocapitalize="off"
+      autocorrect="off"
+      spellcheck="false"
       :placeholder="game.isMyTurn ? 'Guess a tag…' : 'Type ahead for your turn…'"
       class="flex-1 rounded-lg border px-3 py-2 text-sm placeholder:text-ink-faint transition-colors focus:outline-none"
       :class="

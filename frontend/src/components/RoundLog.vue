@@ -1,17 +1,13 @@
 <script setup lang="ts">
 /**
- * The turn controls that ride in the room's right rail during a live round:
- * whose turn + timer, tag progress, the guess box (or a spectator note), the
- * guess feed, and the scoreboard.
+ * The round's record: every guess so far, the standings, and the way out. Not
+ * needed to play — the overlay cards carry the verdict as it lands — so on a
+ * phone this rides in the sheet behind the guess box rather than on screen.
  */
 import { ref } from 'vue'
 
 import GuessFeed from '@/components/GuessFeed.vue'
-import GuessInput from '@/components/GuessInput.vue'
 import Scoreboard from '@/components/Scoreboard.vue'
-import TagProgress from '@/components/TagProgress.vue'
-import TurnIndicator from '@/components/TurnIndicator.vue'
-import TurnTimer from '@/components/TurnTimer.vue'
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
 
@@ -40,15 +36,6 @@ function onBackdrop(event: MouseEvent): void {
 
 <template>
   <div class="flex flex-col gap-4">
-    <div class="flex items-center justify-between gap-3">
-      <TurnIndicator />
-      <TurnTimer />
-    </div>
-    <TagProgress />
-    <GuessInput v-if="!game.isSpectating" />
-    <p v-else class="rounded-lg bg-turn/5 px-3 py-2 text-center text-sm text-ink-muted">
-      👁 You're spectating — you'll join the next round.
-    </p>
     <GuessFeed />
     <Scoreboard />
     <button

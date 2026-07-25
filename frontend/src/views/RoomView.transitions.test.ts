@@ -79,7 +79,14 @@ describe('RoomView — panel transitions', () => {
         plugins: [pinia, router],
         // The point of these tests: exercise the real transition, not a stub.
         // Confetti is stubbed only because jsdom has no canvas to draw on.
-        stubs: { ChatPanel: true, GameControls: true, ConfettiOverlay: true, transition: false },
+        stubs: {
+          ChatPanel: true,
+          RoundStatusStrip: true,
+          GuessDock: true,
+          RoundLog: true,
+          ConfettiOverlay: true,
+          transition: false,
+        },
       },
     })
   }

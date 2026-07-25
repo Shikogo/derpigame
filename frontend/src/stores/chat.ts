@@ -4,7 +4,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 import { log } from '@/lib/logger'
 import { emitAck } from '@/socket/client'
@@ -13,8 +13,20 @@ import type { ChatMessage } from '@/types/wire'
 export const useChatStore = defineStore('chat', () => {
   const messages = ref<ChatMessage[]>([])
 
+  /**
+   * How many messages have arrived unseen. Only the phone layout, which keeps
+   * chat behind a closed sheet, has anywhere to show this — on desktop chat is
+   * always on screen and the count just drifts, unread by anything.
+   */
+  const readCount = ref(0)
+  const unread = computed(() => Math.max(0, messages.value.length - readCount.value))
+
   function receive(message: ChatMessage): void {
     messages.value.push(message)
+  }
+
+  function markRead(): void {
+    readCount.value = messages.value.length
   }
 
   async function send(text: string): Promise<void> {
@@ -31,7 +43,8 @@ export const useChatStore = defineStore('chat', () => {
 
   function reset(): void {
     messages.value = []
+    readCount.value = 0
   }
 
-  return { messages, receive, send, reset }
+  return { messages, unread, receive, markRead, send, reset }
 })

@@ -5,7 +5,9 @@
  * late joiner who has no game snapshot yet (see the deferred mid-game-join note).
  *
  * On desktop the viewer fills the viewport height (minus the app header/pad);
- * the rail matches it via the grid row.
+ * the rail matches it via the grid row. Elsewhere it takes whatever height the
+ * cell gives it — `RoomView` owns that, so the shrinking-for-the-keyboard case
+ * and the floor under a stacked layout are decided in one place.
  *
  * Keep the template single-root — the two branches are one root, but a stray
  * comment or sibling beside them makes this a fragment, and `RoomView` wraps it
@@ -36,7 +38,7 @@ const pictureTop = computed(() => viewer.value?.contentTop ?? 0)
 <template>
   <section
     v-if="live"
-    class="relative min-h-[50vh] overflow-hidden rounded-xl ring-1 ring-turn/20 shadow-[0_0_70px_-24px_rgba(79,157,255,0.6)] lg:h-[calc(100dvh_-_5.5rem)] lg:min-h-0"
+    class="relative overflow-hidden rounded-xl ring-1 ring-turn/20 shadow-[0_0_70px_-24px_rgba(79,157,255,0.6)] max-lg:rounded-none max-lg:shadow-none max-lg:ring-0 lg:h-[calc(100dvh_-_5.5rem)] lg:min-h-0"
   >
     <ImageViewer ref="viewer" :src="game.state.image!.full_url" alt="Guess the tags" />
     <GuessOverlay :picture-top="pictureTop" />

@@ -25,7 +25,9 @@ const stubs = {
   GameOverPanel: true,
   LobbyPanel: true,
   ChatPanel: true,
-  GameControls: true,
+  RoundStatusStrip: true,
+  GuessDock: true,
+  RoundLog: true,
 }
 
 /** These tests are about the age gate over a live game, so default to both. */

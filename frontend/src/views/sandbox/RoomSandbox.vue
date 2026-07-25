@@ -8,11 +8,21 @@
  * panel cross-fade into the results screen, and the confetti riding on top of
  * it. The sandboxes that mount a component on a bare page can't show those.
  */
-import { computed, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 
 import RoomView from '@/views/RoomView.vue'
-import { RIVAL, devRoomState, roundAborted, roundInPlay, roundWon } from '@/views/sandbox/fixtures'
+import {
+  RIVAL,
+  chatBurst,
+  devRoomState,
+  rivalGuesses,
+  roundAborted,
+  roundInPlay,
+  roundWon,
+} from '@/views/sandbox/fixtures'
 import { useFrameRate } from '@/views/sandbox/useFrameRate'
+import { useKeyboardInset } from '@/composables/useKeyboardInset'
+import { useChatStore } from '@/stores/chat'
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
@@ -20,6 +30,7 @@ import type { Player } from '@/types/wire'
 
 const room = useRoomStore()
 const game = useGameStore()
+const chat = useChatStore()
 const session = useSessionStore()
 
 const ME: Player = {
@@ -60,8 +71,77 @@ function abort(): void {
   game.applyEvents(roundAborted())
 }
 
+function say(): void {
+  for (const message of chatBurst()) chat.receive(message)
+}
+
+function rivalPlays(): void {
+  if (!game.state.image) startRound()
+  game.applyEvents(rivalGuesses())
+}
+
+/** Drop yourself from the round's roster — the dock's spectator branch. */
+function toggleSpectating(): void {
+  if (!game.state.image) startRound()
+  const players = { ...game.state.players }
+  if (players[ME.uuid]) delete players[ME.uuid]
+  else players[ME.uuid] = ME
+  game.state.players = players
+}
+
+/**
+ * A stand-in keyboard: shrink the visual viewport the way Safari does and fire
+ * the event it fires. A desktop window merely narrowed never does that, so
+ * without this the whole iOS path — the measurement, the shell shrinking, the
+ * sheet riding up, the viewer re-fitting — is unreachable outside a real phone.
+ *
+ * Overriding the height rather than writing `--kbd-inset` directly, so what runs
+ * is the real measurement and not a stub of it.
+ */
+const FAKE_KEYBOARD_PX = 320
+const fakeKeyboard = ref(false)
+
+function toggleKeyboard(): void {
+  const viewport = window.visualViewport
+  if (!viewport) return
+  fakeKeyboard.value = !fakeKeyboard.value
+  if (fakeKeyboard.value) {
+    Object.defineProperty(viewport, 'height', {
+      configurable: true,
+      get: () => window.innerHeight - FAKE_KEYBOARD_PX,
+    })
+  } else {
+    // Deleting the own property hands `height` back to the prototype's getter.
+    delete (viewport as unknown as Record<string, unknown>).height
+  }
+  viewport.dispatchEvent(new Event('resize'))
+}
+
+onBeforeUnmount(() => {
+  if (fakeKeyboard.value) toggleKeyboard()
+})
+
+// What the layout is actually running on — the one readout worth having when
+// the phone in your hand disagrees with the emulator.
+const { inset } = useKeyboardInset()
+const viewport = ref('')
+function measure(): void {
+  const vv = window.visualViewport
+  viewport.value = `${window.innerWidth}×${window.innerHeight} · vv ${Math.round(vv?.height ?? 0)}`
+}
+onMounted(() => {
+  measure()
+  window.addEventListener('resize', measure)
+  window.visualViewport?.addEventListener('resize', measure)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', measure)
+  window.visualViewport?.removeEventListener('resize', measure)
+})
+
 const status = computed(() => game.state.status)
-const collapsed = ref(false)
+// The bar sits where the mobile dock does, so it starts out of the way there.
+const collapsed = ref(window.innerWidth < 1024)
 </script>
 
 <template>
@@ -72,13 +152,19 @@ const collapsed = ref(false)
 
        Opaque, not blurred: sitting above the canvas puts the confetti in this
        bar's backdrop, and a full-width backdrop-filter re-blurs on every frame
-       the paper moves. That's the harness making itself look slow. -->
+       the paper moves. That's the harness making itself look slow.
+
+       Below `lg` the bottom edge belongs to the guess dock, so the bar moves to
+       the corner rather than sitting on the thing it exists to test. -->
   <div
-    class="fixed inset-x-0 bottom-0 z-50 flex flex-wrap items-center justify-center gap-2 border-t border-border bg-surface px-3 py-2"
+    class="fixed z-50 flex flex-wrap items-center justify-center gap-2 border-border bg-surface px-3 py-2 max-lg:right-2 max-lg:top-2 max-lg:max-w-[14rem] max-lg:flex-col max-lg:items-stretch max-lg:rounded-lg max-lg:border lg:inset-x-0 lg:bottom-0 lg:border-t"
   >
     <template v-if="!collapsed">
       <span class="mr-1 font-mono text-xs uppercase tracking-wider text-ink-faint">
         dev · {{ status }}
+      </span>
+      <span class="mr-1 font-mono text-xs text-ink-faint tabular-nums">
+        {{ viewport }} · kbd {{ inset }}
       </span>
       <!-- Fixed width: the digits change several times a second, and letting the
            readout resize shoves every button in this bar sideways as it does. -->
@@ -127,6 +213,35 @@ const collapsed = ref(false)
         @click="toLobby"
       >
         Lobby
+      </button>
+      <button
+        class="rounded-lg border border-border bg-raised px-3 py-1.5 text-xs font-medium hover:border-turn hover:text-turn"
+        @click="rivalPlays"
+      >
+        Rival guesses
+      </button>
+      <button
+        class="rounded-lg border border-border bg-raised px-3 py-1.5 text-xs font-medium hover:border-turn hover:text-turn"
+        @click="say"
+      >
+        Chat ×3
+      </button>
+      <button
+        class="rounded-lg border border-border bg-raised px-3 py-1.5 text-xs font-medium hover:border-turn hover:text-turn"
+        @click="toggleSpectating"
+      >
+        Spectate
+      </button>
+      <button
+        class="rounded-lg border px-3 py-1.5 text-xs font-medium"
+        :class="
+          fakeKeyboard
+            ? 'border-turn bg-turn/10 text-turn'
+            : 'border-border bg-raised hover:border-turn hover:text-turn'
+        "
+        @click="toggleKeyboard"
+      >
+        ⌨ keyboard
       </button>
     </template>
     <button
