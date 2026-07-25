@@ -25,8 +25,14 @@ npm run typecheck     # vue-tsc -b
 npm run test          # Vitest
 ```
 
-Both halves should be clean before a commit. Nothing runs these automatically —
-there's no CI or pre-commit hook yet, so they're manual for now.
+Both halves should be clean before a commit. GitHub Actions runs the same set on
+every push to `main` and every pull request
+([`.github/workflows/checks.yml`](.github/workflows/checks.yml)), but there's no
+pre-commit hook — locally they're still yours to run, and CI is the backstop
+rather than the first place you find out.
+
+CI uses `ruff format --check` and `npm run format:check` in place of the
+in-place commands above; everything else is identical.
 
 ## What each tool covers
 

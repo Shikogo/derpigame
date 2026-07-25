@@ -55,10 +55,12 @@ Frontend, from `frontend/`:
 npm run lint && npm run format && npm run typecheck && npm run test
 ```
 
-Nothing runs these automatically — there's no CI or pre-commit hook, so they're
-easy to forget. `DEVELOPMENT.md` has the details, including why the configs are
-the way they are; don't add layout rules to ESLint (Prettier owns formatting) and
-use `npm run typecheck`, never `tsc --noEmit`.
+CI runs the same set on every push to `main` and every PR
+(`.github/workflows/checks.yml`), but there's no pre-commit hook — run them
+before committing rather than letting the runner find it. `DEVELOPMENT.md` has
+the details, including why the configs are the way they are; don't add layout
+rules to ESLint (Prettier owns formatting) and use `npm run typecheck`, never
+`tsc --noEmit`.
 
 ## Working style
 
