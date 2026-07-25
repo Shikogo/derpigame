@@ -90,6 +90,9 @@ Worth knowing so they don't get "fixed" later:
   duplicate and contradict Prettier.
 - **`vue/multi-word-component-names` is off.** It guards against shadowing real
   HTML elements; names like `Scoreboard` don't collide.
-- **No e2e/Playwright suite.** Multiplayer flows are verified by hand in the
-  browser — open two tabs, or see the hosting section in the README. Unit tests
-  still cover new logic on both sides.
+- **No e2e suite.** Multiplayer flows are verified by hand in the browser — open
+  two tabs, or see the hosting section in the README. Unit tests still cover new
+  logic on both sides. Playwright is a devDependency, but as a way to drive a
+  headless browser when a change needs *looking* at — a phone-width layout, a
+  before/after screenshot diff — not as a test suite to grow. Nothing in `npm
+  run test` touches it.
