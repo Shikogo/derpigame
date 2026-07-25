@@ -33,6 +33,27 @@ describe('GuessInput', () => {
     expect((input.element as HTMLInputElement).value).toBe('mare')
   })
 
+  it('closes the box once you are eliminated, dropping what was typed ahead', async () => {
+    const session = useSessionStore()
+    const game = useGameStore()
+    const room = useRoomStore()
+    const guess = vi.spyOn(room, 'submitGuess').mockResolvedValue({ ok: true })
+
+    const wrapper = mount(GuessInput)
+    await wrapper.find('input').setValue('mare')
+
+    game.state.eliminated = [session.uuid]
+    await nextTick()
+
+    const input = wrapper.find('input').element as HTMLInputElement
+    expect(input.disabled).toBe(true)
+    expect(input.value).toBe('')
+    expect(input.placeholder).toBe("You're out of this round")
+
+    await wrapper.find('form').trigger('submit')
+    expect(guess).not.toHaveBeenCalled()
+  })
+
   it('sends the guess typed ahead once your turn arrives', async () => {
     const session = useSessionStore()
     const game = useGameStore()

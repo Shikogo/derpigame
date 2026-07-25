@@ -70,14 +70,15 @@ export const useGameStore = defineStore('game', () => {
     () => state.value.status === 'active' && !state.value.players[session.uuid],
   )
 
+  // Knocked out of this round: still watching, but no turn is coming.
+  const isEliminated = computed(() => state.value.eliminated.includes(session.uuid))
+
   // Aborting kills the round for everyone, so only a current, non-eliminated
   // player may do it — not a spectator, and not someone who rage-quits after
   // being knocked out.
   const canAbort = computed(
     () =>
-      state.value.status === 'active' &&
-      !!state.value.players[session.uuid] &&
-      !state.value.eliminated.includes(session.uuid),
+      state.value.status === 'active' && !!state.value.players[session.uuid] && !isEliminated.value,
   )
 
   return {
@@ -88,6 +89,7 @@ export const useGameStore = defineStore('game', () => {
     activePlayer,
     isMyTurn,
     isSpectating,
+    isEliminated,
     canAbort,
     scoreboard,
     ended,

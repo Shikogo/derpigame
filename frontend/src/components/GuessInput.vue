@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
- * The dedicated guess box — always typeable so you can line a guess up before
- * your turn, but only sendable on it: guesses are the active player's alone.
+ * The dedicated guess box — typeable so you can line a guess up before your
+ * turn, but only sendable on it: guesses are the active player's alone. Once
+ * you're eliminated no turn is coming, so the box closes for the round.
  */
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
@@ -12,6 +13,11 @@ const game = useGameStore()
 const room = useRoomStore()
 const guess = ref('')
 const input = ref<HTMLInputElement | null>(null)
+
+const placeholder = computed(() => {
+  if (game.isEliminated) return "You're out of this round"
+  return game.isMyTurn ? 'Guess a tag…' : 'Type ahead for your turn…'
+})
 
 // Focus the box when your turn begins so you can type without clicking in.
 // `immediate` also covers the starting player, who is already the active player
@@ -26,9 +32,18 @@ watch(
   { immediate: true },
 )
 
+// Being knocked out drops whatever was typed ahead — it can never be sent, and
+// a stranded word would sit over the placeholder saying why.
+watch(
+  () => game.isEliminated,
+  (out) => {
+    if (out) guess.value = ''
+  },
+)
+
 async function submit(): Promise<void> {
   const value = guess.value.trim()
-  if (!value || !game.isMyTurn || room.guessing) return
+  if (!value || !game.isMyTurn || game.isEliminated || room.guessing) return
   guess.value = ''
   // Tapping the button takes focus with it, so hand it back for the next guess.
   // Synchronously: past the `await` this is no longer the click's user gesture,
@@ -51,8 +66,9 @@ async function submit(): Promise<void> {
       autocapitalize="off"
       autocorrect="off"
       spellcheck="false"
-      :placeholder="game.isMyTurn ? 'Guess a tag…' : 'Type ahead for your turn…'"
-      class="flex-1 rounded-lg border px-3 py-2 text-sm placeholder:text-ink-faint transition-colors focus:outline-none"
+      :disabled="game.isEliminated"
+      :placeholder="placeholder"
+      class="flex-1 rounded-lg border px-3 py-2 text-sm placeholder:text-ink-faint transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
       :class="
         game.isMyTurn
           ? 'border-turn/70 bg-raised text-ink focus:border-turn focus:ring-2 focus:ring-turn/25'
@@ -61,7 +77,7 @@ async function submit(): Promise<void> {
     />
     <button
       type="submit"
-      :disabled="!game.isMyTurn || !guess.trim() || room.guessing"
+      :disabled="!game.isMyTurn || game.isEliminated || !guess.trim() || room.guessing"
       class="flex min-w-20 items-center justify-center rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-on-accent disabled:opacity-40"
     >
       <span
