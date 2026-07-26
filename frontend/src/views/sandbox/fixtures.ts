@@ -8,6 +8,9 @@ import type { GameEvent, Player, RoomState } from '@/types/wire'
 
 export const RIVAL: Player = { uuid: 'sandbox-rival', name: 'Rival', score: 4, wrong_guesses: 2 }
 
+/** The rival as they stood at some point mid-round — every event carries one. */
+const rivalAt = (wrong_guesses: number): Player => ({ ...RIVAL, wrong_guesses })
+
 /** A lobby snapshot for a room the local player is already a member of. */
 export function devRoomState(me: Player, over: Partial<RoomState> = {}): RoomState {
   return {
@@ -54,7 +57,7 @@ export function roundInPlay(me: Player): GameEvent[] {
     {
       type: 'game_started',
       first_player: me,
-      players: [me, RIVAL],
+      players: [me, rivalAt(0)],
       tag_count: 12,
       bonus_counts: { artists: 1, ocs: 2 },
       freebie_tags: ['pony', 'safe'],
@@ -69,7 +72,7 @@ export function roundInPlay(me: Player): GameEvent[] {
       tag_type: 'tags',
       remaining: 4,
     },
-    { type: 'wrong_guess', player: RIVAL, guess: 'rainbow dash', wrong_count: 1 },
+    { type: 'wrong_guess', player: rivalAt(1), guess: 'rainbow dash', wrong_count: 1 },
   ]
 }
 
@@ -116,15 +119,15 @@ export function roundAborted(): GameEvent[] {
 /** A rival's guesses, one of each verdict the overlay card renders. */
 export function rivalGuesses(): GameEvent[] {
   return [
-    { type: 'turn_started', player: RIVAL },
+    { type: 'turn_started', player: rivalAt(1) },
     {
       type: 'correct_guess',
-      player: RIVAL,
+      player: rivalAt(1),
       guess: 'princess celestia',
       tag_type: 'tags',
       remaining: 3,
     },
-    { type: 'near_miss', player: RIVAL, guess: 'rainbowdash', closeness: 91 },
-    { type: 'wrong_guess', player: RIVAL, guess: 'nonsense tag', wrong_count: 2 },
+    { type: 'near_miss', player: rivalAt(1), guess: 'rainbowdash', closeness: 91 },
+    { type: 'wrong_guess', player: rivalAt(2), guess: 'nonsense tag', wrong_count: 2 },
   ]
 }
