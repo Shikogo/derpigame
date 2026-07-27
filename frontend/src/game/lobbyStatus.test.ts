@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { presenceOf, readyLine } from '@/game/lobbyStatus'
+import { allReady, presenceOf, readyLine } from '@/game/lobbyStatus'
 import { roomUser } from '@/test/factories'
 
 describe('presenceOf', () => {
@@ -8,6 +8,17 @@ describe('presenceOf', () => {
     expect(presenceOf(roomUser('a', { ready: true, viewing_results: true }))).toBe('ready')
     expect(presenceOf(roomUser('b', { viewing_results: true }))).toBe('results')
     expect(presenceOf(roomUser('c'))).toBe('lobby')
+  })
+})
+
+describe('allReady', () => {
+  it('waits on anyone not readied up, and on an empty room', () => {
+    const alice = roomUser('a', { ready: true })
+    const bob = roomUser('b', { viewing_results: true })
+
+    expect(allReady([alice, bob])).toBe(false)
+    expect(allReady([alice, { ...bob, ready: true }])).toBe(true)
+    expect(allReady([])).toBe(false)
   })
 })
 

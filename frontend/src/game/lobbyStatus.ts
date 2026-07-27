@@ -17,6 +17,11 @@ export function presenceOf(user: RoomUser): Presence {
   return user.viewing_results ? 'results' : 'lobby'
 }
 
+/** Nobody left to wait on: everyone in the room is in for the next round. */
+export function allReady(users: RoomUser[]): boolean {
+  return users.length > 0 && users.every((u) => presenceOf(u) === 'ready')
+}
+
 const names = new Intl.ListFormat('en', { type: 'conjunction' })
 
 /**
@@ -27,8 +32,8 @@ const names = new Intl.ListFormat('en', { type: 'conjunction' })
  */
 export function readyLine(users: RoomUser[]): string {
   if (users.length < 2) return ''
+  if (allReady(users)) return `All ${users.length} ready`
   const ready = users.filter((u) => presenceOf(u) === 'ready')
-  if (ready.length === users.length) return `All ${users.length} ready`
   const parts = [`${ready.length} of ${users.length} ready`]
   const waiting = users.filter((u) => presenceOf(u) === 'lobby').map((u) => u.name)
   const reading = users.filter((u) => presenceOf(u) === 'results').map((u) => u.name)

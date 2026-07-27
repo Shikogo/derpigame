@@ -20,10 +20,13 @@ beforeEach(() => {
 })
 
 /** Mount the bar in a room where I'm ready or not, with one other member. */
-function mountBar(ready: boolean, props = {}) {
+function mountBar(ready: boolean, props = {}, rivalReady = false) {
   useRoomStore().setRoomState(
     roomState({
-      users: [roomUser(ME, { name: 'Me', ready }), roomUser('rival', { name: 'Rival' })],
+      users: [
+        roomUser(ME, { name: 'Me', ready }),
+        roomUser('rival', { name: 'Rival', ready: rivalReady }),
+      ],
     }),
   )
   return mount(ReadyBar, { props })
@@ -51,6 +54,11 @@ describe('ReadyBar', () => {
   it('says what is holding the start up, then who is in for the round', () => {
     expect(mountBar(false).text()).toContain('Ready up to start · 0 of 2 ready')
     expect(mountBar(true).text()).toContain('1 of 2 ready · Rival will spectate')
+  })
+
+  it('haloes the start button only once the room is waiting on nobody', () => {
+    expect(mountBar(true).findAll('button')[1].classes()).not.toContain('all-ready')
+    expect(mountBar(true, {}, true).findAll('button')[1].classes()).toContain('all-ready')
   })
 
   it('offers the way back only where the results screen asks for it', async () => {
