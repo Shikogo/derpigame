@@ -32,26 +32,31 @@ running (`./run-local.sh --offline`) are reused rather than duplicated.
 
 Both halves should be clean before a commit. GitHub Actions runs the same set on
 every push to `main` and every pull request
-([`.github/workflows/checks.yml`](.github/workflows/checks.yml)), but there's no
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), but there's no
 pre-commit hook — locally they're still yours to run, and CI is the backstop
 rather than the first place you find out.
 
 CI uses `ruff format --check` and `npm run format:check` in place of the
 in-place commands above; everything else is identical.
 
-**The deploys gate on the same suite.** Each half lives in a callable workflow
-— [`checks-backend.yml`](.github/workflows/checks-backend.yml) and
-[`checks-frontend.yml`](.github/workflows/checks-frontend.yml) — which
-`checks.yml` runs on a push, and which the deploy workflows run as a `needs:`
-job. The e2e suite is a third
-([`checks-e2e.yml`](.github/workflows/checks-e2e.yml)), and it gates *both*
-deploys. That's the one place a half blocks on the other: the unit suites stay
-split so an unrelated failure can't hold up a fix, but a frontend that can't
-play a round through — or a backend that can't carry one — shouldn't ship
-because its own half was green. It costs about a minute. So a red `main` doesn't ship: the Fly deploy waits on the backend suite,
-the Pages deploy on the frontend one, and each ignores the other half so an
-unrelated failure can't block a fix. That's why they're callable workflows and
-not a copy of the commands — one definition, three callers.
+**The deploys gate on the same suite, in the same run.** `ci.yml` holds the
+whole graph: the two unit jobs, the e2e job, and the deploys hanging off them as
+`needs:`. So a red `main` doesn't ship — the Fly deploy waits on the backend
+suite, the Pages deploy on the frontend one, and each ignores the other half so
+an unrelated failure can't block a fix.
+
+The e2e job is the one place a half blocks on the other: *both* deploys need it.
+A frontend that can't play a round through — or a backend that can't carry one —
+shouldn't ship because its own half was green. It costs about a minute.
+
+It's a single workflow because a called workflow is expanded once per caller,
+with no sharing between runs. Split across a checks workflow and two deploy
+workflows, a push touching both halves ran the e2e suite three times over.
+
+A `changes` job decides which deploys run, keeping a frontend-only push from
+restarting the backend machine and dropping the rooms it's holding. A manual run
+(`workflow_dispatch`) has no diff to work from and takes the two booleans
+instead.
 
 Nothing is a *required status check* on `main` by choice: those only pass for
 commits GitHub has already seen, which would mean pushing a branch and waiting

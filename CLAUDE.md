@@ -57,7 +57,7 @@ npm run e2e   # starts both servers itself; needs the backend venv
 ```
 
 CI runs the same set on every push to `main` and every PR
-(`.github/workflows/checks.yml`), and the Fly and Pages deploys gate on it, so a
+(`.github/workflows/ci.yml`), and the Fly and Pages deploys gate on it, so a
 red `main` doesn't ship. There's no pre-commit hook — run the checks before
 committing rather than letting the runner find it. `DEVELOPMENT.md` has
 the details, including why the configs are the way they are; don't add layout
