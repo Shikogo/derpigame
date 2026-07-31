@@ -30,6 +30,10 @@ npm run e2e           # Playwright — starts both servers itself
 `backend/dev_server.py` alongside Vite and drives the pair. Servers already
 running (`./run-local.sh --offline`) are reused rather than duplicated.
 
+The Node version lives in [`.nvmrc`](.nvmrc) at the repo root — `nvm use` picks
+it up from either directory, and CI reads the same file rather than pinning a
+number of its own.
+
 Both halves should be clean before a commit. GitHub Actions runs the same set on
 every push to `main` and every pull request
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), but there's no
