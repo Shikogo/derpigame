@@ -44,9 +44,11 @@ in-place commands above; everything else is identical.
 [`checks-frontend.yml`](.github/workflows/checks-frontend.yml) — which
 `checks.yml` runs on a push, and which the deploy workflows run as a `needs:`
 job. The e2e suite is a third
-([`checks-e2e.yml`](.github/workflows/checks-e2e.yml)); it spans both halves, so
-it runs on pushes and PRs but gates neither deploy — a Pages deploy shouldn't
-wait on a Python install. So a red `main` doesn't ship: the Fly deploy waits on the backend suite,
+([`checks-e2e.yml`](.github/workflows/checks-e2e.yml)), and it gates *both*
+deploys. That's the one place a half blocks on the other: the unit suites stay
+split so an unrelated failure can't hold up a fix, but a frontend that can't
+play a round through — or a backend that can't carry one — shouldn't ship
+because its own half was green. It costs about a minute. So a red `main` doesn't ship: the Fly deploy waits on the backend suite,
 the Pages deploy on the frontend one, and each ignores the other half so an
 unrelated failure can't block a fix. That's why they're callable workflows and
 not a copy of the commands — one definition, three callers.

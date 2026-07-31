@@ -15,13 +15,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # A red backend must not reach the single always-on machine. Only the backend
-  # suite gates this: an unrelated frontend failure shouldn't block a fix here.
+  # A red backend must not reach the single always-on machine. The unit suite is
+  # backend only: an unrelated frontend failure shouldn't block a fix here.
   checks:
     uses: ./.github/workflows/checks-backend.yml
+  # The deliberate exception: e2e spans both halves, and a backend that no longer
+  # carries a round shouldn't ship on the strength of pytest alone.
+  e2e:
+    uses: ./.github/workflows/checks-e2e.yml
 
   deploy:
-    needs: checks
+    needs: [checks, e2e]
     runs-on: ubuntu-latest
     # The token lives in this environment, not repo-wide. Gate it in repo settings
     # to the main branch (and a required reviewer, if you want a manual approval
