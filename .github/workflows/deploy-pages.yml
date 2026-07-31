@@ -19,13 +19,18 @@ concurrency:
 
 jobs:
   # `npm run build` already type-checks, so a type error could never ship; this
-  # extends that to lint, formatting and the tests. Frontend suite only — a
-  # backend failure shouldn't hold up a Pages deploy.
+  # extends that to lint, formatting and the tests. Unit suite is frontend only —
+  # an unrelated backend failure shouldn't hold up a Pages deploy.
   checks:
     uses: ./.github/workflows/checks-frontend.yml
+  # The deliberate exception: e2e spans both halves, so a broken backend does
+  # stop a frontend deploy. Shipping a frontend that can't play a round through
+  # is worse than waiting on the extra install.
+  e2e:
+    uses: ./.github/workflows/checks-e2e.yml
 
   build:
-    needs: checks
+    needs: [checks, e2e]
     runs-on: ubuntu-latest
     defaults:
       run:
