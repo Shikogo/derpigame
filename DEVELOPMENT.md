@@ -23,7 +23,12 @@ npm run format        # Prettier, in place
 npm run format:check  # Prettier, report only
 npm run typecheck     # vue-tsc -b
 npm run test          # Vitest
+npm run e2e           # Playwright — starts both servers itself
 ```
+
+`npm run e2e` needs the backend venv in place: it launches
+`backend/dev_server.py` alongside Vite and drives the pair. Servers already
+running (`./run-local.sh --offline`) are reused rather than duplicated.
 
 Both halves should be clean before a commit. GitHub Actions runs the same set on
 every push to `main` and every pull request
@@ -38,7 +43,10 @@ in-place commands above; everything else is identical.
 — [`checks-backend.yml`](.github/workflows/checks-backend.yml) and
 [`checks-frontend.yml`](.github/workflows/checks-frontend.yml) — which
 `checks.yml` runs on a push, and which the deploy workflows run as a `needs:`
-job. So a red `main` doesn't ship: the Fly deploy waits on the backend suite,
+job. The e2e suite is a third
+([`checks-e2e.yml`](.github/workflows/checks-e2e.yml)); it spans both halves, so
+it runs on pushes and PRs but gates neither deploy — a Pages deploy shouldn't
+wait on a Python install. So a red `main` doesn't ship: the Fly deploy waits on the backend suite,
 the Pages deploy on the frontend one, and each ignores the other half so an
 unrelated failure can't block a fix. That's why they're callable workflows and
 not a copy of the commands — one definition, three callers.
@@ -58,6 +66,7 @@ without changing how you commit.
 | Prettier | `frontend/` | Formatting |
 | vue-tsc | `frontend/` | Types, including inside `.vue` SFCs |
 | Vitest | `frontend/` | The pure reducer, stores, and components |
+| Playwright | both | A round end to end, and two players sharing a turn |
 
 Formatting and correctness are kept in separate tools that never overlap:
 `eslint-config-prettier` runs last in the ESLint config and drops any rule that
@@ -110,9 +119,11 @@ Worth knowing so they don't get "fixed" later:
   duplicate and contradict Prettier.
 - **`vue/multi-word-component-names` is off.** It guards against shadowing real
   HTML elements; names like `Scoreboard` don't collide.
-- **No e2e suite.** Multiplayer flows are verified by hand in the browser — open
-  two tabs, or see the hosting section in the README. Unit tests still cover new
-  logic on both sides. Playwright is a devDependency, but as a way to drive a
-  headless browser when a change needs *looking* at — a phone-width layout, a
-  before/after screenshot diff — not as a test suite to grow. Nothing in `npm
-  run test` touches it.
+- **The e2e suite stays small.** `frontend/e2e/` covers what only a real socket
+  can show: a round played to its results screen, one guess of each verdict, and
+  two players taking turns. It runs against `backend/dev_server.py`, whose images
+  carry a known tag list — without that fixture a round's outcome depends on
+  whatever the booru returned, and there'd be nothing to assert. Everything
+  provable without a browser stays a unit test, which is most of it. `npm run
+  test` doesn't touch Playwright; `npm run e2e` is its own command, and its own
+  CI job, because it needs both halves of the repo installed.

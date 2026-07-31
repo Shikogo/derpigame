@@ -11,6 +11,11 @@ node_modules/
 dist/
 .vite/
 
+# Playwright run artifacts (traces, reports)
+test-results/
+playwright-report/
+blob-report/
+
 # Env
 .env
 .env.local

@@ -56,10 +56,11 @@ const items = computed(() =>
 </script>
 
 <template>
-  <TransitionGroup name="pop" tag="div" class="flex flex-wrap gap-1.5">
+  <TransitionGroup name="pop" tag="div" class="flex flex-wrap gap-1.5" data-testid="guess-feed">
     <span
       v-for="item in items"
       :key="item.seq"
+      data-testid="feed-entry"
       :class="[
         badge,
         item.tone,

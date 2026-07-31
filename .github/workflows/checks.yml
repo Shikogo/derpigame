@@ -24,3 +24,5 @@ jobs:
     uses: ./.github/workflows/checks-backend.yml
   frontend:
     uses: ./.github/workflows/checks-frontend.yml
+  e2e:
+    uses: ./.github/workflows/checks-e2e.yml
