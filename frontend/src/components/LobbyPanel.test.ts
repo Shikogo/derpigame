@@ -8,7 +8,7 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { useRoomStore } from '@/stores/room'
 import { roomState } from '@/test/factories'
 
-const stubs = { UserList: true, ReadyBar: true, RoomSettingsDialog: true, HistoryPanel: true }
+const stubs = { UserList: true, ReadyBar: true, RoomSettings: true, HistoryPanel: true }
 
 const writeText = vi.fn().mockResolvedValue(undefined)
 

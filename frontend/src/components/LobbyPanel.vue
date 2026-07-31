@@ -1,15 +1,15 @@
 <script setup lang="ts">
 /**
- * The between-rounds lobby: roster, the ready/start bar, a read-only settings
- * summary (editing lives in a dialog), a copyable invite link, and the round
- * history. The bar sits right under the roster — the two halves of starting a
- * round belong together, and everything below is setup you touch far less often.
+ * The between-rounds lobby: roster, the ready/start bar, the room settings, a
+ * copyable invite link, and the round history. The bar sits right under the
+ * roster — the two halves of starting a round belong together — and the settings
+ * follow it, since changing them is most of what brings anyone back here.
  */
 import { computed, ref } from 'vue'
 
 import HistoryPanel from '@/components/HistoryPanel.vue'
 import ReadyBar from '@/components/ReadyBar.vue'
-import RoomSettingsDialog from '@/components/RoomSettingsDialog.vue'
+import RoomSettings from '@/components/RoomSettings.vue'
 import UserList from '@/components/UserList.vue'
 import { MASKED_CODE } from '@/lib/roomCode'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -17,30 +17,6 @@ import { useRoomStore } from '@/stores/room'
 
 const room = useRoomStore()
 const prefs = usePreferencesStore()
-
-const settingsDialog = ref<{ open: () => void } | null>(null)
-
-const querySummary = computed(() => {
-  const query = room.roomState?.query ?? []
-  return query.length ? query.join(', ') : 'anything'
-})
-const nsfwOn = computed(() => room.roomState?.nsfw ?? false)
-const turnSeconds = computed(() => room.roomState?.turn_seconds ?? 30)
-
-/** Every search bound and rating cap, `·`-separated. `null` means no limit. */
-const boundsSummary = computed(() => {
-  const state = room.roomState
-  if (!state) return []
-  const parts = [
-    state.min_tag_count === null ? 'any tag count' : `${state.min_tag_count}+ tags`,
-    state.min_score === null ? 'any score' : `score ${state.min_score}+`,
-  ]
-  for (const axis of state.rating_axes) {
-    const cap = state.rating_caps[axis.key]
-    parts.push(`${axis.label.toLowerCase()} ${cap ? `≤ ${cap}` : 'any'}`)
-  }
-  return parts
-})
 
 // Built from the room snapshot, not the route, so the link stays real to hand
 // out even when streamer mode has stripped the code from our own URL.
@@ -74,27 +50,7 @@ async function copyInvite(): Promise<void> {
 
     <ReadyBar />
 
-    <div
-      class="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface p-3"
-    >
-      <div class="flex min-w-0 flex-col gap-0.5 text-sm">
-        <span class="truncate">
-          <span class="text-ink-muted">Searching: </span>
-          <span class="font-medium">{{ querySummary }}</span>
-        </span>
-        <span class="text-xs text-ink-faint">
-          NSFW: {{ nsfwOn ? 'on' : 'off' }} · {{ turnSeconds }}s per turn
-        </span>
-        <span class="text-xs text-ink-faint">{{ boundsSummary.join(' · ') }}</span>
-      </div>
-      <button
-        class="shrink-0 rounded border border-border px-3 py-1.5 text-sm font-medium hover:bg-raised"
-        @click="settingsDialog?.open()"
-      >
-        ⚙ Edit
-      </button>
-    </div>
-    <RoomSettingsDialog ref="settingsDialog" />
+    <RoomSettings />
 
     <div class="flex flex-col gap-1">
       <span class="text-sm font-semibold text-ink-muted">Invite link</span>
