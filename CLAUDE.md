@@ -53,6 +53,7 @@ Frontend, from `frontend/`:
 
 ```bash
 npm run lint && npm run format && npm run typecheck && npm run test
+npm run e2e   # starts both servers itself; needs the backend venv
 ```
 
 CI runs the same set on every push to `main` and every PR
@@ -69,8 +70,13 @@ rules to ESLint (Prettier owns formatting) and use `npm run typecheck`, never
   Presentation-only tweaks don't need them.
 - Suggest improvements rather than doing the literal thing asked when the literal
   thing is worse. Flag odd behavior instead of quietly working around it.
-- Verify multiplayer flows by hand in the browser (two tabs, or `./run-local.sh
-  --dev`). There's no e2e suite by choice.
+- A small Playwright suite (`frontend/e2e/`, `npm run e2e`) covers the flows that
+  need a real socket: a round from lobby to results, the guess verdicts, and two
+  players sharing a turn. It runs against the offline backend, whose fixed images
+  have known tags — that fixture is what makes the assertions possible. Keep it
+  small; anything provable without a browser belongs in a unit test.
+- Beyond that, verify by hand in the browser (two tabs, or `./run-local.sh
+  --dev`).
 - The wire contract lives in two mirrored places: the Python serializers
   (`app/service/serialization.py`, `app/transport/`) and `src/types/wire.ts`.
   Change both together — there's no case-translation layer.
