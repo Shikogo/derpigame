@@ -7,7 +7,7 @@
  * `in_progress` is briefly stale; otherwise `in_progress` (or a live game batch)
  * shows the game, and everything else is the lobby.
  */
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import AgeGate from '@/components/AgeGate.vue'
@@ -19,23 +19,46 @@ import IconLeave from '@/components/icons/IconLeave.vue'
 import LobbyPanel from '@/components/LobbyPanel.vue'
 import RoundLog from '@/components/RoundLog.vue'
 import RoundStatusStrip from '@/components/RoundStatusStrip.vue'
+import StreamerToggle from '@/components/StreamerToggle.vue'
 import { useKeyboardInset } from '@/composables/useKeyboardInset'
 import { errorLabel } from '@/lib/errors'
+import { forgetRoom, MASKED_CODE, recallRoom, rememberRoom, roomRoute } from '@/lib/roomCode'
 import { useGameStore } from '@/stores/game'
+import { usePreferencesStore } from '@/stores/preferences'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
-const props = defineProps<{ code: string }>()
+const props = defineProps<{ code?: string }>()
 
 const router = useRouter()
 const room = useRoomStore()
 const game = useGameStore()
 const session = useSessionStore()
+const prefs = usePreferencesStore()
 const { open: keyboardOpen } = useKeyboardInset()
 
-const isMember = computed(
-  () => room.code?.toLowerCase() === props.code.toLowerCase() && room.me !== null,
-)
+// The sandbox mounts this view under its own path; only the real route owns the
+// address bar and the tab's record of which room it's in.
+const ownsUrl = router.currentRoute.value.name === 'room'
+
+/**
+ * Resolved once, not derived from the prop: streamer mode strips the param out
+ * from under us, and this view has to keep working across that. The tab
+ * remembers the room so a refresh with a bare `#/room` still lands here.
+ */
+const code = props.code || (ownsUrl ? recallRoom() : null) || ''
+
+if (ownsUrl && code) {
+  rememberRoom(code)
+  // Anything that takes this view off screen — the leave button, the logo link,
+  // the back button — means the tab is no longer in a room. A refresh doesn't
+  // run this, which is the case the carrier exists for.
+  onUnmounted(() => forgetRoom())
+}
+
+const displayCode = computed(() => (prefs.streamerMode ? MASKED_CODE : code))
+
+const isMember = computed(() => room.code?.toLowerCase() === code.toLowerCase() && room.me !== null)
 
 const joinName = ref(session.name)
 const joining = ref(false)
@@ -45,11 +68,26 @@ async function join(): Promise<void> {
   const value = joinName.value.trim()
   if (!value || joining.value) return
   joining.value = true
-  await room.joinRoom(props.code, value)
+  await room.joinRoom(code, value)
   joining.value = false
 }
 
+// Keep the URL in step with the preference. Immediate, so a code already in the
+// address bar is stripped the moment we arrive with the mode already on.
+watch(
+  () => prefs.streamerMode,
+  (hidden) => {
+    if (ownsUrl && code) router.replace(roomRoute(code, hidden))
+  },
+  { immediate: true },
+)
+
 onMounted(async () => {
+  // A bare `#/room` in a tab that has never been in one: nothing to join.
+  if (!code) {
+    if (ownsUrl) router.replace({ name: 'home' })
+    return
+  }
   // Deep link / refresh into a room we're not in: auto-join if we already have a
   // name (a reload reclaims the room within the backend's grace window),
   // otherwise the gate below asks for one.
@@ -175,12 +213,12 @@ async function backToLobby(): Promise<void> {
         v-if="reconnecting && !room.error"
         class="rounded-xl border border-border bg-surface p-6 text-center text-sm text-ink-muted"
       >
-        Reconnecting to room <span class="font-mono uppercase text-turn">{{ code }}</span
+        Reconnecting to room <span class="font-mono uppercase text-turn">{{ displayCode }}</span
         >…
       </div>
       <div v-else class="rounded-xl border border-border bg-surface p-6">
         <h1 class="mb-1 font-display text-xl font-bold">
-          Join room <span class="font-mono uppercase text-turn">{{ code }}</span>
+          Join room <span class="font-mono uppercase text-turn">{{ displayCode }}</span>
         </h1>
         <p class="mb-4 text-sm text-ink-muted">Pick a name to join.</p>
         <form class="flex flex-col gap-3" @submit.prevent="join">
@@ -223,8 +261,9 @@ async function backToLobby(): Promise<void> {
             derpigame
           </RouterLink>
           <span class="pill min-w-0 border border-border bg-raised font-mono uppercase text-ink">
-            <span class="truncate">{{ code }}</span>
+            <span class="truncate">{{ displayCode }}</span>
           </span>
+          <StreamerToggle />
           <!-- The word is the first thing to go: the dot already says it, and it
                keeps its meaning through the tooltip and the label. -->
           <span

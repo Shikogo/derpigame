@@ -9,7 +9,9 @@ export const router = createRouter({
   routes: [
     { path: '/', name: 'home', component: HomeView },
     {
-      path: '/room/:code',
+      // The code is optional because streamer mode takes it out of the URL; the
+      // tab carries it instead (`lib/roomCode.ts`).
+      path: '/room/:code?',
       name: 'room',
       component: () => import('@/views/RoomView.vue'),
       props: true,

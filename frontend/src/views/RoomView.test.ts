@@ -6,6 +6,8 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import RoomView from '@/views/RoomView.vue'
 import AgeGate from '@/components/AgeGate.vue'
 import GamePanel from '@/components/GamePanel.vue'
+import { MASKED_CODE, rememberRoom } from '@/lib/roomCode'
+import { usePreferencesStore } from '@/stores/preferences'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 import { roomState as baseRoomState, roomUser } from '@/test/factories'
@@ -15,7 +17,7 @@ const router = createRouter({
   history: createMemoryHistory(),
   routes: [
     { path: '/', name: 'home', component: { template: '<div />' } },
-    { path: '/room/:code', name: 'room', component: { template: '<div />' } },
+    { path: '/room/:code?', name: 'room', component: { template: '<div />' } },
   ],
 })
 
@@ -92,5 +94,55 @@ describe('RoomView — NSFW age gate', () => {
     expect(useSessionStore().nsfwAck).toBe(true)
     expect(wrapper.findComponent(AgeGate).exists()).toBe(false)
     expect(wrapper.findComponent(GamePanel).exists()).toBe(true)
+  })
+})
+
+describe('RoomView — streamer mode', () => {
+  let pinia: Pinia
+
+  beforeEach(async () => {
+    localStorage.clear()
+    sessionStorage.clear()
+    localStorage.setItem('derpigame:uuid', 'me')
+    pinia = createPinia()
+    setActivePinia(pinia)
+    await router.replace('/room/r')
+  })
+
+  function mountRoom(props: { code?: string } = { code: 'r' }) {
+    useRoomStore().setRoomState(baseRoomState({ users: [roomUser('me')] }))
+    return mount(RoomView, { props, global: { plugins: [pinia, router], stubs } })
+  }
+
+  it('masks the code and drops it from the URL, and puts both back', async () => {
+    const prefs = usePreferencesStore()
+    const wrapper = mountRoom()
+    await flushPromises()
+
+    expect(wrapper.get('.pill').text()).toBe('r')
+    expect(router.currentRoute.value.path).toBe('/room/r')
+
+    prefs.toggle()
+    await flushPromises()
+    expect(wrapper.get('.pill').text()).toBe(MASKED_CODE)
+    expect(router.currentRoute.value.path).toBe('/room')
+
+    prefs.toggle()
+    await flushPromises()
+    expect(wrapper.get('.pill').text()).toBe('r')
+    expect(router.currentRoute.value.path).toBe('/room/r')
+  })
+
+  it('takes the code from the tab when the URL has none, and goes home without one', async () => {
+    rememberRoom('r')
+    const wrapper = mountRoom({})
+    await flushPromises()
+    expect(wrapper.get('.pill').text()).toBe('r')
+
+    sessionStorage.clear()
+    setActivePinia((pinia = createPinia()))
+    mountRoom({})
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('home')
   })
 })

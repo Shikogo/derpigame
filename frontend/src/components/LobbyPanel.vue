@@ -11,9 +11,12 @@ import HistoryPanel from '@/components/HistoryPanel.vue'
 import ReadyBar from '@/components/ReadyBar.vue'
 import RoomSettingsDialog from '@/components/RoomSettingsDialog.vue'
 import UserList from '@/components/UserList.vue'
+import { MASKED_CODE } from '@/lib/roomCode'
+import { usePreferencesStore } from '@/stores/preferences'
 import { useRoomStore } from '@/stores/room'
 
 const room = useRoomStore()
+const prefs = usePreferencesStore()
 
 const settingsDialog = ref<{ open: () => void } | null>(null)
 
@@ -39,7 +42,16 @@ const boundsSummary = computed(() => {
   return parts
 })
 
+// Built from the room snapshot, not the route, so the link stays real to hand
+// out even when streamer mode has stripped the code from our own URL.
 const inviteLink = computed(() => `${location.origin}${location.pathname}#/room/${room.code}`)
+// Only the display is masked — Copy still puts the real link on the clipboard,
+// which is what makes the mode usable rather than just blind.
+const shownLink = computed(() =>
+  prefs.streamerMode
+    ? `${location.origin}${location.pathname}#/room/${MASKED_CODE}`
+    : inviteLink.value,
+)
 const copied = ref(false)
 async function copyInvite(): Promise<void> {
   try {
@@ -88,10 +100,10 @@ async function copyInvite(): Promise<void> {
       <span class="text-sm font-semibold text-ink-muted">Invite link</span>
       <div class="flex gap-2">
         <input
-          :value="inviteLink"
+          :value="shownLink"
           readonly
           class="flex-1 truncate rounded border border-border bg-raised px-2 py-1 font-mono text-xs text-ink-muted"
-          @focus="(e) => (e.target as HTMLInputElement).select()"
+          @focus="(e) => !prefs.streamerMode && (e.target as HTMLInputElement).select()"
         />
         <button
           class="rounded border border-border px-3 py-1 text-xs font-medium hover:bg-raised"
@@ -100,6 +112,10 @@ async function copyInvite(): Promise<void> {
           {{ copied ? 'Copied!' : 'Copy' }}
         </button>
       </div>
+      <!-- Without this the masked field just looks broken. -->
+      <span v-if="prefs.streamerMode" class="text-xs text-ink-faint">
+        Hidden for streaming — Copy still copies the real link.
+      </span>
     </div>
 
     <HistoryPanel />

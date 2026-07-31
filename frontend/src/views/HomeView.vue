@@ -4,13 +4,22 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { errorLabel } from '@/lib/errors'
+import { rememberRoom, roomRoute } from '@/lib/roomCode'
 import { categoryPillStyle } from '@/lib/tagColor'
+import { usePreferencesStore } from '@/stores/preferences'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
 const room = useRoomStore()
 const session = useSessionStore()
+const prefs = usePreferencesStore()
+
+/** Hand the room to the tab, then route — the code only reaches the URL if it's shown. */
+function enterRoom(code: string): void {
+  rememberRoom(code)
+  router.push(roomRoute(code, prefs.streamerMode))
+}
 
 const name = ref(session.name)
 const joinCode = ref('')
@@ -24,7 +33,7 @@ async function create(): Promise<void> {
   busy.value = true
   const ack = await room.createRoom(name.value.trim())
   busy.value = false
-  if (ack.ok && room.code) router.push({ name: 'room', params: { code: room.code } })
+  if (ack.ok && room.code) enterRoom(room.code)
 }
 
 async function join(): Promise<void> {
@@ -33,7 +42,7 @@ async function join(): Promise<void> {
   busy.value = true
   const ack = await room.joinRoom(code, name.value.trim())
   busy.value = false
-  if (ack.ok) router.push({ name: 'room', params: { code } })
+  if (ack.ok) enterRoom(code)
 }
 </script>
 
@@ -77,9 +86,10 @@ async function join(): Promise<void> {
     </div>
 
     <form class="flex gap-2" @submit.prevent="join">
+      <!-- The one place a streamer types the code on camera. -->
       <input
         v-model="joinCode"
-        type="text"
+        :type="prefs.streamerMode ? 'password' : 'text'"
         placeholder="Room code"
         class="w-full flex-1 rounded-lg border border-border bg-raised px-3 py-2 text-sm uppercase text-ink placeholder:text-ink-faint focus:border-turn focus:outline-none"
       />
