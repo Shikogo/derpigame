@@ -7,7 +7,7 @@
  * `in_progress` is briefly stale; otherwise `in_progress` (or a live game batch)
  * shows the game, and everything else is the lobby.
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import AgeGate from '@/components/AgeGate.vue'
@@ -37,18 +37,21 @@ const session = useSessionStore()
 const prefs = usePreferencesStore()
 const { open: keyboardOpen } = useKeyboardInset()
 
-// The sandbox mounts this view under its own path; only the real route owns the
-// address bar and the tab's record of which room it's in.
-const ownsUrl = router.currentRoute.value.name === 'room'
+// Readouts and stand-ins for what a desktop browser won't do on its own. The
+// constant is compile-time, so a production build drops the branch and never
+// reaches the import.
+const DevOverlay = import.meta.env.DEV
+  ? defineAsyncComponent(() => import('@/dev/DevOverlay.vue'))
+  : null
 
 /**
  * Resolved once, not derived from the prop: streamer mode strips the param out
  * from under us, and this view has to keep working across that. The tab
  * remembers the room so a refresh with a bare `#/room` still lands here.
  */
-const code = props.code || (ownsUrl ? recallRoom() : null) || ''
+const code = props.code || recallRoom() || ''
 
-if (ownsUrl && code) {
+if (code) {
   rememberRoom(code)
   // Anything that takes this view off screen — the leave button, the logo link,
   // the back button — means the tab is no longer in a room. A refresh doesn't
@@ -77,7 +80,7 @@ async function join(): Promise<void> {
 watch(
   () => prefs.streamerMode,
   (hidden) => {
-    if (ownsUrl && code) router.replace(roomRoute(code, hidden))
+    if (code) router.replace(roomRoute(code, hidden))
   },
   { immediate: true },
 )
@@ -85,7 +88,7 @@ watch(
 onMounted(async () => {
   // A bare `#/room` in a tab that has never been in one: nothing to join.
   if (!code) {
-    if (ownsUrl) router.replace({ name: 'home' })
+    router.replace({ name: 'home' })
     return
   }
   // Deep link / refresh into a room we're not in: auto-join if we already have a
@@ -377,6 +380,8 @@ async function backToLobby(): Promise<void> {
       </dialog>
     </template>
   </main>
+
+  <component :is="DevOverlay" v-if="DevOverlay" />
 </template>
 
 <style scoped>

@@ -2,7 +2,8 @@
 /**
  * Dev-only harness for exercising `ImageViewer` in isolation: a bounded frame
  * with a labeled grid image, plus a live readout of the transform so pan / zoom
- * / clamp behavior is verifiable at a glance. Not part of the game UI.
+ * / clamp behavior is verifiable at a glance. Routed at `#/dev/viewer` in a dev
+ * build only.
  */
 import { ref } from 'vue'
 
@@ -15,7 +16,7 @@ const src = ref('/viewer-test.svg')
 <template>
   <main class="mx-auto flex max-w-4xl flex-col gap-4 p-6">
     <header class="flex items-center justify-between">
-      <h1 class="font-display text-xl font-bold">ImageViewer sandbox</h1>
+      <h1 class="font-display text-xl font-bold">ImageViewer harness</h1>
       <button
         class="rounded bg-turn px-3 py-1.5 text-sm font-medium text-on-accent"
         @click="viewer?.reset()"

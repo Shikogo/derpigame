@@ -38,7 +38,7 @@ if [ "$dev" -eq 1 ]; then
   [ -f "$ROOT/frontend/.env" ] || { echo "frontend/.env missing — run 'cp frontend/.env.example frontend/.env' (sets VITE_BACKEND_URL so the dev socket finds the backend)" >&2; exit 1; }
 
   # Real backend by default; --offline swaps in dev_server (fixed image, no token).
-  if [ "$offline" -eq 1 ]; then app="dev_server:app"; app_note="offline, fixed image"
+  if [ "$offline" -eq 1 ]; then app="dev_server:app"; app_note="offline, fixed images with known tags"
   else app="app.main:app"; app_note="Derpibooru"; fi
 
   echo

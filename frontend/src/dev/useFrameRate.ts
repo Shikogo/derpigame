@@ -1,6 +1,6 @@
 /**
- * Frame-rate sampling for the dev harnesses, measured independently of whatever
- * is being judged. "Feels laggy" is hard to act on; a worst-frame figure isn't.
+ * Frame-rate sampling for the dev overlay, measured independently of whatever is
+ * being judged. "Feels laggy" is hard to act on; a worst-frame figure isn't.
  */
 
 import { onBeforeUnmount, ref } from 'vue'
