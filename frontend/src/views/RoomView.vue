@@ -19,6 +19,7 @@ import IconLeave from '@/components/icons/IconLeave.vue'
 import LobbyPanel from '@/components/LobbyPanel.vue'
 import RoundLog from '@/components/RoundLog.vue'
 import RoundStatusStrip from '@/components/RoundStatusStrip.vue'
+import SoundToggle from '@/components/SoundToggle.vue'
 import StreamerToggle from '@/components/StreamerToggle.vue'
 import { useKeyboardInset } from '@/composables/useKeyboardInset'
 import { errorLabel } from '@/lib/errors'
@@ -267,6 +268,7 @@ async function backToLobby(): Promise<void> {
             <span class="truncate">{{ displayCode }}</span>
           </span>
           <StreamerToggle />
+          <SoundToggle />
           <!-- The word is the first thing to go: the dot already says it, and it
                keeps its meaning through the tooltip and the label. -->
           <span

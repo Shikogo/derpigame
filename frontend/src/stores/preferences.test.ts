@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
-import { loadStreamerMode, usePreferencesStore } from '@/stores/preferences'
+import { loadSound, loadStreamerMode, usePreferencesStore } from '@/stores/preferences'
 
 describe('preferences store', () => {
   beforeEach(() => {
@@ -21,12 +21,35 @@ describe('preferences store', () => {
   it('toggle flips and persists both ways', () => {
     const prefs = usePreferencesStore()
 
-    prefs.toggle()
+    prefs.toggleStreamerMode()
     expect(prefs.streamerMode).toBe(true)
     expect(localStorage.getItem('derpigame:streamerMode')).toBe('true')
 
-    prefs.toggle()
+    prefs.toggleStreamerMode()
     expect(prefs.streamerMode).toBe(false)
     expect(localStorage.getItem('derpigame:streamerMode')).toBe('false')
+  })
+
+  // The opposite default to streamer mode, and the reason the two loaders read
+  // the stored value differently: an unset key has to mean "on" here.
+  it('defaults sound on, and reads a persisted off', () => {
+    expect(loadSound()).toBe(true)
+    expect(usePreferencesStore().sound).toBe(true)
+
+    localStorage.setItem('derpigame:sound', 'false')
+    setActivePinia(createPinia())
+    expect(usePreferencesStore().sound).toBe(false)
+  })
+
+  it('toggling sound flips and persists', () => {
+    const prefs = usePreferencesStore()
+
+    prefs.toggleSound()
+    expect(prefs.sound).toBe(false)
+    expect(localStorage.getItem('derpigame:sound')).toBe('false')
+
+    prefs.toggleSound()
+    expect(prefs.sound).toBe(true)
+    expect(localStorage.getItem('derpigame:sound')).toBe('true')
   })
 })

@@ -22,7 +22,7 @@ const label = computed(() => (prefs.streamerMode ? 'Show room code' : 'Hide room
     :title="label"
     :aria-label="label"
     :aria-pressed="prefs.streamerMode"
-    @click="prefs.toggle()"
+    @click="prefs.toggleStreamerMode()"
   >
     <IconEyeOff v-if="prefs.streamerMode" class="h-[1.15rem] w-[1.15rem]" />
     <IconEye v-else class="h-[1.15rem] w-[1.15rem]" />

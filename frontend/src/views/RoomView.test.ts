@@ -122,12 +122,12 @@ describe('RoomView — streamer mode', () => {
     expect(wrapper.get('.pill').text()).toBe('r')
     expect(router.currentRoute.value.path).toBe('/room/r')
 
-    prefs.toggle()
+    prefs.toggleStreamerMode()
     await flushPromises()
     expect(wrapper.get('.pill').text()).toBe(MASKED_CODE)
     expect(router.currentRoute.value.path).toBe('/room')
 
-    prefs.toggle()
+    prefs.toggleStreamerMode()
     await flushPromises()
     expect(wrapper.get('.pill').text()).toBe('r')
     expect(router.currentRoute.value.path).toBe('/room/r')
