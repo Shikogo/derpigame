@@ -58,6 +58,9 @@ updates:
     groups:
       backend:
         update-types: [minor, patch]
+    ignore:
+      # pydantic pins pydantic-core exactly; bumped alone it won't install.
+      - dependency-name: pydantic-core
 
   # The Dockerfile's python base image — the one thing here with no other nag.
   # Treat its PRs as a notification, not a merge: the Python version is also in
