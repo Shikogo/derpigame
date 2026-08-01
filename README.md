@@ -19,13 +19,15 @@ frontend/   Vue app (Vite + Pinia + Vue Router)
 
 ## Backend
 
-Requires **Python 3.12+**.
+Requires **Python 3.14+** (the version in `.python-version`, which is what CI and
+the Docker image build against). On Debian/Ubuntu derivatives the deadsnakes PPA
+installs it alongside the system Python; don't replace the system one.
 
 ### Setup
 
 ```bash
 cd backend
-python3 -m venv .venv
+python3.14 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt   # runtime deps + test/lint tooling
 ```

@@ -93,7 +93,7 @@ class GameService:
         turn_seconds: float | None = None,
         max_query_lookups: int | None = None,
         game_options: dict | None = None,
-    ) -> "GameService":
+    ) -> GameService:
         """One provider serving every room — a single-booru deploy, or a test.
 
         The registry form is the general case; this is the shorthand for when

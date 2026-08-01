@@ -58,3 +58,16 @@ updates:
     groups:
       backend:
         update-types: [minor, patch]
+
+  # The Dockerfile's python base image — the one thing here with no other nag.
+  # Treat its PRs as a notification, not a merge: the Python version is also in
+  # .python-version (which CI reads) and ruff's target-version, and all three
+  # move together or not at all. Raising the ruff target can rewrite source into
+  # syntax the older interpreter can't parse, so it's a deliberate change.
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: chore
+      include: scope

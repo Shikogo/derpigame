@@ -63,8 +63,9 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          # Keep in sync with backend/Dockerfile and ruff's target-version.
-          python-version: '3.12'
+          # Root .python-version, as the frontend job reads .nvmrc. Keep
+          # backend/Dockerfile and ruff's target-version on the same version.
+          python-version-file: .python-version
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
       - run: pip install -r requirements-dev.txt
@@ -108,8 +109,9 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          # Keep in sync with backend/Dockerfile and ruff's target-version.
-          python-version: '3.12'
+          # Root .python-version, as the frontend job reads .nvmrc. Keep
+          # backend/Dockerfile and ruff's target-version on the same version.
+          python-version-file: .python-version
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
       # Into the venv path playwright.config.ts starts the backend from, so the

@@ -46,7 +46,7 @@ def _parse_turn_seconds(raw, *, minimum: float, maximum: float) -> float | None:
     """Clamp a turn-length setting to whole seconds in range; None if unparseable."""
     try:
         return float(max(minimum, min(maximum, round(float(raw)))))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 
@@ -62,7 +62,7 @@ def _parse_optional_int(raw, *, floor: int | None = None) -> int | None:
     """
     try:
         value = int(round(float(raw)))
-    except (TypeError, ValueError, OverflowError):
+    except TypeError, ValueError, OverflowError:
         return None
     return value if floor is None else max(floor, value)
 
