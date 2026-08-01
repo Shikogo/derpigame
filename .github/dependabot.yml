@@ -1,0 +1,60 @@
+version: 2
+
+# Three ecosystems, one weekly pass each. Every PR runs the full CI gate
+# (unit suites both halves, plus e2e), so a green PR here is genuinely safe to
+# merge — that gate is what makes unattended dependency updates workable.
+#
+# Routine minor/patch churn is grouped into a single PR per ecosystem, because
+# the pinned requirements files mean a transitive bump is its own PR otherwise.
+# Majors stay ungrouped: they're the ones worth reading a changelog for.
+
+updates:
+  # The workflow actions in ci.yml. Small surface, but the one nobody thinks to
+  # check by hand.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      frontend:
+        update-types: [minor, patch]
+    ignore:
+      # typescript-eslint pins its peer range to TypeScript <6.1.0, so TS 7 (the
+      # native port) breaks the lint rather than the typecheck. Lift this once
+      # typescript-eslint ships a stable release that accepts 7.x — at which
+      # point vue-tsc (peer >=5.0.0) is already fine with it.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+
+  # requirements.txt pins transitives too, so Dependabot will offer bumps for
+  # packages nothing here imports directly. That's the intent — the Docker image
+  # installs this file verbatim. The header comments in those files describe the
+  # fresh-venv regeneration that stays the periodic ground truth, since
+  # Dependabot bumps a pin without re-resolving the whole tree.
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      backend:
+        update-types: [minor, patch]
