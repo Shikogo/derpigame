@@ -1,16 +1,11 @@
 version: 2
 
-# Three ecosystems, one weekly pass each. Every PR runs the full CI gate
-# (unit suites both halves, plus e2e), so a green PR here is genuinely safe to
-# merge — that gate is what makes unattended dependency updates workable.
-#
-# Routine minor/patch churn is grouped into a single PR per ecosystem, because
-# the pinned requirements files mean a transitive bump is its own PR otherwise.
-# Majors stay ungrouped: they're the ones worth reading a changelog for.
+# Every PR runs the full CI gate, which is what makes unattended updates
+# workable. Minor/patch are grouped per ecosystem — the pinned requirements
+# would otherwise open a PR per transitive bump; majors stay separate.
 
 updates:
-  # The workflow actions in ci.yml. Small surface, but the one nobody thinks to
-  # check by hand.
+  # The workflow actions in ci.yml — the set nobody checks by hand.
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -35,18 +30,12 @@ updates:
       frontend:
         update-types: [minor, patch]
     ignore:
-      # typescript-eslint pins its peer range to TypeScript <6.1.0, so TS 7 (the
-      # native port) breaks the lint rather than the typecheck. Lift this once
-      # typescript-eslint ships a stable release that accepts 7.x — at which
-      # point vue-tsc (peer >=5.0.0) is already fine with it.
+      # typescript-eslint peers at <6.1.0; lift when it accepts 7.x.
       - dependency-name: typescript
         update-types: [version-update:semver-major]
 
-  # requirements.txt pins transitives too, so Dependabot will offer bumps for
-  # packages nothing here imports directly. That's the intent — the Docker image
-  # installs this file verbatim. The header comments in those files describe the
-  # fresh-venv regeneration that stays the periodic ground truth, since
-  # Dependabot bumps a pin without re-resolving the whole tree.
+  # Transitives are pinned here too, and Dependabot bumps a pin without
+  # re-resolving — the fresh-venv regen in requirements.txt stays the truth.
   - package-ecosystem: pip
     directory: /backend
     schedule:
@@ -62,11 +51,8 @@ updates:
       # pydantic pins pydantic-core exactly; bumped alone it won't install.
       - dependency-name: pydantic-core
 
-  # The Dockerfile's python base image — the one thing here with no other nag.
-  # Treat its PRs as a notification, not a merge: the Python version is also in
-  # .python-version (which CI reads) and ruff's target-version, and all three
-  # move together or not at all. Raising the ruff target can rewrite source into
-  # syntax the older interpreter can't parse, so it's a deliberate change.
+  # A notification, not a merge: the python version also lives in
+  # .python-version and ruff's target-version, and the three move together.
   - package-ecosystem: docker
     directory: /backend
     schedule:
