@@ -47,8 +47,11 @@ For frontend work without a Derpibooru token or network, run the offline dev
 server instead — it serves a fixed image from a static source:
 
 ```bash
-.venv/bin/uvicorn dev_server:app --reload   # http://localhost:8000
+.venv/bin/uvicorn dev_server:app --reload --port 8100   # http://localhost:8100
 ```
+
+It runs on `:8100` rather than `:8000` so it can sit beside a live backend, and
+because `npm run e2e` drives whatever answers there — see the Frontend section.
 
 ### Configuration
 
@@ -113,7 +116,14 @@ terminal. Open the app in two tabs to play a room against yourself.
 
 To start both at once, run `./run-local.sh --dev` from the repo root: it brings up
 the backend (`--reload`, `:8000`) and Vite (`:5173`) together, and Ctrl+C stops
-both. Add `--offline` to swap in the token-less offline backend (`dev_server:app`).
+both. Add `--offline` to swap in the token-less offline backend (`dev_server:app`),
+which runs on its own pair of ports — backend `:8100`, Vite `:5273`.
+
+Those are two independent lanes, so a live and an offline session can run side by
+side. It also keeps the e2e suite off the live one: `npm run e2e` targets the
+offline lane and reuses a session already on it, so the tests can't end up driving
+real Derpibooru traffic. In dev mode `run-local.sh` passes `VITE_BACKEND_URL`
+itself, since `frontend/.env` names one fixed port and can't follow the lane.
 
 ### Running tests
 

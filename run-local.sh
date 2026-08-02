@@ -5,16 +5,15 @@
 #
 #   ./run-local.sh              # http://localhost:8000  (+ your LAN IP)
 #   ./run-local.sh --dev        # hot-reload dev: Vite :5173 + backend :8000
-#   ./run-local.sh --offline    # dev, but the token-less offline backend
+#   ./run-local.sh --offline    # dev on the offline lane: Vite :5273 + backend :8100
 #   ./run-local.sh --share      # also open a public cloudflared tunnel
 #   ./run-local.sh --no-build   # skip the rebuild for a faster restart
-#   PORT=9000 ./run-local.sh    # backend / serve port (default 8000)
+#   PORT=9000 ./run-local.sh    # backend / serve port (default 8000, offline 8100)
 #
 # Ctrl+C stops everything it started (dev processes, server, tunnel).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PORT="${PORT:-8000}"
 share=0 build=1 dev=0 offline=0
 for arg in "$@"; do
   case "$arg" in
@@ -27,15 +26,22 @@ for arg in "$@"; do
   esac
 done
 
+# The offline backend runs on its own pair of ports, and `npm run e2e` targets
+# that pair. A live session on the defaults is then out of reach of the test
+# suite, which is the point: the suite must never drive real Derpibooru traffic.
+if [ "$offline" -eq 1 ]; then PORT="${PORT:-8100}"; vite_port=5273
+else PORT="${PORT:-8000}"; vite_port=5173; fi
+
 [ -x "$ROOT/backend/.venv/bin/uvicorn" ] || { echo "backend venv missing — see README 'Backend > Setup'" >&2; exit 1; }
 [ -x "$ROOT/frontend/node_modules/.bin/vite" ] || { echo "frontend deps missing — run 'npm install' in frontend/" >&2; exit 1; }
 
 # Dev mode: run both live processes with hot reload instead of building. Vite
-# serves the app on :5173 and talks to the backend via VITE_BACKEND_URL
-# (frontend/.env); the backend reloads on code changes. No build, no tunnel.
+# serves the app and talks to the backend over VITE_BACKEND_URL, which this
+# script sets from the port it just started the backend on rather than letting
+# frontend/.env answer — .env names one fixed port, so it can't follow a lane or
+# a PORT override. The backend reloads on code changes. No build, no tunnel.
 if [ "$dev" -eq 1 ]; then
   [ "$share" -eq 1 ] && { echo "--dev can't be combined with --share (two origins, no single tunnel)" >&2; exit 2; }
-  [ -f "$ROOT/frontend/.env" ] || { echo "frontend/.env missing — run 'cp frontend/.env.example frontend/.env' (sets VITE_BACKEND_URL so the dev socket finds the backend)" >&2; exit 1; }
 
   # Real backend by default; --offline swaps in dev_server (fixed image, no token).
   if [ "$offline" -eq 1 ]; then app="dev_server:app"; app_note="offline, fixed images with known tags"
@@ -43,10 +49,9 @@ if [ "$dev" -eq 1 ]; then
 
   echo
   echo "  derpigame (dev) is starting:"
-  echo "    open this  : http://localhost:5173   (Vite, hot reload)"
+  echo "    open this  : http://localhost:$vite_port   (Vite, hot reload)"
   echo "    backend    : http://localhost:$PORT   (FastAPI + Socket.IO, --reload, $app_note)"
   echo
-  echo "  the frontend reaches the backend via VITE_BACKEND_URL in frontend/.env."
   echo "  Ctrl+C stops both."
   echo
 
@@ -56,7 +61,7 @@ if [ "$dev" -eq 1 ]; then
 
   (cd "$ROOT/backend" && exec .venv/bin/uvicorn "$app" --reload --port "$PORT") &
   pids+=($!)
-  (cd "$ROOT/frontend" && exec node_modules/.bin/vite) &
+  (cd "$ROOT/frontend" && VITE_BACKEND_URL="http://localhost:$PORT" exec node_modules/.bin/vite --port "$vite_port" --strictPort) &
   pids+=($!)
 
   wait -n   # if either process exits, fall through to cleanup and stop the other

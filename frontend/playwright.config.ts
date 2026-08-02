@@ -11,9 +11,14 @@ import { defineConfig, devices } from '@playwright/test'
  * Both servers are started here rather than by hand, so `npm run e2e` is the
  * whole command. Locally they're reused if already running (`./run-local.sh
  * --offline`); CI always gets fresh ones.
+ *
+ * These are the offline lane's ports, the pair `--offline` uses, and they are
+ * deliberately not the defaults a live session runs on: reuse means whatever
+ * answers here gets driven by the suite, and a live backend answering would put
+ * real Derpibooru traffic behind every round these tests start.
  */
-const BACKEND = 'http://localhost:8000'
-const FRONTEND = 'http://localhost:5173'
+const BACKEND = 'http://localhost:8100'
+const FRONTEND = 'http://localhost:5273'
 
 // CI installs Playwright's own chromium; a dev box usually has one already, and
 // downloading a second copy to run a handful of tests isn't a fair trade.
@@ -42,7 +47,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: '.venv/bin/uvicorn dev_server:app --port 8000',
+      command: '.venv/bin/uvicorn dev_server:app --port 8100',
       cwd: '../backend',
       url: `${BACKEND}/health`,
       reuseExistingServer: !process.env.CI,
@@ -51,7 +56,7 @@ export default defineConfig({
     {
       // The backend URL is passed explicitly: `frontend/.env` is gitignored, so
       // a runner has no other way to learn it.
-      command: 'npm run dev -- --port 5173',
+      command: 'npm run dev -- --port 5273 --strictPort',
       env: { VITE_BACKEND_URL: BACKEND },
       url: FRONTEND,
       reuseExistingServer: !process.env.CI,
