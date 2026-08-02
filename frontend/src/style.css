@@ -144,15 +144,16 @@
 }
 
 /* A room running its mobile shell is a fixed box that owns the whole viewport.
-   Keyed off the shell's own marker attribute so `App.vue` and `ThemeToggle` stay
-   ignorant of what any given route is doing. */
+   Keyed off the shell's own marker attribute so `App.vue` and the floating
+   buttons stay ignorant of what any given route is doing. */
 
 /* The shell docks a guess bar along the bottom edge, which is where the floating
-   theme switch lives. Hidden rather than nudged: mid-round isn't when anyone
-   changes themes, and the only place to nudge it to is over the picture.
-   64rem is Tailwind's `lg`, where the rail comes back and the dock goes away. */
+   theme and help buttons live. Hidden rather than nudged: mid-round isn't when
+   anyone reaches for either, and the only place to nudge them to is over the
+   picture. 64rem is Tailwind's `lg`, where the rail comes back and the dock goes
+   away. */
 @media (width < 64rem) {
-  body:has([data-mobile-shell]) [data-theme-toggle] {
+  body:has([data-mobile-shell]) :is([data-theme-toggle], [data-help-toggle]) {
     display: none;
   }
 }

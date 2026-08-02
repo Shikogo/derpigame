@@ -8,6 +8,9 @@
  * Sound: the chime when your turn arrives while you're looking elsewhere. On by
  * default — missing your turn is the problem it exists for, so it has to work
  * before anyone goes looking for the switch.
+ *
+ * Seen rules: whether the how-to-play card has come up. One-way, so a browser
+ * that's played before doesn't get it again.
  */
 
 import { defineStore } from 'pinia'
@@ -15,6 +18,7 @@ import { ref } from 'vue'
 
 const STREAMER_MODE_KEY = 'derpigame:streamerMode'
 const SOUND_KEY = 'derpigame:sound'
+const SEEN_RULES_KEY = 'derpigame:seenRules'
 
 /** The persisted streamer-mode preference, off for anything unset. */
 export function loadStreamerMode(storage: Storage = localStorage): boolean {
@@ -26,9 +30,15 @@ export function loadSound(storage: Storage = localStorage): boolean {
   return storage.getItem(SOUND_KEY) !== 'false'
 }
 
+/** Whether the rules card has been shown — false when unset, so a new browser gets it. */
+export function loadSeenRules(storage: Storage = localStorage): boolean {
+  return storage.getItem(SEEN_RULES_KEY) === 'true'
+}
+
 export const usePreferencesStore = defineStore('preferences', () => {
   const streamerMode = ref(loadStreamerMode())
   const sound = ref(loadSound())
+  const seenRules = ref(loadSeenRules())
 
   function setStreamerMode(value: boolean): void {
     streamerMode.value = value
@@ -48,5 +58,19 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setSound(!sound.value)
   }
 
-  return { streamerMode, setStreamerMode, toggleStreamerMode, sound, setSound, toggleSound }
+  function markRulesSeen(): void {
+    seenRules.value = true
+    localStorage.setItem(SEEN_RULES_KEY, 'true')
+  }
+
+  return {
+    streamerMode,
+    setStreamerMode,
+    toggleStreamerMode,
+    sound,
+    setSound,
+    toggleSound,
+    seenRules,
+    markRulesSeen,
+  }
 })

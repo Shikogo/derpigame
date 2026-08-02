@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HelpButton from '@/components/HelpButton.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import { useTurnAlertStore } from '@/stores/turnAlert'
 
@@ -9,5 +10,6 @@ useTurnAlertStore()
 
 <template>
   <RouterView />
+  <HelpButton />
   <ThemeToggle />
 </template>

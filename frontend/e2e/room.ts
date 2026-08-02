@@ -49,9 +49,20 @@ export const IGNORED_TAG = 'commission'
 const guessBox = (page: Page) => page.getByPlaceholder(/Guess a tag|Type ahead/)
 const feedEntries = (page: Page) => page.getByTestId('feed-entry')
 
+/**
+ * Close the how-to-play card, which opens over every fresh context's first page
+ * — the same gesture a first-time player makes before they can do anything.
+ */
+async function dismissRules(page: Page): Promise<void> {
+  const close = page.getByRole('button', { name: 'Close' })
+  await close.click()
+  await expect(close).toBeHidden()
+}
+
 /** Create a room as ``name``; resolves to its code once the lobby is up. */
 export async function createRoom(page: Page, name: string): Promise<string> {
   await page.goto('/')
+  await dismissRules(page)
   await page.getByPlaceholder('e.g. Twilight').fill(name)
   await page.getByRole('button', { name: 'Create a room' }).click()
   await expect(page.getByRole('button', { name: 'Ready up' })).toBeVisible()
@@ -63,6 +74,7 @@ export async function createRoom(page: Page, name: string): Promise<string> {
 /** Join an existing room through its deep link, as a second player would. */
 export async function joinRoom(page: Page, code: string, name: string): Promise<void> {
   await page.goto(`/#/room/${code}`)
+  await dismissRules(page)
   await page.getByPlaceholder('Your name').fill(name)
   await page.getByRole('button', { name: 'Join' }).click()
   await expect(page.getByRole('button', { name: 'Ready up' })).toBeVisible()

@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
-import { loadSound, loadStreamerMode, usePreferencesStore } from '@/stores/preferences'
+import {
+  loadSeenRules,
+  loadSound,
+  loadStreamerMode,
+  usePreferencesStore,
+} from '@/stores/preferences'
 
 describe('preferences store', () => {
   beforeEach(() => {
@@ -51,5 +56,18 @@ describe('preferences store', () => {
     prefs.toggleSound()
     expect(prefs.sound).toBe(true)
     expect(localStorage.getItem('derpigame:sound')).toBe('true')
+  })
+
+  it('marks the rules seen once and keeps it', () => {
+    expect(loadSeenRules()).toBe(false)
+    const prefs = usePreferencesStore()
+    expect(prefs.seenRules).toBe(false)
+
+    prefs.markRulesSeen()
+    expect(prefs.seenRules).toBe(true)
+    expect(localStorage.getItem('derpigame:seenRules')).toBe('true')
+
+    setActivePinia(createPinia())
+    expect(usePreferencesStore().seenRules).toBe(true)
   })
 })
