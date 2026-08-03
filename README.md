@@ -1,5 +1,7 @@
 # derpigame
 
+**Play it at [derpigame.shikogo.com](https://derpigame.shikogo.com).**
+
 A real-time multiplayer party game: players join a room, get a random image from
 Derpibooru, and take turns guessing its tags. Three wrong guesses eliminate you;
 most points when the tags are all guessed (or everyone's out) wins.

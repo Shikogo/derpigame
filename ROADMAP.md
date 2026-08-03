@@ -68,13 +68,6 @@ that extends into WebSocket auth on connect.
 Built on accounts and persistence: a schema for users/games/results, the write
 path off `GameOver`, and read endpoints (`/stats/{user}`, `/leaderboard`).
 
-## Custom domain
-
-`derpigame.shikogo.com` for the Pages frontend. The backend already allows the
-origin — `fly.toml` lists it beside the Pages one — so this needs the DNS record
-and the Pages setting, plus Vite's `base` dropping from `/derpigame/` to `/`,
-since a custom domain serves from the root rather than a project subpath.
-
 ## Deferred by choice
 
 Settled decisions worth not relitigating without reason:
