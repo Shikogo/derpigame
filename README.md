@@ -211,3 +211,7 @@ dependency, so the game logic is unit-testable in isolation. Pinia stores are a
 thin reactive shell over it, a typed `socket.io-client` wrapper carries the wire
 contract (mirrored exactly in `src/types/wire.ts`), and components stay
 presentational.
+
+## Support
+
+If you enjoy the game, [buy me a coffee](https://ko-fi.com/shikogo) ☕.

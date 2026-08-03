@@ -3,6 +3,8 @@
  * The rules, shown once on a browser's first visit and on demand after that.
  * Presentational only — the parent decides how it's shown and what closing does.
  */
+import { KOFI_URL } from '@/lib/links'
+
 defineEmits<{ close: [] }>()
 </script>
 
@@ -40,7 +42,15 @@ defineEmits<{ close: [] }>()
       </div>
     </dl>
 
-    <div class="mt-6 flex justify-end">
+    <div class="mt-6 flex items-center justify-between gap-4">
+      <a
+        :href="KOFI_URL"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="text-xs text-ink-faint underline transition-colors hover:text-ink-muted"
+      >
+        Buy me a coffee ☕
+      </a>
       <button
         class="rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-on-accent"
         @click="$emit('close')"

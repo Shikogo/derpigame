@@ -4,6 +4,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { errorLabel } from '@/lib/errors'
+import { KOFI_URL } from '@/lib/links'
 import { rememberRoom, roomRoute } from '@/lib/roomCode'
 import { categoryPillStyle } from '@/lib/tagColor'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -103,5 +104,16 @@ async function join(): Promise<void> {
     </form>
 
     <p v-if="room.error" class="text-center text-sm text-wrong">{{ errorLabel(room.error) }}</p>
+
+    <footer class="text-center text-xs text-ink-faint">
+      <a
+        :href="KOFI_URL"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="underline transition-colors hover:text-ink-muted"
+      >
+        Buy me a coffee ☕
+      </a>
+    </footer>
   </main>
 </template>
