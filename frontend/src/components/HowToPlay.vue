@@ -52,6 +52,7 @@ defineEmits<{ close: [] }>()
         Buy me a coffee ☕
       </a>
       <button
+        autofocus
         class="rounded-lg bg-turn px-4 py-2 text-sm font-semibold text-on-accent"
         @click="$emit('close')"
       >
