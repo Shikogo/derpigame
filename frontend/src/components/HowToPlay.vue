@@ -26,9 +26,9 @@ defineEmits<{ close: [] }>()
       <div>
         <dt class="font-semibold">Turns</dt>
         <dd class="mt-1 text-ink-muted">
-          Players take turns, each turn you get to guess one tag. There's a time limit, and if you
-          time out, that's a strike! Three strikes and you're out. The game continues until everyone
-          is eliminated or every required tag has been guessed.
+          Players take turns, each turn you get to guess one tag. If you guess wrong, that's a
+          strike! Three strikes and you're out. Timing out is also a strike. The game continues
+          until everyone is eliminated or every required tag has been guessed.
         </dd>
       </div>
 
