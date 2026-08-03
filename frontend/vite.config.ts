@@ -5,10 +5,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 
-// Served under /derpigame/ on GitHub Pages, at / in dev. The hash router keeps
-// deep links working regardless of the base path.
-export default defineConfig(({ command }) => ({
-  base: command === 'build' ? '/derpigame/' : '/',
+export default defineConfig({
+  base: '/',
   plugins: [vue(), tailwindcss()],
   resolve: {
     alias: {
@@ -20,4 +18,4 @@ export default defineConfig(({ command }) => ({
     include: ['src/**/*.{test,spec}.ts'],
     setupFiles: ['./vitest.setup.ts'],
   },
-}))
+})
