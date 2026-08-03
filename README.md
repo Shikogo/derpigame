@@ -10,6 +10,13 @@ and user accounts are the main pieces still to come (room history and stats are
 in-memory for now). See [`ROADMAP.md`](ROADMAP.md) for what's left and
 [`DEVELOPMENT.md`](DEVELOPMENT.md) for the lint/format/test commands.
 
+## How this was built
+
+A human-directed project built with
+[Claude Code](https://claude.com/product/claude-code): I set the design,
+architecture and the constraints, Claude generated most of the code. Every
+change was reviewed and, if necessary, adjusted before being deployed.
+
 ## Repo layout
 
 ```
