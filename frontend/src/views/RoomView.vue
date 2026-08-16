@@ -152,6 +152,16 @@ const mobileShell = roundLive
 // this.
 const sheetOpen = ref(false)
 
+/**
+ * Counts panels that have finished arriving. A panel with something to play on
+ * arrival — the results screen and its confetti — waits for this to change
+ * rather than guessing how long the cross-fade takes. A count, not a flag, so a
+ * panel can only ever react to an arrival that happened after it mounted; the
+ * transition runs on the first render too (`appear`), so a panel that arrives
+ * without a fade to wait for still reports one.
+ */
+const panelArrivals = ref(0)
+
 // Your turn arriving already focuses the guess box; clearing the sheet off the
 // picture is the same thought.
 watch(
@@ -208,10 +218,12 @@ async function backToLobby(): Promise<void> {
     :class="[
       mobileShell &&
         'max-lg:fixed max-lg:inset-x-0 max-lg:top-0 max-lg:h-[calc(100dvh-var(--kbd-inset,0px))] max-lg:min-h-0 max-lg:overflow-hidden max-lg:p-0',
-      // A round takes the whole window: the picture is the screen, with the
-      // header a bar over it and the rail a column beside it. The lobby and the
-      // results are reading width, so they keep the page.
-      roundLive && 'lg:h-dvh lg:max-w-none lg:overflow-hidden lg:p-0',
+      // On desktop the room is one window-sized shell, whatever it is showing:
+      // header bar, then everything below it. A round fills it with the picture;
+      // the lobby and the results screen put their own reading column in it. The
+      // shell is what keeps a cross-fade steady — panels swap inside a frame
+      // that never moves.
+      isMember && 'lg:h-dvh lg:max-w-none lg:overflow-hidden lg:p-0',
     ]"
     :data-mobile-shell="mobileShell || undefined"
   >
@@ -259,9 +271,9 @@ async function backToLobby(): Promise<void> {
         :class="[
           mobileShell &&
             'max-lg:mb-0 max-lg:shrink-0 max-lg:border-b max-lg:border-border max-lg:px-3 max-lg:py-2',
-          // The bar the stage runs under: it brings its own padding back, since
+          // The bar the shell runs under: it brings its own padding back, since
           // the page has none left to give it.
-          roundLive && 'lg:mb-0 lg:shrink-0 lg:border-b lg:border-border lg:px-4 lg:py-2',
+          isMember && 'lg:mb-0 lg:shrink-0 lg:border-b lg:border-border lg:px-4 lg:py-2',
         ]"
       >
         <div class="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -306,23 +318,30 @@ async function backToLobby(): Promise<void> {
            guess box out through the bottom of the shell. -->
       <!-- The rail's column exists only while a round does; the lobby and the
            results screen have nothing to put beside them. -->
-      <!-- Three cells while a round runs, placed rather than ordered: the guess
-           box sits under the picture on desktop and under the strip on a phone,
-           and placing one element twice would remount the box — losing the
-           focus, the caret and anything typed ahead — every time the layout
-           crossed `lg`. -->
+      <!-- The panels get the whole shell, and a round's furniture is laid over
+           it: the rail in its own column, the guess box in its own row, both
+           only while a round is on. Nothing the panels sit in changes size when
+           one arrives or leaves, which is what keeps a cross-fade still — the
+           stage insets itself by the furniture instead (see `GamePanel`).
+
+           On a phone the same furniture stacks under the picture rather than
+           over it, placed rather than ordered: rendering the guess box twice
+           would remount it — losing focus, caret and anything typed ahead —
+           every time the layout crossed `lg`. -->
       <div
-        class="grid flex-1 gap-4 lg:min-h-0"
+        class="grid flex-1 gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[minmax(0,1fr)_4rem] lg:gap-0"
         :class="
-          roundLive &&
-          'max-lg:min-h-0 max-lg:grid-rows-[minmax(0,1fr)_auto_auto] max-lg:gap-0 lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[minmax(0,1fr)_auto] lg:gap-0'
+          roundLive && 'max-lg:min-h-0 max-lg:grid-rows-[minmax(0,1fr)_auto_auto] max-lg:gap-0'
         "
       >
         <div
-          class="flex min-w-0 flex-col gap-4"
-          :class="[mobileShell && 'max-lg:min-h-0', roundLive && 'row-start-1 lg:col-start-1']"
+          class="flex min-w-0 flex-col gap-4 lg:col-span-2 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:min-h-0"
+          :class="[mobileShell && 'max-lg:min-h-0', roundLive && 'max-lg:row-start-1']"
         >
-          <p v-if="notice" class="rounded-lg bg-wrong/10 px-3 py-2 text-sm text-wrong">
+          <p
+            v-if="notice"
+            class="rounded-lg bg-wrong/10 px-3 py-2 text-sm text-wrong lg:mx-4 lg:mt-4"
+          >
             {{ notice }}
           </p>
           <!-- Cross-faded rather than swapped: a decided round holds the picture
@@ -338,14 +357,22 @@ async function backToLobby(): Promise<void> {
                floor for a stacked layout and the shell's shrink-to-fit can't
                fight each other. It also catches the round ending: the shell
                releases while the panel is still fading out, and the floor keeps
-               the leaving panel from collapsing mid-fade. -->
+               the leaving panel from collapsing mid-fade.
+
+               A panel taller than the shell scrolls in here rather than
+               scrolling the page, which the shell has taken out of the picture.
+               The stage is exactly this tall, so it never sees a scrollbar. -->
           <div
-            class="grid min-w-0 flex-1"
+            class="grid min-w-0 flex-1 lg:min-h-0 lg:overflow-y-auto"
             :class="mobileShell ? 'max-lg:min-h-0' : 'max-lg:min-h-[45svh]'"
           >
-            <Transition name="panel">
+            <Transition name="panel" appear @after-enter="panelArrivals++">
               <AgeGate v-if="needsAgeGate" @confirm="session.acknowledgeNsfw()" @decline="leave" />
-              <GameOverPanel v-else-if="showGameOver" @back="backToLobby" />
+              <GameOverPanel
+                v-else-if="showGameOver"
+                :arrivals="panelArrivals"
+                @back="backToLobby"
+              />
               <GamePanel v-else-if="showGame" />
               <LobbyPanel v-else />
             </Transition>
@@ -371,7 +398,7 @@ async function backToLobby(): Promise<void> {
         <GuessDock
           v-if="roundLive"
           :sheet-open="sheetOpen"
-          class="max-lg:row-start-3 lg:col-start-1 lg:row-start-2 lg:mx-auto lg:w-full lg:max-w-2xl lg:px-4 lg:py-3"
+          class="max-lg:row-start-3 lg:col-start-1 lg:row-start-2 lg:mx-auto lg:h-16 lg:w-full lg:max-w-2xl lg:justify-center lg:px-4"
           @toggle="sheetOpen = !sheetOpen"
         />
       </div>

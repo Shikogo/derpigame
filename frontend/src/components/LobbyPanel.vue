@@ -41,7 +41,7 @@ async function copyInvite(): Promise<void> {
 <template>
   <!-- Capped and centred like the results screen: with no rail beside it the
        lobby would otherwise stretch the full width of the page. -->
-  <div class="mx-auto flex w-full max-w-3xl flex-col gap-5">
+  <div class="mx-auto flex w-full max-w-3xl flex-col gap-5 lg:p-4">
     <h2 class="font-display text-xl font-bold">Lobby</h2>
 
     <UserList />
