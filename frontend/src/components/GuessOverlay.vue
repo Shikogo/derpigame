@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
- * The card for a landing guess, pinned to the top of the picture: who guessed,
- * what they guessed (and what they typed, if the server translated it), the
- * verdict, and the strikes it cost. Drops in, holds, fades.
+ * The card for a landing guess, pinned to the bottom of the picture just over
+ * the guess box: who guessed, what they guessed (and what they typed, if the
+ * server translated it), the verdict, and the strikes it cost. Rises, holds,
+ * fades — the result lands where the typing happens.
  *
  * Cards are queued rather than latched to the newest entry, because one
  * `applyEvents` batch can carry several and showing only the last would drop
@@ -20,10 +21,11 @@ const HOLD_BUSY_MS = 700 // catching up, so each card gets a glance not a dwell
 const GAP_MS = 180 // lets the leave transition finish before the next enters
 const MAX_QUEUE = 3 // a burst shows the most recent few, never a backlog
 
-// Height of the letterbox band above the picture — the room the card has to
-// clear it. 0 (the default, for a caller with no viewer to ask) puts the card
-// over the picture, which is also what a band too small to hold it degrades to.
-const props = withDefaults(defineProps<{ pictureTop?: number }>(), { pictureTop: 0 })
+// Height of the letterbox band under the picture: the card is lifted by it to
+// clear the picture's bottom edge. 0 (the default, for a caller with no viewer
+// to ask) leaves the card over the picture, which is also where a band too short
+// to hold it puts it.
+const props = withDefaults(defineProps<{ pictureBottom?: number }>(), { pictureBottom: 0 })
 
 const game = useGameStore()
 
@@ -117,19 +119,20 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <!-- The card attaches to the top edge of the picture from the outside: this
-       div is the letterbox band, and `safe end` parks the card at its bottom,
-       just clear of the picture. A booru image's subject sits dead centre, so
-       covering any of it is a last resort — and `safe` is what makes it one,
-       flipping to start alignment when the band is too short to hold the card,
-       which overlaps the picture's top rather than overflowing off-frame.
-       pointer-events-none throughout, so the picture stays pannable.
+  <!-- The card attaches to the bottom edge of the picture from the outside: this
+       div is the letterbox band, pinned to the foot of the frame, and the card
+       sits at its top — just clear of the picture. A booru image's subject sits
+       dead centre, so covering any of it is a last resort, and `min-h-min` is
+       what makes it one: a band too short to hold the card grows to fit it, and
+       since the band is pinned by its bottom it grows up over the picture rather
+       than off-frame. pointer-events-none throughout, so the picture stays
+       pannable.
 
-       The card is one row on a wide band and wraps to two on a phone, where
+       The card is one row on a wide picture and wraps to two on a phone, where
        truncating would eat the headline — the one part worth reading. -->
   <div
-    class="band pointer-events-none absolute inset-x-0 top-0 z-10 grid justify-center p-2 transition-[height] duration-200 sm:p-3"
-    :style="{ height: `${props.pictureTop}px` }"
+    class="pointer-events-none absolute inset-x-0 bottom-0 z-10 grid min-h-min content-start justify-center p-2 transition-[height] duration-200 sm:p-3"
+    :style="{ height: `${props.pictureBottom}px` }"
   >
     <Transition name="card">
       <div
@@ -217,12 +220,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* No Tailwind utility for the `safe` keyword, and it's the whole mechanism:
-   `end` alone would overflow the card off the top of the frame. */
-.band {
-  align-content: safe end;
-}
-
 /* Enter and leave share the one grid cell, so a leaving card can't shove the
    next one off-centre and neither needs taking out of flow. */
 .card-enter-active,
@@ -240,13 +237,14 @@ onBeforeUnmount(() => {
     opacity 0.22s ease-in,
     transform 0.22s ease-in;
 }
+/* Up off the guess box, the way the guess itself went. */
 .card-enter-from {
   opacity: 0;
-  transform: translateY(-10px) scale(0.9);
+  transform: translateY(10px) scale(0.9);
 }
 .card-leave-to {
   opacity: 0;
-  transform: translateY(-6px) scale(1.02);
+  transform: translateY(6px) scale(1.02);
 }
 
 /* Each X lands a beat after the card, so the strike reads as its own event. */

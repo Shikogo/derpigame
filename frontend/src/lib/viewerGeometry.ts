@@ -109,12 +109,12 @@ export function zoomPercent(view: View, frame: Size, image: Size): number {
 }
 
 /**
- * Top edge of the picture in frame space, i.e. the height of the letterbox band
- * above it — how much room anything pinned to the picture has to sit in. Zero
- * once the picture reaches or passes the frame's top edge.
+ * Height of the letterbox band under the picture — how much room anything
+ * pinned to its bottom edge has to sit in. Zero once the picture reaches or
+ * passes the frame's bottom edge.
  */
-export function pictureTop(view: View): number {
-  return Math.max(view.ty, 0)
+export function pictureBottom(view: View, frame: Size, image: Size): number {
+  return Math.max(frame.height - (view.ty + image.height * view.scale), 0)
 }
 
 /** Fit-to-frame view: minimum scale, centered. */
