@@ -32,7 +32,7 @@ import {
   isFitted,
   isMaxZoomed,
   panBy,
-  pictureTop,
+  pictureBottom,
   resizeView,
   zoomPercent,
   zoomToPoint,
@@ -67,9 +67,9 @@ const showControls = computed(() => ready.value && (hovering.value || showHint.v
 const fitted = computed(() => isFitted(view, frame, image))
 const maxed = computed(() => isMaxZoomed(view, frame, image))
 const percent = computed(() => zoomPercent(view, frame, image))
-// Where the picture actually starts, so a caller's overlay can attach to it
-// rather than to the frame.
-const contentTop = computed(() => pictureTop(view))
+// Where the picture ends, so a caller's overlay can attach to its bottom edge
+// rather than to the frame's.
+const contentBottom = computed(() => pictureBottom(view, frame, image))
 
 const pointers = new Map<number, { x: number; y: number }>()
 let pinchDist = 0
@@ -260,13 +260,13 @@ watch(
 
 // Exposed for the dev sandbox / tests to observe and drive the transform, and
 // for GamePanel to line the guess overlay up with the picture.
-defineExpose({ view, reset, contentTop })
+defineExpose({ view, reset, contentBottom })
 </script>
 
 <template>
   <div
     ref="frameEl"
-    class="relative h-full w-full touch-none select-none overflow-hidden rounded-lg bg-black/80"
+    class="relative h-full w-full touch-none select-none overflow-hidden bg-black/80"
     :class="dragging ? 'cursor-grabbing' : 'cursor-grab'"
     @pointerenter="hovering = true"
     @pointerleave="hovering = false"

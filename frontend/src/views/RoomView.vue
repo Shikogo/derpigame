@@ -205,10 +205,14 @@ async function backToLobby(): Promise<void> {
        narrower than 72rem anyway. -->
   <main
     class="mx-auto flex min-h-full max-w-6xl flex-col p-4"
-    :class="
+    :class="[
       mobileShell &&
-      'max-lg:fixed max-lg:inset-x-0 max-lg:top-0 max-lg:h-[calc(100dvh-var(--kbd-inset,0px))] max-lg:min-h-0 max-lg:overflow-hidden max-lg:p-0'
-    "
+        'max-lg:fixed max-lg:inset-x-0 max-lg:top-0 max-lg:h-[calc(100dvh-var(--kbd-inset,0px))] max-lg:min-h-0 max-lg:overflow-hidden max-lg:p-0',
+      // A round takes the whole window: the picture is the screen, with the
+      // header a bar over it and the rail a column beside it. The lobby and the
+      // results are reading width, so they keep the page.
+      roundLive && 'lg:h-dvh lg:max-w-none lg:overflow-hidden lg:p-0',
+    ]"
     :data-mobile-shell="mobileShell || undefined"
   >
     <!-- reconnecting / name gate -->
@@ -252,10 +256,13 @@ async function backToLobby(): Promise<void> {
            part earns its width. -->
       <header
         class="mb-4 flex items-center justify-between gap-2 sm:gap-3"
-        :class="
+        :class="[
           mobileShell &&
-          'max-lg:mb-0 max-lg:shrink-0 max-lg:border-b max-lg:border-border max-lg:px-3 max-lg:py-2'
-        "
+            'max-lg:mb-0 max-lg:shrink-0 max-lg:border-b max-lg:border-border max-lg:px-3 max-lg:py-2',
+          // The bar the stage runs under: it brings its own padding back, since
+          // the page has none left to give it.
+          roundLive && 'lg:mb-0 lg:shrink-0 lg:border-b lg:border-border lg:px-4 lg:py-2',
+        ]"
       >
         <div class="flex min-w-0 items-center gap-2 sm:gap-3">
           <RouterLink
@@ -299,14 +306,22 @@ async function backToLobby(): Promise<void> {
            guess box out through the bottom of the shell. -->
       <!-- The rail's column exists only while a round does; the lobby and the
            results screen have nothing to put beside them. -->
+      <!-- Three cells while a round runs, placed rather than ordered: the guess
+           box sits under the picture on desktop and under the strip on a phone,
+           and placing one element twice would remount the box — losing the
+           focus, the caret and anything typed ahead — every time the layout
+           crossed `lg`. -->
       <div
         class="grid flex-1 gap-4 lg:min-h-0"
         :class="
           roundLive &&
-          'max-lg:min-h-0 max-lg:grid-rows-[minmax(0,1fr)_auto] max-lg:gap-0 lg:grid-cols-[minmax(0,1fr)_22rem]'
+          'max-lg:min-h-0 max-lg:grid-rows-[minmax(0,1fr)_auto_auto] max-lg:gap-0 lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[minmax(0,1fr)_auto] lg:gap-0'
         "
       >
-        <div class="flex min-w-0 flex-col gap-4" :class="mobileShell && 'max-lg:min-h-0'">
+        <div
+          class="flex min-w-0 flex-col gap-4"
+          :class="[mobileShell && 'max-lg:min-h-0', roundLive && 'row-start-1 lg:col-start-1']"
+        >
           <p v-if="notice" class="rounded-lg bg-wrong/10 px-3 py-2 text-sm text-wrong">
             {{ notice }}
           </p>
@@ -336,20 +351,29 @@ async function backToLobby(): Promise<void> {
             </Transition>
           </div>
         </div>
-        <!-- One stack on desktop, three zones on a phone: the strip and the dock
-             pin to the bottom of the shell and the rest becomes the sheet.
-             Ordered so both readings fall out of the same markup — nothing is
-             mounted twice, so crossing `lg` never restarts the turn timer. -->
+        <!-- The round's readouts: a column beside the stage on desktop, a strip
+             above the guess box on a phone with the rest behind the sheet. The
+             rail brings its own padding for the same reason the header does, and
+             a border to part it from the stage. -->
         <aside
           v-if="roundLive"
-          class="flex min-w-0 flex-col gap-4 max-lg:min-h-0 max-lg:gap-0 lg:min-h-0 lg:overflow-hidden"
+          class="flex min-w-0 flex-col gap-4 max-lg:row-start-2 max-lg:min-h-0 max-lg:gap-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:min-h-0 lg:overflow-hidden lg:border-l lg:border-border lg:p-4"
         >
           <RoundStatusStrip :compact="keyboardOpen" />
-          <GuessDock :sheet-open="sheetOpen" @toggle="sheetOpen = !sheetOpen" />
           <BottomSheet v-model:open="sheetOpen">
             <RoundLog />
           </BottomSheet>
         </aside>
+
+        <!-- Directly under the picture, where the eyes already are. Held to a
+             readable width and centred on the stage rather than stretched across
+             it. -->
+        <GuessDock
+          v-if="roundLive"
+          :sheet-open="sheetOpen"
+          class="max-lg:row-start-3 lg:col-start-1 lg:row-start-2 lg:mx-auto lg:w-full lg:max-w-2xl lg:px-4 lg:py-3"
+          @toggle="sheetOpen = !sheetOpen"
+        />
       </div>
 
       <dialog
