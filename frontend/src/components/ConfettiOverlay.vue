@@ -17,16 +17,12 @@ import confetti, { type CreateTypes } from 'canvas-confetti'
 import { celebration, type CelebrationKind } from '@/lib/confetti'
 import { CATEGORY_TOKENS } from '@/lib/tagColor'
 
-// `kinds` fires once on mount — after `delay`, which lets a panel finish
-// arriving before anything goes off on top of it. An empty `kinds` mounts an
-// idle overlay that never fires.
-const props = withDefaults(
-  defineProps<{
-    kinds?: readonly CelebrationKind[]
-    delay?: number
-  }>(),
-  { kinds: () => [], delay: 0 },
-)
+// `kinds` fires once on mount, so a caller that wants the volley held back
+// mounts this when it's ready for it. An empty `kinds` mounts an idle overlay
+// that never fires.
+const props = withDefaults(defineProps<{ kinds?: readonly CelebrationKind[] }>(), {
+  kinds: () => [],
+})
 
 /** Theme tokens the paper is cut from — canvas can't read CSS vars itself. */
 const COLOR_TOKENS = [...CATEGORY_TOKENS, '--color-turn', '--color-correct']
@@ -40,8 +36,8 @@ function palette(): string[] {
   return COLOR_TOKENS.map((t) => style.getPropertyValue(t).trim()).filter(Boolean)
 }
 
-/** Send the celebration up, every shot in it held back by `delay`. */
-function fire(kinds: readonly CelebrationKind[], delay: number): void {
+/** Send the celebration up, each shot on its own beat. */
+function fire(kinds: readonly CelebrationKind[]): void {
   if (!launch || !kinds.length) return
   const view = { width: window.innerWidth, height: window.innerHeight }
   const colors = palette()
@@ -51,7 +47,7 @@ function fire(kinds: readonly CelebrationKind[], delay: number): void {
         // Reduced motion is the library's own opt-out: it drops the pieces in
         // place rather than animating them across the screen.
         void launch?.({ ...shot.options, colors, disableForReducedMotion: true })
-      }, delay + shot.at),
+      }, shot.at),
     )
   }
 }
@@ -60,7 +56,7 @@ onMounted(() => {
   const el = canvas.value
   if (!el) return
   launch = confetti.create(el, { resize: true, useWorker: true })
-  fire(props.kinds, props.delay)
+  fire(props.kinds)
 })
 
 onBeforeUnmount(() => {

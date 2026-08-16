@@ -28,30 +28,43 @@ function mountResult(over: Outcome) {
   game.state.status = 'over'
   game.state.over = { winCounts: [], ...over }
   // jsdom has no canvas; the panel's job here is deciding whether to mount it.
-  return mount(GameOverPanel, { global: { stubs: { ConfettiOverlay: true } } })
+  return mount(GameOverPanel, {
+    props: { arrivals: 0 },
+    global: { stubs: { ConfettiOverlay: true } },
+  })
 }
 
-/** What the panel asks for: the cannons, the fireworks, both, or nothing. */
-function celebration(over: Outcome): string[] {
-  const overlay = mountResult(over).findComponent(ConfettiOverlay)
+/** What the panel asks for once it has arrived: cannons, fireworks, both, none. */
+async function celebration(over: Outcome): Promise<string[]> {
+  const wrapper = mountResult(over)
+  await wrapper.setProps({ arrivals: 1 })
+  const overlay = wrapper.findComponent(ConfettiOverlay)
   return overlay.exists() ? [...(overlay.props('kinds') as string[])] : []
 }
 
 describe('GameOverPanel celebrations', () => {
-  it('sends the cannons to the winner only', () => {
+  it('sends the cannons to the winner only', async () => {
     const won = { win: false, winners: [ME], standings: [ME, RIVAL] }
 
-    expect(celebration(won)).toEqual(['winner'])
-    expect(celebration({ ...won, winners: [RIVAL] })).toEqual([])
+    expect(await celebration(won)).toEqual(['winner'])
+    expect(await celebration({ ...won, winners: [RIVAL] })).toEqual([])
   })
 
-  it('celebrates a clean sweep for everyone, and stacks it on a win', () => {
+  it('celebrates a clean sweep for everyone, and stacks it on a win', async () => {
     const sweptByRival = { win: true, winners: [RIVAL], standings: [RIVAL, ME] }
 
     // Lost the round the room swept: the fireworks are still yours to watch.
-    expect(celebration(sweptByRival)).toEqual(['sweep'])
-    expect(celebration({ ...sweptByRival, winners: [ME] })).toEqual(['winner', 'sweep'])
+    expect(await celebration(sweptByRival)).toEqual(['sweep'])
+    expect(await celebration({ ...sweptByRival, winners: [ME] })).toEqual(['winner', 'sweep'])
     expect(mountResult(sweptByRival).text()).toContain('Clean sweep')
+  })
+
+  it('holds the cannons until the panel has arrived', async () => {
+    const wrapper = mountResult({ win: false, winners: [ME], standings: [ME] })
+    expect(wrapper.findComponent(ConfettiOverlay).exists()).toBe(false)
+
+    await wrapper.setProps({ arrivals: 1 })
+    expect(wrapper.findComponent(ConfettiOverlay).exists()).toBe(true)
   })
 
   it('stays quiet for an aborted round', () => {

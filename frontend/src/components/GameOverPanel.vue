@@ -6,7 +6,7 @@
  * shows winners, standings and the confetti. The ready/start bar stays on screen
  * throughout, so the next round is one click away without a trip to the lobby.
  */
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import ConfettiOverlay from '@/components/ConfettiOverlay.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
@@ -18,7 +18,17 @@ import { useGameStore } from '@/stores/game'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
+// `arrivals` ticks when a panel finishes arriving (see `RoomView`). The cannons
+// wait for a tick that lands while this panel is mounted — a shot fired mid-fade
+// fights the transition.
+const props = defineProps<{ arrivals?: number }>()
 const emit = defineEmits<{ back: [] }>()
+
+const arrived = ref(false)
+watch(
+  () => props.arrivals,
+  () => (arrived.value = true),
+)
 
 const game = useGameStore()
 const room = useRoomStore()
@@ -71,10 +81,8 @@ const celebration = computed<CelebrationKind[]>(() => {
 </script>
 
 <template>
-  <section class="mx-auto flex w-full max-w-3xl flex-col gap-5">
-    <!-- Held until the panel has finished arriving: RoomView cross-fades it in
-         over 0.28s, and a cannon going off mid-fade fights the transition. -->
-    <ConfettiOverlay v-if="celebration.length" :kinds="celebration" :delay="420" />
+  <section class="mx-auto flex w-full max-w-3xl flex-col gap-5 lg:p-4">
+    <ConfettiOverlay v-if="celebration.length && arrived" :kinds="celebration" />
 
     <h2 class="font-display text-3xl font-bold" :class="iWon ? 'text-correct' : 'text-turn'">
       {{ heading }}

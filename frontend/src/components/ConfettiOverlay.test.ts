@@ -48,16 +48,6 @@ describe('ConfettiOverlay', () => {
     expect(launch).toHaveBeenCalled()
   })
 
-  it('holds a mounted celebration back by its delay, then fires it', () => {
-    mount(ConfettiOverlay, { props: { kinds: ['winner'], delay: 420 } })
-
-    vi.advanceTimersByTime(400)
-    expect(launch).not.toHaveBeenCalled()
-
-    playSchedule()
-    expect(launch).toHaveBeenCalled()
-  })
-
   it('drops pending shots when it unmounts mid-celebration', () => {
     const wrapper = mount(ConfettiOverlay, { props: { kinds: ['winner', 'sweep'] } })
 

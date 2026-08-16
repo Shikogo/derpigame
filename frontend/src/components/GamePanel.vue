@@ -8,6 +8,11 @@
  * height, so the shrinking-for-the-keyboard case and the floor under a stacked
  * layout are decided in one place.
  *
+ * On desktop that box is the whole shell, with the rail and the guess box laid
+ * over its right and bottom edges — so the stage holds itself clear of both.
+ * Insetting here rather than sizing the box there is what lets a panel arrive or
+ * leave without the furniture resizing whatever is mid-fade.
+ *
  * Keep the template single-root — the two branches are one root, but a stray
  * comment or sibling beside them makes this a fragment, and `RoomView` wraps it
  * in a `<Transition mode="out-in">` that then has no element to animate: the
@@ -34,15 +39,13 @@ const pictureBottom = computed(() => viewer.value?.contentBottom ?? 0)
 </script>
 
 <template>
-  <!-- Haloed for as long as the room is waiting on you -->
-  <section
-    v-if="live"
-    class="relative h-full min-h-0 w-full overflow-hidden"
-    :class="{ 'my-turn': game.isMyTurn }"
-  >
-    <ImageViewer ref="viewer" :src="game.state.image!.full_url" alt="Guess the tags" />
-    <GuessOverlay :picture-bottom="pictureBottom" />
-  </section>
+  <div v-if="live" class="h-full min-h-0 w-full lg:pb-16 lg:pe-88">
+    <!-- Haloed for as long as the room is waiting on you -->
+    <section class="relative h-full w-full overflow-hidden" :class="{ 'my-turn': game.isMyTurn }">
+      <ImageViewer ref="viewer" :src="game.state.image!.full_url" alt="Guess the tags" />
+      <GuessOverlay :picture-bottom="pictureBottom" />
+    </section>
+  </div>
 
   <section v-else class="flex min-h-[45vh] flex-col items-center justify-center gap-2 text-center">
     <p class="font-display text-lg font-semibold">A round is already in progress.</p>
