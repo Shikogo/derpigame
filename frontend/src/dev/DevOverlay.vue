@@ -9,7 +9,7 @@
  * is worth looking at. What's left is the environment: an on-screen keyboard,
  * and whether the layout is keeping up.
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useFrameRate } from '@/dev/useFrameRate'
 import { useKeyboardInset } from '@/composables/useKeyboardInset'
@@ -72,7 +72,11 @@ onBeforeUnmount(() => {
 })
 
 // The bar sits where the mobile dock does, so it starts out of the way there.
-const collapsed = ref(window.innerWidth < 1024)
+// Remembered, because judging a layout means reloading it a lot and answering
+// the same question each time is what makes a harness annoying.
+const COLLAPSED_KEY = 'derpigame.dev.collapsed'
+const collapsed = ref(localStorage.getItem(COLLAPSED_KEY) === 'true' || window.innerWidth < 1024)
+watch(collapsed, (value) => localStorage.setItem(COLLAPSED_KEY, String(value)))
 </script>
 
 <template>
@@ -84,9 +88,16 @@ const collapsed = ref(window.innerWidth < 1024)
        the paper moves. That's the harness making itself look slow.
 
        Below `lg` the bottom edge belongs to the guess dock, so the bar moves to
-       the corner rather than sitting on the thing it exists to test. -->
+       the corner rather than sitting on the thing it exists to test. Collapsed,
+       it goes to the corner everywhere: a full-width strip of chrome is exactly
+       what's in the way when the layout is the thing being judged. -->
   <div
-    class="fixed z-50 flex flex-wrap items-center justify-center gap-2 border-border bg-surface px-3 py-2 max-lg:right-2 max-lg:top-2 max-lg:max-w-[14rem] max-lg:flex-col max-lg:items-stretch max-lg:rounded-lg max-lg:border lg:inset-x-0 lg:bottom-0 lg:border-t"
+    class="fixed z-50 flex flex-wrap items-center justify-center gap-2 border-border bg-surface px-3 py-2 max-lg:right-2 max-lg:top-2 max-lg:max-w-[14rem] max-lg:flex-col max-lg:items-stretch max-lg:rounded-lg max-lg:border"
+    :class="
+      collapsed
+        ? 'lg:bottom-2 lg:left-2 lg:rounded-lg lg:border'
+        : 'lg:inset-x-0 lg:bottom-0 lg:border-t'
+    "
   >
     <template v-if="!collapsed">
       <span class="mr-1 font-mono text-xs uppercase tracking-wider text-ink-faint">dev</span>
