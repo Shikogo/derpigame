@@ -1,0 +1,4 @@
+# Cloudflare Pages serves a matching static file first and falls through to
+# here, so a deep link like /room/wise-blue-moon reaches index.html instead of a
+# 404 and the router resolves it client-side.
+/*  /index.html  200

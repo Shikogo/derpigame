@@ -19,6 +19,7 @@ import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException
 
 from app.config import Settings, load_settings
 from app.domain.rating import DERPIBOORU_AXES, FURBOORU_AXES
@@ -53,9 +54,11 @@ def create_app(
     settings = settings or load_settings()
     configure_logging(settings.logging.level)
     logger.info("derpigame starting (log level %s)", settings.logging.level)
-    cors_origins = list(settings.server.cors_origins)
-
-    sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=cors_origins)
+    # One rule, two consumers: the handshake check takes a predicate, the HTTP
+    # middleware takes the list and the pattern separately.
+    sio = socketio.AsyncServer(
+        async_mode="asgi", cors_allowed_origins=settings.server.allows_origin
+    )
     # One shared httpx client so every lookup reuses the connection pool instead of
     # paying a fresh TLS handshake; each PhilomenaClient keeps its own back-off
     # state (per-IP, per-booru) but shares that pool.
@@ -83,7 +86,8 @@ def create_app(
     api = FastAPI(lifespan=lifespan)
     api.add_middleware(
         CORSMiddleware,
-        allow_origins=cors_origins,
+        allow_origins=list(settings.server.cors_origins),
+        allow_origin_regex=settings.server.cors_origin_regex,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -96,9 +100,27 @@ def create_app(
     # tunnel) fronts both the SPA and the websocket. Mounted last so /health and
     # the Socket.IO paths keep priority; html=True serves index.html at /.
     if static_dir is not None:
-        api.mount("/", StaticFiles(directory=static_dir, html=True), name="frontend")
+        api.mount("/", _SpaFiles(directory=static_dir, html=True), name="frontend")
 
     return socketio.ASGIApp(sio, other_asgi_app=api)
+
+
+class _SpaFiles(StaticFiles):
+    """Static files that fall back to ``index.html``.
+
+    The frontend routes on plain paths, so a deep link like ``/room/<code>``
+    names no file here — it's for the router to resolve once the page is up.
+    Cloudflare Pages does this from ``frontend/public/_redirects``; this is the
+    same rule for the single-origin server.
+    """
+
+    async def get_response(self, path: str, scope):
+        try:
+            return await super().get_response(path, scope)
+        except HTTPException as exc:
+            if exc.status_code != 404:
+                raise
+            return await super().get_response("index.html", scope)
 
 
 # Which structural taxonomy each source's tags are classified by. The config's

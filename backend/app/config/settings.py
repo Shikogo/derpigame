@@ -19,6 +19,7 @@ a typo in ``config.toml`` fails at startup instead of silently doing nothing.
 """
 
 import logging
+import re
 from dataclasses import replace
 from pathlib import Path
 
@@ -46,6 +47,38 @@ class ServerSettings(_Section):
     # "*" is fine for local play but must be narrowed to the real frontend origin
     # before deployment — it governs the websocket handshake as well as CORS.
     cors_origins: list[str] = ["*"]
+    # For origins that can't be listed one by one: a preview deploy gets a fresh
+    # subdomain per branch. Matched whole, so a pattern can't pass on a prefix.
+    cors_origin_regex: str | None = None
+
+    @field_validator("cors_origin_regex")
+    @classmethod
+    def _compilable(cls, value: str | None) -> str | None:
+        # A bad pattern should fail at startup, not on the first handshake.
+        if value is not None:
+            try:
+                re.compile(value)
+            except re.error as exc:
+                raise ValueError(f"cors_origin_regex is not a valid pattern: {exc}") from exc
+        return value
+
+    def allows_origin(self, origin: str | None) -> bool:
+        """Whether ``origin`` may call the API and open a socket.
+
+        The Socket.IO handshake takes this as one predicate over both the list
+        and the pattern; CORS middleware takes the two fields separately.
+        """
+        if "*" in self.cors_origins:
+            return True
+        if origin is None:
+            return False
+        if origin in self.cors_origins:
+            return True
+        # re caches compiled patterns, so this doesn't recompile per request.
+        return (
+            self.cors_origin_regex is not None
+            and re.fullmatch(self.cors_origin_regex, origin) is not None
+        )
 
 
 class SourceCuration(_Section):

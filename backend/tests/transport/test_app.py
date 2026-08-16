@@ -74,6 +74,25 @@ def test_create_app_builds_with_an_injected_image_source():
     assert app is not None
 
 
+async def test_the_static_mount_falls_back_to_the_spa_shell(tmp_path):
+    # The frontend routes on plain paths, so /room/<code> names no file and has
+    # to reach index.html — without swallowing the assets that do exist.
+    (tmp_path / "index.html").write_text("shell")
+    (tmp_path / "favicon.svg").write_text("<svg/>")
+    image = Image(id="1", tags=["solo"], thumb_url="t", full_url="f")
+    app = create_app(static_dir=tmp_path, image_source=StaticImageSource([image]))
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        deep_link = await client.get("/room/happy-derpy-pony")
+        asset = await client.get("/favicon.svg")
+
+    assert deep_link.status_code == 200
+    assert deep_link.text == "shell"
+    assert asset.text == "<svg/>"
+
+
 async def test_lifespan_closes_the_shared_booru_http_client(monkeypatch):
     # The client is built once in create_app and reused for every lookup, so the
     # shutdown hook must release its connection pool.

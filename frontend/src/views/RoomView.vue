@@ -48,7 +48,7 @@ const DevOverlay = import.meta.env.DEV
 /**
  * Resolved once, not derived from the prop: streamer mode strips the param out
  * from under us, and this view has to keep working across that. The tab
- * remembers the room so a refresh with a bare `#/room` still lands here.
+ * remembers the room so a refresh with a bare `/room` still lands here.
  */
 const code = props.code || recallRoom() || ''
 
@@ -87,7 +87,7 @@ watch(
 )
 
 onMounted(async () => {
-  // A bare `#/room` in a tab that has never been in one: nothing to join.
+  // A bare `/room` in a tab that has never been in one: nothing to join.
   if (!code) {
     router.replace({ name: 'home' })
     return

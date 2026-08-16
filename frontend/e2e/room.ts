@@ -66,14 +66,14 @@ export async function createRoom(page: Page, name: string): Promise<string> {
   await page.getByPlaceholder('e.g. Twilight').fill(name)
   await page.getByRole('button', { name: 'Create a room' }).click()
   await expect(page.getByRole('button', { name: 'Ready up' })).toBeVisible()
-  const code = new URL(page.url()).hash.replace('#/room/', '')
+  const code = new URL(page.url()).pathname.replace('/room/', '')
   expect(code).not.toBe('')
   return code
 }
 
 /** Join an existing room through its deep link, as a second player would. */
 export async function joinRoom(page: Page, code: string, name: string): Promise<void> {
-  await page.goto(`/#/room/${code}`)
+  await page.goto(`/room/${code}`)
   await dismissRules(page)
   await page.getByPlaceholder('Your name').fill(name)
   await page.getByRole('button', { name: 'Join' }).click()

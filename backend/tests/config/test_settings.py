@@ -128,6 +128,38 @@ def test_an_unknown_log_level_is_rejected():
         load_settings(logging={"level": "chatty"})
 
 
+def test_an_uncompilable_origin_pattern_is_rejected():
+    with pytest.raises(ValidationError, match="not a valid pattern"):
+        load_settings(server={"cors_origin_regex": "https://[unclosed"})
+
+
+# --- CORS origins -------------------------------------------------------------
+
+
+def test_an_origin_passes_on_either_the_list_or_the_pattern():
+    # A preview deploy gets a subdomain per branch, so it can't be listed —
+    # but the pattern that admits it mustn't admit a lookalike host.
+    server = load_settings(
+        server={
+            "cors_origins": ["https://derpigame.shikogo.com"],
+            "cors_origin_regex": r"https://[a-z0-9-]+\.derpigame\.pages\.dev",
+        }
+    ).server
+
+    assert server.allows_origin("https://derpigame.shikogo.com")
+    assert server.allows_origin("https://feat-cloudflare-pages.derpigame.pages.dev")
+    assert not server.allows_origin("https://derpigame.pages.dev.evil.example")  # whole-match
+    assert not server.allows_origin("https://evil.example")
+    assert not server.allows_origin(None)  # a request with no Origin header
+
+
+def test_the_wildcard_keeps_allowing_everything():
+    # The shipped default for local play: the predicate has to preserve it.
+    assert load_settings(server={"cors_origins": ["*"]}).server.allows_origin(
+        "http://localhost:5173"
+    )
+
+
 # --- taxonomy curation --------------------------------------------------------
 
 

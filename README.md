@@ -165,7 +165,7 @@ The steps below are what it automates, for when you want to run them by hand.
 
 From `frontend/`, build with an empty `VITE_BACKEND_URL` — so each client's
 socket targets whatever origin served the page — into a throwaway `dist-local/`
-(your GitHub Pages `dist/` is left untouched). Re-run only when the frontend
+(the deployed `dist/` is left untouched). Re-run only when the frontend
 changes:
 
 ```bash

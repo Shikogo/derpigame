@@ -6,8 +6,16 @@ name: CI
 # end-to-end suite once per workflow rather than once per push.
 
 on:
+  # Every branch, not just main: a branch push builds a Cloudflare preview at a
+  # URL of its own. Only main deploys to production — the two are told apart by
+  # the --branch wrangler is given, and by an explicit gate on the Fly deploy.
+  #
+  # Dependabot's branches are the exception. Its runs are handed a separate
+  # secret store, so the deploy step would find no Cloudflare token and fail the
+  # run; a preview of a dependency bump is worth little either way. They still
+  # get the full gate below, through the pull_request trigger it opens with.
   push:
-    branches: [main]
+    branches-ignore: ['dependabot/**']
   pull_request:
   workflow_dispatch:
     # A manual run has nothing to diff against, so it deploys what you ask for.
@@ -17,20 +25,20 @@ on:
         type: boolean
         default: false
       deploy_frontend:
-        description: Deploy the frontend to Pages
+        description: Deploy the frontend to Cloudflare Pages
         type: boolean
         default: false
 
 permissions:
   contents: read
 
-# A newer push to a PR makes the older run obsolete. A push to main carries the
-# deploys, and a half-applied release to the single always-on machine is worse
-# than waiting, so those queue instead of cancelling — which also leaves only one
-# deploy in flight at a time.
+# A newer push to a branch makes the older run — and the preview it would have
+# published — obsolete. A push to main carries the deploys, and a half-applied
+# release to the single always-on machine is worse than waiting, so those queue
+# instead of cancelling, which also leaves only one deploy in flight at a time.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   # Which half changed, so a frontend-only push doesn't restart the backend
@@ -155,8 +163,11 @@ jobs:
   # backend fix, or the other way round — but e2e gates both.
   deploy-backend:
     needs: [changes, backend, e2e]
+    # Pinned to main: there's one backend machine and no preview of it, so a
+    # branch push must never reach it the way a frontend branch push does.
     if: >-
-      (github.event_name == 'push' && needs.changes.outputs.backend == 'true')
+      (github.event_name == 'push' && github.ref == 'refs/heads/main'
+        && needs.changes.outputs.backend == 'true')
       || (github.event_name == 'workflow_dispatch' && inputs.deploy_backend)
     runs-on: ubuntu-latest
     # The token lives in this environment, not repo-wide. Gate it in repo settings
@@ -174,7 +185,11 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-  build-frontend:
+  # One job where Pages needed two: wrangler uploads the build itself, so there's
+  # no artifact to hand over. Repo secrets rather than a deployment environment —
+  # previews deploy from every branch, and an environment gated to main (the way
+  # `fly` is) would block exactly those.
+  deploy-frontend:
     needs: [changes, frontend, e2e]
     if: >-
       (github.event_name == 'push' && needs.changes.outputs.frontend == 'true')
@@ -191,25 +206,22 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+        env:
+          # Nothing here drives a browser; skip the ~100MB postinstall download.
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: npm run build
         env:
           # Inlined at build time; public URL, not a secret. Update if the fly app
-          # name changes (keep in sync with backend/fly.toml `app`).
+          # name changes (keep in sync with backend/fly.toml `app`). A preview
+          # build points at the same backend and shares its live rooms.
           VITE_BACKEND_URL: https://derpigame.fly.dev
-      - uses: actions/upload-pages-artifact@v5
+      - uses: cloudflare/wrangler-action@v3
         with:
-          path: frontend/dist
-
-  deploy-frontend:
-    needs: build-frontend
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v5
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: frontend
+          # --branch decides which of the two this is: Cloudflare treats a deploy
+          # naming the project's production branch as production, anything else
+          # as a preview at <branch>.derpigame.pages.dev. So the project's
+          # production branch must stay `main`.
+          command: pages deploy dist --project-name=derpigame --branch=${{ github.ref_name }}

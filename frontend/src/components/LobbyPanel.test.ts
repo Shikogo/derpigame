@@ -29,15 +29,13 @@ describe('LobbyPanel — invite link', () => {
   }
 
   it('masks the shown link in streamer mode but still copies the real one', async () => {
-    const real = `${location.origin}${location.pathname}#/room/r`
+    const real = `${location.origin}/room/r`
     const wrapper = mountLobby()
     expect(wrapper.get('input').element.value).toBe(real)
 
     usePreferencesStore().setStreamerMode(true)
     await wrapper.vm.$nextTick()
-    expect(wrapper.get('input').element.value).toBe(
-      `${location.origin}${location.pathname}#/room/${MASKED_CODE}`,
-    )
+    expect(wrapper.get('input').element.value).toBe(`${location.origin}/room/${MASKED_CODE}`)
 
     await wrapper
       .findAll('button')

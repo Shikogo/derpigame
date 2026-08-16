@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
 import HomeView from '@/views/HomeView.vue'
 
@@ -26,9 +26,10 @@ if (import.meta.env.DEV) {
   })
 }
 
-// Hash history: GitHub Pages serves a single index.html, and #/room/<code>
-// deep links resolve client-side without a 404 redirect trick.
+// Plain paths, which every host serving this needs an SPA fallback for:
+// `public/_redirects` on Cloudflare Pages, the catch-all in the backend's
+// static mount when it serves the build from one origin.
 export const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory(),
   routes,
 })

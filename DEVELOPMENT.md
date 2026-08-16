@@ -46,8 +46,13 @@ in-place commands above; everything else is identical.
 **The deploys gate on the same suite, in the same run.** `ci.yml` holds the
 whole graph: the two unit jobs, the e2e job, and the deploys hanging off them as
 `needs:`. So a red `main` doesn't ship — the Fly deploy waits on the backend
-suite, the Pages deploy on the frontend one, and each ignores the other half so
-an unrelated failure can't block a fix.
+suite, the Cloudflare Pages deploy on the frontend one, and each ignores the
+other half so an unrelated failure can't block a fix.
+
+That gate is the reason the frontend deploys through `wrangler` from this
+workflow rather than through Cloudflare's own Git integration: Cloudflare builds
+on push without seeing a test result, so connecting the repo there would put a
+second, ungated path to production alongside this one.
 
 The e2e job is the one place a half blocks on the other: *both* deploys need it.
 A frontend that can't play a round through — or a backend that can't carry one —
@@ -61,6 +66,15 @@ A `changes` job decides which deploys run, keeping a frontend-only push from
 restarting the backend machine and dropping the rooms it's holding. A manual run
 (`workflow_dispatch`) has no diff to work from and takes the two booleans
 instead.
+
+Every branch runs the workflow, because a branch push publishes a Cloudflare
+preview at `<branch>.derpigame.pages.dev` — the same build the production deploy
+would make, at a URL of its own. What separates the two is the `--branch`
+wrangler is handed: Cloudflare calls a deploy production only when it names the
+project's production branch, so that setting must stay `main`. The Fly deploy
+has no such split — one machine, no preview — so it carries an explicit `main`
+gate to keep a branch push away from it. A preview points at the *production*
+backend, so rooms are shared with live players rather than isolated.
 
 Nothing is a *required status check* on `main` by choice: those only pass for
 commits GitHub has already seen, which would mean pushing a branch and waiting

@@ -20,13 +20,11 @@ const prefs = usePreferencesStore()
 
 // Built from the room snapshot, not the route, so the link stays real to hand
 // out even when streamer mode has stripped the code from our own URL.
-const inviteLink = computed(() => `${location.origin}${location.pathname}#/room/${room.code}`)
+const inviteLink = computed(() => `${location.origin}/room/${room.code}`)
 // Only the display is masked — Copy still puts the real link on the clipboard,
 // which is what makes the mode usable rather than just blind.
 const shownLink = computed(() =>
-  prefs.streamerMode
-    ? `${location.origin}${location.pathname}#/room/${MASKED_CODE}`
-    : inviteLink.value,
+  prefs.streamerMode ? `${location.origin}/room/${MASKED_CODE}` : inviteLink.value,
 )
 const copied = ref(false)
 async function copyInvite(): Promise<void> {

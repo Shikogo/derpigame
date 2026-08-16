@@ -6,14 +6,16 @@
 # with DERPIGAME_<SECTION>__<FIELD>, e.g.:
 #
 #   DERPIGAME_SOURCES__DERPIBOORU__API_KEY=...
-#   DERPIGAME_SERVER__CORS_ORIGINS='["https://shikogo.github.io"]'
+#   DERPIGAME_SERVER__CORS_ORIGINS='["https://derpigame.shikogo.com"]'
 #
 # Unknown keys are a startup error, so a typo here won't silently do nothing.
 
 
 [server]
 # Origins allowed to reach the API *and* open the websocket. "*" is fine for
-# local play; narrow this to the real frontend origin before deploying.
+# local play; narrow this to the real frontend origin before deploying. A
+# deployment that also wants preview builds sets cors_origin_regex alongside it
+# (see fly.toml) — one whole-match pattern for origins there's no listing.
 cors_origins = ["*"]
 
 

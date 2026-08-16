@@ -2,7 +2,7 @@
 /**
  * Dev-only harness for exercising `ImageViewer` in isolation: a bounded frame
  * with a labeled grid image, plus a live readout of the transform so pan / zoom
- * / clamp behavior is verifiable at a glance. Routed at `#/dev/viewer` in a dev
+ * / clamp behavior is verifiable at a glance. Routed at `/dev/viewer` in a dev
  * build only.
  */
 import { ref } from 'vue'

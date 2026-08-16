@@ -7,8 +7,13 @@ primary_region = "fra"
 
 [env]
   # Drives both CORS and the Socket.IO handshake. JSON list (pydantic parses it).
-  # Both origins now so the future custom domain needs no backend redeploy.
-  DERPIGAME_SERVER__CORS_ORIGINS = '["https://shikogo.github.io", "https://derpigame.shikogo.com"]'
+  # The custom domain is what players use; the pages.dev name is the same build
+  # reachable directly, which is what you check a deploy on before cutting over.
+  DERPIGAME_SERVER__CORS_ORIGINS = '["https://derpigame.shikogo.com", "https://derpigame.pages.dev"]'
+  # Cloudflare gives every branch build its own subdomain, so preview deploys
+  # can't be listed. Matched whole, and narrow enough that only that project's
+  # previews pass. Single-quoted: TOML would read \. in a "" string as an escape.
+  DERPIGAME_SERVER__CORS_ORIGIN_REGEX = 'https://[a-z0-9-]+\.derpigame\.pages\.dev'
 
 [http_service]
   internal_port = 8080
