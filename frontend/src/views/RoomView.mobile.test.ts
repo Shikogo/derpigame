@@ -77,7 +77,7 @@ describe('RoomView — mobile shell', () => {
   function mountRoom() {
     return mount(RoomView, {
       props: { code: 'r' },
-      global: { plugins: [pinia, router], stubs: { RoundLog: true } },
+      global: { plugins: [pinia, router], stubs: { RoundLog: true, ConfettiOverlay: true } },
     })
   }
 
