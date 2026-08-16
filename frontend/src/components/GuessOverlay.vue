@@ -21,13 +21,25 @@ const HOLD_BUSY_MS = 700 // catching up, so each card gets a glance not a dwell
 const GAP_MS = 180 // lets the leave transition finish before the next enters
 const MAX_QUEUE = 3 // a burst shows the most recent few, never a backlog
 
-// Height of the letterbox band under the picture: the card is lifted by it to
-// clear the picture's bottom edge. 0 (the default, for a caller with no viewer
-// to ask) leaves the card over the picture, which is also where a band too short
-// to hold it puts it.
+// Height of the letterbox band under the picture: the room the card has to sit
+// in without covering the picture. 0 (the default, for a caller with no viewer
+// to ask) puts the card over the picture's bottom edge, which is also what a
+// band too short to hold it degrades to.
 const props = withDefaults(defineProps<{ pictureBottom?: number }>(), { pictureBottom: 0 })
 
 const game = useGameStore()
+
+/**
+ * How far the card rides above the frame's bottom edge: enough to clear the
+ * picture when the band can hold the card, nothing when it can't — so the card
+ * is never cut off by the frame, whichever way it degrades.
+ *
+ * The card's own height is measured rather than left to `min-content` sizing,
+ * which Firefox resolves to zero on a box positioned like this one.
+ */
+const bandEl = ref<HTMLElement | null>(null)
+const cardHeight = ref(0)
+const lift = computed(() => Math.max(0, props.pictureBottom - cardHeight.value))
 
 const queue = ref<OverlayCard[]>([])
 const current = ref<OverlayCard | null>(null)
@@ -92,6 +104,17 @@ function retire(): void {
   timer = setTimeout(pump, GAP_MS)
 }
 
+// Measured once the card is in the DOM and before it paints, so it never shows
+// a frame in the wrong place. A card leaving keeps the last height: the next one
+// is the same shape, and there's nothing on screen to place meanwhile.
+watch(
+  current,
+  () => {
+    if (current.value && bandEl.value) cardHeight.value = bandEl.value.offsetHeight
+  },
+  { flush: 'post' },
+)
+
 /**
  * Any pointer press clears the card early — the moment you reach for the
  * picture, the thing on top of it should get out of the way. A queued card
@@ -119,20 +142,20 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <!-- The card attaches to the bottom edge of the picture from the outside: this
-       div is the letterbox band, pinned to the foot of the frame, and the card
-       sits at its top — just clear of the picture. A booru image's subject sits
-       dead centre, so covering any of it is a last resort, and `min-h-min` is
-       what makes it one: a band too short to hold the card grows to fit it, and
-       since the band is pinned by its bottom it grows up over the picture rather
-       than off-frame. pointer-events-none throughout, so the picture stays
-       pannable.
+  <!-- The card attaches to the bottom edge of the picture from the outside: it
+       rides `lift` above the foot of the frame, which lands it just clear of the
+       picture when the letterbox band can hold it. A booru image's subject sits
+       dead centre, so covering any of it is a last resort — but a band too short
+       for the card puts it over the picture's bottom rather than off-frame,
+       where it would be clipped away. pointer-events-none throughout, so the
+       picture stays pannable.
 
        The card is one row on a wide picture and wraps to two on a phone, where
        truncating would eat the headline — the one part worth reading. -->
   <div
-    class="pointer-events-none absolute inset-x-0 bottom-0 z-10 grid min-h-min content-start justify-center p-2 transition-[height] duration-200 sm:p-3"
-    :style="{ height: `${props.pictureBottom}px` }"
+    ref="bandEl"
+    class="pointer-events-none absolute inset-x-0 z-10 grid justify-center p-2 sm:p-3"
+    :style="{ bottom: `${lift}px` }"
   >
     <Transition name="card">
       <div

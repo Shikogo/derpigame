@@ -85,6 +85,23 @@ describe('GuessOverlay', () => {
     expect(wrapper.text()).toBe('')
   })
 
+  it('clears the picture when the band can hold the card, and never the frame', async () => {
+    // jsdom lays nothing out, so the card's height has to be handed over.
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(70)
+    // `wrapper.element` is the leading comment, so ask for the band itself.
+    const band = (wrapper: ReturnType<typeof mount>) => wrapper.get('div').element.style.bottom
+
+    const roomy = mount(GuessOverlay, { props: { pictureBottom: 200 } })
+    await push([correct(1)])
+    expect(band(roomy)).toBe('130px') // lifted to sit under the picture
+
+    const tight = mount(GuessOverlay, { props: { pictureBottom: 10 } })
+    await push([correct(2)])
+    // Too shallow to clear the picture, so it rests on the frame's own edge
+    // rather than hanging past it, where the frame would clip it away.
+    expect(band(tight)).toBe('0px')
+  })
+
   it('renders one X per strike taken, never padded to the limit', async () => {
     const wrapper = mount(GuessOverlay)
     await push([{ seq: 1, kind: 'wrong', player: 'bob', guess: 'stallion', strike: 2 }])
