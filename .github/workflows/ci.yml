@@ -215,7 +215,7 @@ jobs:
           # name changes (keep in sync with backend/fly.toml `app`). A preview
           # build points at the same backend and shares its live rooms.
           VITE_BACKEND_URL: https://derpigame.fly.dev
-      - uses: cloudflare/wrangler-action@v3
+      - uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
