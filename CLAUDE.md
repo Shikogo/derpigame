@@ -91,3 +91,7 @@ rules to ESLint (Prettier owns formatting) and use `npm run typecheck`, never
 - Work on a branch, then merge into `main` — don't commit directly to `main`
   unless explicitly told to. Branch first (`git checkout -b`) before starting.
 - Only commit or push when asked.
+
+### Comments
+
+Keep comments short and to the point. Skip comments that just restate what the code already shows. Follow ASD-STE100 style (short, simple sentences) — but use exact technical terms and variable names rather than paraphrasing or simplifying them.
