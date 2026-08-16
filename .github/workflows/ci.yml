@@ -216,6 +216,7 @@ jobs:
           # build points at the same backend and shares its live rooms.
           VITE_BACKEND_URL: https://derpigame.fly.dev
       - uses: cloudflare/wrangler-action@v4
+        id: deploy
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -225,3 +226,22 @@ jobs:
           # as a preview at <branch>.derpigame.pages.dev. So the project's
           # production branch must stay `main`.
           command: pages deploy dist --project-name=derpigame --branch=${{ github.ref_name }}
+
+      # Onto the run's summary page, since that's where you land after a push and
+      # each branch answers at a different URL. The alias is the branch's own
+      # address and always shows its newest build; the other names this build
+      # alone, so it stays a fixed point once the branch has moved on.
+      - name: Link the deployment
+        env:
+          ALIAS: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
+          BUILD: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          {
+            echo "### Deployed to Cloudflare Pages"
+            echo
+            if [ -n "$ALIAS" ]; then
+              echo "**[$ALIAS]($ALIAS)** — this branch, newest build"
+              echo
+            fi
+            echo "[$BUILD]($BUILD) — this build alone"
+          } >> "$GITHUB_STEP_SUMMARY"
